@@ -1,0 +1,315 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc" fill="#0F172A">
+  <title id="title">Rowset Tenant-TTL Rewrite</title>
+  <desc id="desc">StarRocks 本地 Shared-Nothing 模式下，利用 KEEP、DROP、REWRITE 构造新 Rowset 并原子替换旧 Rowset 的技术架构图。</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#EEF3F8"/>
+    </linearGradient>
+    <linearGradient id="headerGlow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2563EB" stop-opacity="0.13"/>
+      <stop offset="0.7" stop-color="#2563EB" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#2563EB" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#0F172A" flood-opacity="0.10"/>
+    </filter>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563EB"/>
+    </marker>
+    <marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748B"/>
+    </marker>
+    <style>
+      text { font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", Arial, sans-serif; }
+      .mono { font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
+      .panel-title { font-size: 27px; font-weight: 750; }
+      .small { font-size: 16px; }
+      .tiny { font-size: 14px; }
+      .label { font-size: 18px; font-weight: 650; }
+      .muted { fill: #64748B; }
+    </style>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1920" height="185" fill="url(#headerGlow)"/>
+
+  <!-- Header -->
+  <text x="58" y="70" font-size="46" font-weight="800" letter-spacing="0.3">Rowset Tenant-TTL Rewrite</text>
+  <text x="60" y="116" font-size="23" font-weight="600" fill="#334155">KEEP 复用 · DROP 省略 · REWRITE 边界重写 · 原子替换</text>
+
+  <g transform="translate(1542,38)">
+    <rect width="125" height="38" rx="19" fill="#DBEAFE" stroke="#93C5FD"/>
+    <text x="62.5" y="25" text-anchor="middle" font-size="17" font-weight="700" fill="#1D4ED8">设计方案</text>
+    <rect x="139" width="191" height="38" rx="19" fill="#E2E8F0" stroke="#CBD5E1"/>
+    <text x="234.5" y="25" text-anchor="middle" font-size="16" font-weight="700" fill="#334155">Local Shared-Nothing</text>
+  </g>
+
+  <g transform="translate(58,142)">
+    <rect width="1370" height="48" rx="12" fill="#FFFFFF" stroke="#CBD5E1" filter="url(#softShadow)"/>
+    <circle cx="26" cy="24" r="10" fill="#2563EB"/>
+    <path d="M22 24 l3 3 6 -7" fill="none" stroke="#FFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="48" y="31" font-size="18" font-weight="650">首版限定：DUP_KEYS · 单个输入 Rowset · NONOVERLAPPING · ORDER BY (tenant, recordTimestamp)</text>
+  </g>
+  <g transform="translate(1460,142)">
+    <rect width="400" height="48" rx="12" fill="#FEF2F2" stroke="#FCA5A5" filter="url(#softShadow)"/>
+    <circle cx="26" cy="24" r="10" fill="#E5484D"/>
+    <text x="48" y="31" font-size="19" font-weight="750" fill="#B91C1C">TTL 目标：删除 tenant = B</text>
+  </g>
+
+  <!-- Stage connectors -->
+  <line x1="775" y1="444" x2="815" y2="444" stroke="#2563EB" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <line x1="1245" y1="444" x2="1285" y2="444" stroke="#2563EB" stroke-width="4" marker-end="url(#arrowBlue)"/>
+
+  <!-- Section 1 -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="220" width="735" height="455" rx="22" fill="#FFFFFF" stroke="#D7E0EA"/>
+  </g>
+  <circle cx="72" cy="260" r="18" fill="#2563EB"/>
+  <text x="72" y="267" text-anchor="middle" font-size="20" font-weight="800" fill="#FFFFFF">1</text>
+  <text x="100" y="269" class="panel-title">原始 Rowset</text>
+  <rect x="586" y="241" width="157" height="34" rx="17" fill="#EFF6FF" stroke="#BFDBFE"/>
+  <text x="664.5" y="264" text-anchor="middle" class="small mono" font-weight="700" fill="#1D4ED8">R_old [0–120]</text>
+
+  <!-- Old segments -->
+  <g transform="translate(62,310)">
+    <g transform="translate(0,0)">
+      <rect width="105" height="110" rx="12" fill="#ECFDF5" stroke="#22A06B" stroke-width="2"/>
+      <rect width="105" height="10" rx="5" fill="#22A06B"/>
+      <text x="52.5" y="38" text-anchor="middle" font-size="22" font-weight="800" fill="#147D54">S0</text>
+      <text x="52.5" y="65" text-anchor="middle" class="tiny mono">A/100</text>
+      <text x="52.5" y="88" text-anchor="middle" class="tiny mono">→ A/500</text>
+      <text x="52.5" y="132" text-anchor="middle" class="tiny muted mono">oldId_0.dat</text>
+      <rect x="13" y="153" width="79" height="29" rx="14.5" fill="#22A06B"/>
+      <text x="52.5" y="174" text-anchor="middle" font-size="14" font-weight="800" fill="#FFFFFF">KEEP</text>
+    </g>
+    <g transform="translate(113,0)">
+      <rect width="105" height="110" rx="12" fill="#FFFBEB" stroke="#F59E0B" stroke-width="2"/>
+      <rect width="105" height="10" rx="5" fill="#F59E0B"/>
+      <text x="52.5" y="38" text-anchor="middle" font-size="22" font-weight="800" fill="#B45309">S1</text>
+      <text x="52.5" y="65" text-anchor="middle" class="tiny mono">A/501</text>
+      <text x="52.5" y="88" text-anchor="middle" class="tiny mono">→ B/100</text>
+      <text x="52.5" y="132" text-anchor="middle" class="tiny muted mono">oldId_1.dat</text>
+      <rect x="3" y="153" width="99" height="29" rx="14.5" fill="#F59E0B"/>
+      <text x="52.5" y="174" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">REWRITE</text>
+    </g>
+    <g transform="translate(226,0)">
+      <rect width="105" height="110" rx="12" fill="#FEF2F2" stroke="#E5484D" stroke-width="2"/>
+      <rect width="105" height="10" rx="5" fill="#E5484D"/>
+      <text x="52.5" y="38" text-anchor="middle" font-size="22" font-weight="800" fill="#B91C1C">S2</text>
+      <text x="52.5" y="65" text-anchor="middle" class="tiny mono">B/101</text>
+      <text x="52.5" y="88" text-anchor="middle" class="tiny mono">→ B/500</text>
+      <text x="52.5" y="132" text-anchor="middle" class="tiny muted mono">oldId_2.dat</text>
+      <rect x="13" y="153" width="79" height="29" rx="14.5" fill="#E5484D"/>
+      <text x="52.5" y="174" text-anchor="middle" font-size="14" font-weight="800" fill="#FFFFFF">DROP</text>
+    </g>
+    <g transform="translate(339,0)">
+      <rect width="105" height="110" rx="12" fill="#FEF2F2" stroke="#E5484D" stroke-width="2"/>
+      <rect width="105" height="10" rx="5" fill="#E5484D"/>
+      <text x="52.5" y="38" text-anchor="middle" font-size="22" font-weight="800" fill="#B91C1C">S3</text>
+      <text x="52.5" y="65" text-anchor="middle" class="tiny mono">B/501</text>
+      <text x="52.5" y="88" text-anchor="middle" class="tiny mono">→ B/900</text>
+      <text x="52.5" y="132" text-anchor="middle" class="tiny muted mono">oldId_3.dat</text>
+      <rect x="13" y="153" width="79" height="29" rx="14.5" fill="#E5484D"/>
+      <text x="52.5" y="174" text-anchor="middle" font-size="14" font-weight="800" fill="#FFFFFF">DROP</text>
+    </g>
+    <g transform="translate(452,0)">
+      <rect width="105" height="110" rx="12" fill="#FFFBEB" stroke="#F59E0B" stroke-width="2"/>
+      <rect width="105" height="10" rx="5" fill="#F59E0B"/>
+      <text x="52.5" y="38" text-anchor="middle" font-size="22" font-weight="800" fill="#B45309">S4</text>
+      <text x="52.5" y="65" text-anchor="middle" class="tiny mono">B/901</text>
+      <text x="52.5" y="88" text-anchor="middle" class="tiny mono">→ C/100</text>
+      <text x="52.5" y="132" text-anchor="middle" class="tiny muted mono">oldId_4.dat</text>
+      <rect x="3" y="153" width="99" height="29" rx="14.5" fill="#F59E0B"/>
+      <text x="52.5" y="174" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">REWRITE</text>
+    </g>
+    <g transform="translate(565,0)">
+      <rect width="105" height="110" rx="12" fill="#ECFDF5" stroke="#22A06B" stroke-width="2"/>
+      <rect width="105" height="10" rx="5" fill="#22A06B"/>
+      <text x="52.5" y="38" text-anchor="middle" font-size="22" font-weight="800" fill="#147D54">S5</text>
+      <text x="52.5" y="65" text-anchor="middle" class="tiny mono">C/101</text>
+      <text x="52.5" y="88" text-anchor="middle" class="tiny mono">→ C/800</text>
+      <text x="52.5" y="132" text-anchor="middle" class="tiny muted mono">oldId_5.dat</text>
+      <rect x="13" y="153" width="79" height="29" rx="14.5" fill="#22A06B"/>
+      <text x="52.5" y="174" text-anchor="middle" font-size="14" font-weight="800" fill="#FFFFFF">KEEP</text>
+    </g>
+    <line x1="2" y1="213" x2="668" y2="213" stroke="#94A3B8" stroke-width="2" marker-end="url(#arrowGray)"/>
+    <text x="335" y="247" text-anchor="middle" class="small muted">Segment ordinal 顺序 = 排序流切分顺序</text>
+  </g>
+
+  <!-- Section 2 -->
+  <g filter="url(#shadow)">
+    <rect x="815" y="220" width="430" height="455" rx="22" fill="#FFFFFF" stroke="#D7E0EA"/>
+  </g>
+  <circle cx="847" cy="260" r="18" fill="#2563EB"/>
+  <text x="847" y="267" text-anchor="middle" font-size="20" font-weight="800" fill="#FFFFFF">2</text>
+  <text x="875" y="269" class="panel-title">Segment 判定</text>
+
+  <g transform="translate(845,300)">
+    <rect width="370" height="64" rx="13" fill="#EFF6FF" stroke="#60A5FA" stroke-width="1.5"/>
+    <text x="185" y="28" text-anchor="middle" font-size="20" font-weight="750" fill="#1D4ED8">ZoneMap 粗过滤</text>
+    <text x="185" y="50" text-anchor="middle" class="tiny" fill="#475569">确定不包含 B → KEEP；否则继续</text>
+    <line x1="185" y1="65" x2="185" y2="96" stroke="#2563EB" stroke-width="3" marker-end="url(#arrowBlue)"/>
+
+    <rect y="106" width="370" height="70" rx="13" fill="#EFF6FF" stroke="#60A5FA" stroke-width="1.5"/>
+    <text x="185" y="136" text-anchor="middle" font-size="19" font-weight="750" fill="#1D4ED8">读取精确 firstTenant / lastTenant</text>
+    <text x="185" y="159" text-anchor="middle" class="tiny" fill="#475569">对候选 Segment 做安全归类</text>
+
+    <g transform="translate(0,195)">
+      <rect width="115" height="55" rx="10" fill="#ECFDF5" stroke="#86EFAC"/>
+      <text x="57.5" y="23" text-anchor="middle" font-size="15" font-weight="750" fill="#147D54">B 在范围外</text>
+      <text x="57.5" y="43" text-anchor="middle" font-size="15" font-weight="800" fill="#147D54">KEEP</text>
+      <rect x="127" width="115" height="55" rx="10" fill="#FEF2F2" stroke="#FCA5A5"/>
+      <text x="184.5" y="21" text-anchor="middle" font-size="13" font-weight="700" fill="#B91C1C">first = last = B</text>
+      <text x="184.5" y="43" text-anchor="middle" font-size="15" font-weight="800" fill="#B91C1C">DROP</text>
+      <rect x="254" width="116" height="55" rx="10" fill="#FFFBEB" stroke="#FCD34D"/>
+      <text x="312" y="23" text-anchor="middle" font-size="14" font-weight="750" fill="#B45309">跨 tenant 边界</text>
+      <text x="312" y="43" text-anchor="middle" font-size="14" font-weight="800" fill="#B45309">REWRITE</text>
+    </g>
+
+    <g transform="translate(0,270)">
+      <rect width="370" height="98" rx="12" fill="#FEFCE8" stroke="#FACC15" stroke-width="1.5"/>
+      <circle cx="25" cy="26" r="13" fill="#FACC15"/>
+      <text x="25" y="32" text-anchor="middle" font-size="18" font-weight="900" fill="#713F12">!</text>
+      <text x="48" y="28" font-size="16" font-weight="750" fill="#854D0E">VARCHAR ZoneMap 可能前缀截断</text>
+      <text x="25" y="56" font-size="15" fill="#713F12">只用于排除，不单独证明整段都是 B</text>
+      <text x="25" y="80" font-size="14" fill="#92400E">DROP 必须依赖精确的首尾排序键</text>
+    </g>
+  </g>
+
+  <!-- Section 3 -->
+  <g filter="url(#shadow)">
+    <rect x="1285" y="220" width="595" height="455" rx="22" fill="#FFFFFF" stroke="#D7E0EA"/>
+  </g>
+  <circle cx="1317" cy="260" r="18" fill="#2563EB"/>
+  <text x="1317" y="267" text-anchor="middle" font-size="20" font-weight="800" fill="#FFFFFF">3</text>
+  <text x="1345" y="269" class="panel-title">构造新 Rowset</text>
+  <rect x="1707" y="241" width="143" height="34" rx="17" fill="#EFF6FF" stroke="#BFDBFE"/>
+  <text x="1778.5" y="264" text-anchor="middle" class="small mono" font-weight="700" fill="#1D4ED8">R_new [0–120]</text>
+
+  <g transform="translate(1310,310)">
+    <text x="0" y="0" class="tiny muted">映射：S0→N0 · S1→N1 · S2/S3→DROP · S4→N2 · S5→N3</text>
+
+    <g transform="translate(0,28)">
+      <rect width="128" height="104" rx="12" fill="#ECFDF5" stroke="#22A06B" stroke-width="2"/>
+      <rect width="128" height="10" rx="5" fill="#22A06B"/>
+      <text x="64" y="40" text-anchor="middle" font-size="22" font-weight="800" fill="#147D54">N0</text>
+      <text x="64" y="66" text-anchor="middle" font-size="16" font-weight="700">Hard Link S0</text>
+      <text x="64" y="88" text-anchor="middle" class="tiny muted">零拷贝复用</text>
+    </g>
+    <g transform="translate(142,28)">
+      <rect width="128" height="104" rx="12" fill="#FFFBEB" stroke="#F59E0B" stroke-width="2"/>
+      <rect width="128" height="10" rx="5" fill="#F59E0B"/>
+      <text x="64" y="40" text-anchor="middle" font-size="22" font-weight="800" fill="#B45309">N1</text>
+      <text x="64" y="66" text-anchor="middle" font-size="15" font-weight="700">Rewrite S1</text>
+      <text x="64" y="88" text-anchor="middle" class="tiny muted">过滤 B</text>
+    </g>
+    <g transform="translate(284,28)">
+      <rect width="128" height="104" rx="12" fill="#FFFBEB" stroke="#F59E0B" stroke-width="2"/>
+      <rect width="128" height="10" rx="5" fill="#F59E0B"/>
+      <text x="64" y="40" text-anchor="middle" font-size="22" font-weight="800" fill="#B45309">N2</text>
+      <text x="64" y="66" text-anchor="middle" font-size="15" font-weight="700">Rewrite S4</text>
+      <text x="64" y="88" text-anchor="middle" class="tiny muted">过滤 B</text>
+    </g>
+    <g transform="translate(426,28)">
+      <rect width="128" height="104" rx="12" fill="#ECFDF5" stroke="#22A06B" stroke-width="2"/>
+      <rect width="128" height="10" rx="5" fill="#22A06B"/>
+      <text x="64" y="40" text-anchor="middle" font-size="22" font-weight="800" fill="#147D54">N3</text>
+      <text x="64" y="66" text-anchor="middle" font-size="16" font-weight="700">Hard Link S5</text>
+      <text x="64" y="88" text-anchor="middle" class="tiny muted">零拷贝复用</text>
+    </g>
+
+    <!-- inode mini diagram -->
+    <g transform="translate(0,162)">
+      <rect width="284" height="103" rx="12" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="18" y="24" class="tiny" font-weight="700">Hard Link：两个路径，同一份数据</text>
+      <rect x="16" y="37" width="101" height="25" rx="6" fill="#E2E8F0"/>
+      <text x="66.5" y="54" text-anchor="middle" font-size="12" class="mono">oldId_0.dat</text>
+      <rect x="16" y="69" width="101" height="25" rx="6" fill="#DCFCE7"/>
+      <text x="66.5" y="86" text-anchor="middle" font-size="12" class="mono">newId_0.dat</text>
+      <line x1="122" y1="49" x2="179" y2="66" stroke="#64748B" stroke-width="2"/>
+      <line x1="122" y1="81" x2="179" y2="66" stroke="#22A06B" stroke-width="2"/>
+      <rect x="180" y="46" width="89" height="40" rx="20" fill="#DBEAFE" stroke="#60A5FA"/>
+      <text x="224.5" y="71" text-anchor="middle" font-size="13" font-weight="750" fill="#1D4ED8">Same Inode</text>
+    </g>
+
+    <g transform="translate(300,162)">
+      <rect width="254" height="103" rx="12" fill="#FEF2F2" stroke="#FCA5A5"/>
+      <circle cx="28" cy="29" r="16" fill="#E5484D"/>
+      <line x1="18" y1="19" x2="38" y2="39" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+      <line x1="38" y1="19" x2="18" y2="39" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+      <text x="53" y="27" font-size="17" font-weight="800" fill="#B91C1C">不能 mv</text>
+      <text x="20" y="56" font-size="14" fill="#7F1D1D">R_old 仍可能被</text>
+      <text x="20" y="78" font-size="14" fill="#7F1D1D">并发查询持有</text>
+    </g>
+
+    <rect y="282" width="554" height="50" rx="10" fill="#EFF6FF" stroke="#BFDBFE"/>
+    <text x="277" y="313" text-anchor="middle" font-size="15" font-weight="700" class="mono" fill="#1D4ED8">num_segments = 4 · NONOVERLAPPING · version = [0–120]</text>
+  </g>
+
+  <!-- Section 4 -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="705" width="1840" height="205" rx="22" fill="#FFFFFF" stroke="#D7E0EA"/>
+  </g>
+  <circle cx="72" cy="746" r="18" fill="#2563EB"/>
+  <text x="72" y="753" text-anchor="middle" font-size="20" font-weight="800" fill="#FFFFFF">4</text>
+  <text x="100" y="755" class="panel-title">Atomic Commit &amp; Delayed GC</text>
+  <text x="555" y="753" class="small muted">逻辑可见性先切换，物理文件生命周期后结束</text>
+
+  <line x1="198" y1="823" x2="1710" y2="823" stroke="#CBD5E1" stroke-width="7" stroke-linecap="round"/>
+  <line x1="310" y1="823" x2="590" y2="823" stroke="#2563EB" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <line x1="770" y1="823" x2="1045" y2="823" stroke="#2563EB" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <line x1="1238" y1="823" x2="1502" y2="823" stroke="#64748B" stroke-width="4" marker-end="url(#arrowGray)"/>
+
+  <g transform="translate(145,782)">
+    <circle cx="55" cy="41" r="27" fill="#DBEAFE" stroke="#2563EB" stroke-width="3"/>
+    <text x="55" y="47" text-anchor="middle" font-size="18" font-weight="800" fill="#1D4ED8">T1</text>
+    <text x="55" y="92" text-anchor="middle" font-size="15" font-weight="700">R_new 构建 / sync / 校验</text>
+  </g>
+
+  <g transform="translate(558,775)">
+    <rect width="245" height="96" rx="18" fill="#2563EB" filter="url(#softShadow)"/>
+    <text x="122.5" y="28" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF">T2 · Tablet Meta 原子替换</text>
+    <text x="122.5" y="61" text-anchor="middle" font-size="19" font-weight="800" class="mono" fill="#FFFFFF">{ R_old } → { R_new }</text>
+    <text x="122.5" y="83" text-anchor="middle" font-size="13" fill="#DBEAFE">版本区间保持 [0–120]</text>
+  </g>
+
+  <g transform="translate(1005,782)">
+    <circle cx="55" cy="41" r="27" fill="#DBEAFE" stroke="#2563EB" stroke-width="3"/>
+    <text x="55" y="47" text-anchor="middle" font-size="18" font-weight="800" fill="#1D4ED8">T3</text>
+    <text x="132" y="27" font-size="15" font-weight="700">新查询读取 R_new</text>
+    <text x="132" y="51" font-size="15" font-weight="700">存量查询继续读取 R_old</text>
+    <text x="132" y="77" font-size="13" fill="#64748B">旧文件此时不能提前删除</text>
+  </g>
+
+  <g transform="translate(1465,782)">
+    <circle cx="55" cy="41" r="27" fill="#E2E8F0" stroke="#64748B" stroke-width="3"/>
+    <text x="55" y="47" text-anchor="middle" font-size="18" font-weight="800" fill="#475569">T4</text>
+    <text x="128" y="27" font-size="15" font-weight="700">R_old → Unused Rowset</text>
+    <text x="128" y="51" font-size="15" font-weight="700">引用归零 → GC</text>
+    <text x="128" y="77" font-size="13" fill="#64748B">DROP 文件真正释放空间</text>
+  </g>
+
+  <!-- Summary -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="935" width="1840" height="112" rx="20" fill="#0F172A"/>
+  </g>
+  <text x="72" y="978" font-size="24" font-weight="800" fill="#FFFFFF">大部分 Segment 不读不写</text>
+  <text x="72" y="1014" font-size="18" fill="#CBD5E1">安全复用 KEEP，直接省略 DROP，只重写 tenant 边界 Segment</text>
+
+  <g transform="translate(1260,960)">
+    <rect width="172" height="54" rx="15" fill="#14532D" stroke="#22A06B"/>
+    <text x="86" y="23" text-anchor="middle" font-size="15" font-weight="700" fill="#BBF7D0">零拷贝复用</text>
+    <text x="86" y="44" text-anchor="middle" font-size="21" font-weight="850" fill="#FFFFFF">2</text>
+    <rect x="190" width="172" height="54" rx="15" fill="#7F1D1D" stroke="#E5484D"/>
+    <text x="276" y="23" text-anchor="middle" font-size="15" font-weight="700" fill="#FECACA">直接丢弃</text>
+    <text x="276" y="44" text-anchor="middle" font-size="21" font-weight="850" fill="#FFFFFF">2</text>
+    <rect x="380" width="172" height="54" rx="15" fill="#78350F" stroke="#F59E0B"/>
+    <text x="466" y="23" text-anchor="middle" font-size="15" font-weight="700" fill="#FDE68A">实际重写</text>
+    <text x="466" y="44" text-anchor="middle" font-size="21" font-weight="850" fill="#FFFFFF">2</text>
+  </g>
+</svg>
