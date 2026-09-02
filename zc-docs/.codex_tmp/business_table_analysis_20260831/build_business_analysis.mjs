@@ -2,8 +2,8 @@ import fs from "node:fs/promises";
 import { SpreadsheetFile, Workbook } from "@oai/artifact-tool";
 
 const sourcePath = "/Users/zhuchong/Library/Containers/com.tencent.WeWorkMac/Data/Documents/Profiles/CCD6B86731662BF7521135C8689ABC49/Caches/Files/2026-08/ab1ae1d03c025890b1cf3fe07c546e11/国内老集群business库各表数据量统计（双副本）.csv";
-const outputDir = "/Users/zhuchong/Documents/code/starrocks-main/outputs/business_table_analysis_20260831";
-const previewDir = "/Users/zhuchong/Documents/code/starrocks-main/.codex_tmp/business_table_analysis_20260831/previews";
+const outputDir = "/Users/zhuchong/Documents/code/starrocks-main/zc-docs/outputs/business_table_analysis_20260831";
+const previewDir = "/Users/zhuchong/Documents/code/starrocks-main/zc-docs/.codex_tmp/business_table_analysis_20260831/previews";
 const outputPath = `${outputDir}/business库表数据量分析.xlsx`;
 
 const csvText = await fs.readFile(sourcePath, "utf8");

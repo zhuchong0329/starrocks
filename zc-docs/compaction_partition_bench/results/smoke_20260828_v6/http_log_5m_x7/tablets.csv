@@ -1,0 +1,2 @@
+epoch,utc_time,stage,total_versions,max_versions,total_rowsets,max_rowsets,total_segments,max_segments,data_size,num_rows
+1787898544.109254,2026-08-28T06:29:04+00:00,http_log_5m_x7,7.0,1.0,7.0,1.0,0.0,0.0,0.0,0.0

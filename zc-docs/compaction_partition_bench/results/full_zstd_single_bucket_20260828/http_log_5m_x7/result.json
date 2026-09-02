@@ -1,0 +1,8 @@
+{
+  "table": "http_log_5m_x7",
+  "batches": 2100,
+  "rows": 65100,
+  "payload_bytes": 1105726473,
+  "load_duration_seconds": 2100.005135667,
+  "drain_seconds": 393.04302595800027
+}

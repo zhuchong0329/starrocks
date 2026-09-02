@@ -3,8 +3,8 @@ import { SpreadsheetFile, Workbook } from "@oai/artifact-tool";
 
 const oldPath = "/Users/zhuchong/Library/Containers/com.tencent.WeWorkMac/Data/Documents/Profiles/CCD6B86731662BF7521135C8689ABC49/Caches/Files/2026-08/ab1ae1d03c025890b1cf3fe07c546e11/国内老集群business库各表数据量统计（双副本）.csv";
 const newPath = "/Users/zhuchong/Library/Containers/com.tencent.WeWorkMac/Data/Documents/Profiles/CCD6B86731662BF7521135C8689ABC49/Caches/Files/2026-08/a41f7420a1e649fab3a8a9199690c590/国内新集群business库各表数据量统计（双副本）.csv";
-const outputDir = "/Users/zhuchong/Documents/code/starrocks-main/outputs/business_cluster_comparison_20260831";
-const previewDir = "/Users/zhuchong/Documents/code/starrocks-main/.codex_tmp/business_cluster_comparison_20260831/previews";
+const outputDir = "/Users/zhuchong/Documents/code/starrocks-main/zc-docs/outputs/business_cluster_comparison_20260831";
+const previewDir = "/Users/zhuchong/Documents/code/starrocks-main/zc-docs/.codex_tmp/business_cluster_comparison_20260831/previews";
 const outputPath = `${outputDir}/新老集群business库数据量分析与对比.xlsx`;
 
 const TIB = 1024 ** 4;

@@ -1,0 +1,11 @@
+batch,logical_second,utc_time,label,payload_bytes,rows,latency_ms,status,loaded_rows,loaded_bytes,load_time_ms
+0,0,2026-08-28T08:17:18+00:00,zc_cmp_schema_validation_20260828_v3__5m_x7_00000,68324,4,192.253,Success,4,68324,186
+1,1,2026-08-28T08:17:19+00:00,zc_cmp_schema_validation_20260828_v3__5m_x7_00001,67981,4,88.741,Success,4,67981,74
+2,2,2026-08-28T08:17:20+00:00,zc_cmp_schema_validation_20260828_v3__5m_x7_00002,67584,4,64.222,Success,4,67584,57
+3,3,2026-08-28T08:17:21+00:00,zc_cmp_schema_validation_20260828_v3__5m_x7_00003,67590,4,80.974,Success,4,67590,74
+4,4,2026-08-28T08:17:22+00:00,zc_cmp_schema_validation_20260828_v3__5m_x7_00004,67936,4,77.089,Success,4,67936,69
+5,5,2026-08-28T08:17:23+00:00,zc_cmp_schema_validation_20260828_v3__5m_x7_00005,67861,4,83.175,Success,4,67861,75
+6,6,2026-08-28T08:17:24+00:00,zc_cmp_schema_validation_20260828_v3__5m_x7_00006,68338,4,78.62,Success,4,68338,69
+7,7,2026-08-28T08:17:25+00:00,zc_cmp_schema_validation_20260828_v3__5m_x7_00007,67870,4,68.16,Success,4,67870,60
+8,8,2026-08-28T08:17:26+00:00,zc_cmp_schema_validation_20260828_v3__5m_x7_00008,67359,4,68.848,Success,4,67359,61
+9,9,2026-08-28T08:17:27+00:00,zc_cmp_schema_validation_20260828_v3__5m_x7_00009,68142,4,69.675,Success,4,68142,62

@@ -1,0 +1,8 @@
+{
+  "table": "http_log_35m_x1",
+  "batches": 10,
+  "rows": 40,
+  "payload_bytes": 678985,
+  "load_duration_seconds": 10.003791374999999,
+  "drain_seconds": 20.223906125
+}

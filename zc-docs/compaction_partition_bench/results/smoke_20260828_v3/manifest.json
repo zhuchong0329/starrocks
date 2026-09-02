@@ -1,0 +1,35 @@
+{
+  "run_id": "smoke_20260828_v3",
+  "created_at": "2026-08-28T06:26:02+00:00",
+  "arguments": {
+    "mysql_host": "127.0.0.1",
+    "mysql_port": "9130",
+    "fe_http_url": "http://127.0.0.1:8030",
+    "be_metrics_url": "http://127.0.0.1:8040/metrics",
+    "user": "root",
+    "duration_seconds": "10",
+    "loads_per_second": "1",
+    "target_mib_per_second": "0.05",
+    "response_body_bytes": "12288",
+    "seed": "20260828",
+    "base_interval": "5",
+    "base_check": "1",
+    "baseline_seconds": "2",
+    "drain_extra_seconds": "2",
+    "drain_stable_seconds": "10",
+    "drain_timeout_seconds": "90",
+    "min_disk_free_gib": "4.0",
+    "stream_load_timeout": "120",
+    "results_dir": "/Users/zhuchong/Documents/code/starrocks-main/tools/compaction_partition_bench/results",
+    "recreate_tables": "True",
+    "run_id": "smoke_20260828_v3"
+  },
+  "original_configs": {
+    "base_compaction_check_interval_seconds": "60",
+    "base_compaction_interval_seconds_since_last_operation": "86400"
+  },
+  "test_configs": {
+    "base_compaction_interval_seconds_since_last_operation": 5,
+    "base_compaction_check_interval_seconds": 1
+  }
+}
