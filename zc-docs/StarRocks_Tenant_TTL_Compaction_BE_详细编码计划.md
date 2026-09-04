@@ -1,10 +1,10 @@
 # StarRocks Tenant-TTL Compaction BE 详细编码计划
 
-> 状态：第四步编码和测试进行中（第 0、1 轮已完成）
+> 状态：第四步编码和测试进行中（第 0～2 轮已完成）
 > 源码基线：StarRocks main，commit `10adb6a028de5218ef3be355d7fc7e3b82f9ab9d`  
 > 编制日期：2026-09-04  
 > 实施范围：首期 shared-nothing BE Tenant-TTL Compaction  
-> 实施节奏：按第 0～4 轮连续编码、测试、提交；当前进入第 2 轮
+> 实施节奏：按第 0～4 轮连续编码、测试、提交；当前进入第 3 轮
 
 ## 1. 编制依据与结论优先级
 

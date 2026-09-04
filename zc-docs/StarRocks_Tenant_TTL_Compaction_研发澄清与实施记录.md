@@ -18,7 +18,7 @@
 
 Tenant-TTL Compaction 的需求、技术语义、测试边界和详细编码计划已经完成对齐。2026-09-04 开始第四步，按《StarRocks_Tenant_TTL_Compaction_BE_详细编码计划.md》的第 0～4 轮连续实施；每轮完成对应测试后独立提交并推送。第 5 轮 HTTP 手工入口和第 6～7 轮收口/增强测试不在本次连续编码范围内。
 
-当前实施进度：第 0、1 轮已完成并通过测试；开始第 2 轮“按过滤计划构建 Rowset”。第 0 轮已落地请求/结果类型、请求归一化与校验、稳定状态码，以及可构造单/多 Rowset、多 Segment、空 Rowset、nullable/non-nullable `VARCHAR` tenant 的共享测试夹具。第 1 轮已落地 `TenantTtlRowFilter`：只全量读取业务 `VARCHAR` tenant 列，按精确字节执行 `DELETE_LIST`/`KEEP_LIST`，NULL 恒保留，并生成物理 rowid 的 Segment KEEP/DROP/REWRITE 计划；支持取消和内存上限检查，不使用谓词下推、ZoneMap、Short Key、生成列或 `recordTimestamp`。累计专项测试为第 0 轮 7 个、第 1 轮 6 个，全部通过。
+当前实施进度：第 0～2 轮已完成并通过测试；开始第 3 轮“Tablet 准入、coverage 与原子提交”。第 0 轮已落地请求/结果契约和共享测试夹具；第 1 轮已落地只读取业务 `VARCHAR` tenant 列的精确 `TenantTtlRowFilter`。第 2 轮已落地策略无关的 `VerticalSegmentRewriter` 与 `FilteredRowsetWriter`：所有列组重放同一物理 rowid 范围，KEEP 对 `.dat` 及 GIN/Vector artifact 做目标 ordinal 重映射后的硬链接，DROP 不产生输出 Segment，REWRITE 生成一个新 Segment，目标 ordinal 始终连续；支持全 DROP 的空同版本 Rowset，并在 build 后无条件 `load()`、`verify()`。累计专项测试为第 0 轮 7 个、第 1 轮 6 个、第 2 轮 3 个，共 16 个，全部通过。
 
 ## 2. 需求澄清记录
 

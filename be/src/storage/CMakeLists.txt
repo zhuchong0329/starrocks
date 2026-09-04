@@ -65,6 +65,8 @@ set(STORAGE_FILES
     tablet_updates.cpp
     tenant_ttl_compaction_types.cpp
     tenant_ttl_row_filter.cpp
+    vertical_segment_rewriter.cpp
+    filtered_rowset_writer.cpp
     txn_manager.cpp
     types.cpp
     update_manager.cpp
