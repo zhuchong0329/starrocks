@@ -64,6 +64,7 @@ set(STORAGE_FILES
     tablet_schema_map.cpp
     tablet_updates.cpp
     tenant_ttl_compaction_types.cpp
+    tenant_ttl_row_filter.cpp
     txn_manager.cpp
     types.cpp
     update_manager.cpp
