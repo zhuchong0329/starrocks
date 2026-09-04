@@ -51,6 +51,23 @@ struct TenantTtlPolicyWatermark {
     }
 };
 
+enum class TenantTtlState : uint8_t {
+    IDLE = 0,
+    PENDING,
+    RUNNING,
+};
+
+struct TenantTtlOwner {
+    int64_t task_id{0};
+    TenantTtlPolicyWatermark policy_watermark;
+    uint64_t generation{0};
+};
+
+struct TenantTtlStateSnapshot {
+    TenantTtlState state{TenantTtlState::IDLE};
+    std::optional<TenantTtlOwner> owner;
+};
+
 struct TenantTtlSchemaExpectation {
     int64_t schema_id{0};
     int32_t schema_version{-1};
@@ -86,6 +103,11 @@ enum class TenantTtlTaskCode : uint8_t {
     STALE_ROWSET,
     CANCELLED,
     INTERNAL_ERROR,
+};
+
+struct TenantTtlAdmissionResult {
+    TenantTtlTaskCode code{TenantTtlTaskCode::INTERNAL_ERROR};
+    uint64_t generation{0};
 };
 
 enum class TenantTtlRowsetAction : uint8_t {
@@ -151,6 +173,12 @@ struct TenantTtlCoverage {
     std::string coverage_digest;
 };
 
+struct TenantTtlReplacement {
+    Version source_version;
+    RowsetId expected_source_rowset_id;
+    RowsetSharedPtr output;
+};
+
 struct SegmentFilterPlan {
     uint32_t src_segment_id{0};
     SegmentFilterAction action{SegmentFilterAction::KEEP};
@@ -187,6 +215,7 @@ Status normalize_and_validate_tenant_ttl_request(TenantTtlCompactionRequest* req
 bool tenant_ttl_task_code_is_retryable(TenantTtlTaskCode code);
 
 std::string_view tenant_filter_mode_to_string(TenantFilterMode mode);
+std::string_view tenant_ttl_state_to_string(TenantTtlState state);
 std::string_view tenant_ttl_task_code_to_string(TenantTtlTaskCode code);
 std::string_view tenant_ttl_rowset_action_to_string(TenantTtlRowsetAction action);
 std::string_view segment_filter_action_to_string(SegmentFilterAction action);

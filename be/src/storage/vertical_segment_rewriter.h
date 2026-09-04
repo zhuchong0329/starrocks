@@ -19,13 +19,13 @@
 #include <cstdint>
 
 #include "common/statusor.h"
-#include "storage/rowset/rowset_writer_context.h"
 #include "storage/tablet_schema.h"
 #include "storage/tenant_ttl_compaction_types.h"
 
 namespace starrocks {
 
 class MemTracker;
+class RowsetWriterContext;
 class Segment;
 using SegmentSharedPtr = std::shared_ptr<Segment>;
 

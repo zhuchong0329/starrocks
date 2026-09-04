@@ -638,6 +638,7 @@ ADD_BE_TEST(storage/tenant_ttl_compaction_types_test)
 ADD_BE_TEST(storage/tenant_ttl_compaction_fixture_test)
 ADD_BE_TEST(storage/tenant_ttl_row_filter_test)
 ADD_BE_TEST(storage/filtered_rowset_writer_test)
+ADD_BE_TEST(storage/tenant_ttl_tablet_primitives_test)
 
 # you can simply add test case as single binary without adding `main`
 # ADD_BE_TEST(exec/sorting_test)

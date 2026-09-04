@@ -80,6 +80,12 @@ protected:
         const int64_t suffix = sequence.fetch_add(1, std::memory_order_relaxed);
         _tablet_id = kTabletId + suffix;
         _partition_id = kPartitionId + suffix;
+        _old_storage_flood_stage_usage_percent = config::storage_flood_stage_usage_percent;
+        _old_storage_flood_stage_left_capacity_bytes = config::storage_flood_stage_left_capacity_bytes;
+        // Unit-test build artifacts may leave less than the production flood-stage
+        // reserve in the container. The test Tablet data itself is tiny.
+        config::storage_flood_stage_usage_percent = 101;
+        config::storage_flood_stage_left_capacity_bytes = -1;
         _engine = StorageEngine::instance();
         ASSERT_NE(nullptr, _engine);
     }
@@ -90,6 +96,8 @@ protected:
             ASSERT_OK(_engine->tablet_manager()->drop_tablet(_tablet_id, kDeleteFiles));
         }
         _engine = nullptr;
+        config::storage_flood_stage_usage_percent = _old_storage_flood_stage_usage_percent;
+        config::storage_flood_stage_left_capacity_bytes = _old_storage_flood_stage_left_capacity_bytes;
     }
 
     TabletSharedPtr create_tablet(bool tenant_nullable = true) {
@@ -218,6 +226,8 @@ protected:
     TabletSharedPtr _tablet;
     int64_t _tablet_id{0};
     int64_t _partition_id{0};
+    int32_t _old_storage_flood_stage_usage_percent{0};
+    int64_t _old_storage_flood_stage_left_capacity_bytes{0};
 };
 
 } // namespace starrocks

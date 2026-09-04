@@ -421,6 +421,287 @@ void Tablet::modify_rowsets_without_lock(const std::vector<RowsetSharedPtr>& to_
     _timestamped_version_tracker.add_stale_path_version(rs_metas_to_delete);
 }
 
+TenantTtlAdmissionResult Tablet::try_begin_tenant_ttl(int64_t task_id,
+                                                      const TenantTtlPolicyWatermark& policy_watermark) {
+    std::lock_guard lock(_compaction_task_lock);
+    if (_tenant_ttl_state != TenantTtlState::IDLE) {
+        DCHECK(_tenant_ttl_owner.has_value());
+        return {.code = _tenant_ttl_owner->task_id == task_id ? TenantTtlTaskCode::TTL_ALREADY_RUNNING
+                                                              : TenantTtlTaskCode::TABLET_BUSY};
+    }
+    if (_has_running_compaction) {
+        return {.code = TenantTtlTaskCode::TABLET_BUSY};
+    }
+
+    // Zero is reserved as the invalid generation. Wraparound is practically
+    // unreachable, but skipping zero keeps the fencing rule explicit.
+    if (++_tenant_ttl_generation == 0) {
+        ++_tenant_ttl_generation;
+    }
+    _tenant_ttl_state = TenantTtlState::PENDING;
+    _tenant_ttl_owner = TenantTtlOwner{
+            .task_id = task_id, .policy_watermark = policy_watermark, .generation = _tenant_ttl_generation};
+    return {.code = TenantTtlTaskCode::SUCCESS, .generation = _tenant_ttl_generation};
+}
+
+bool Tablet::mark_tenant_ttl_running(uint64_t owner_generation) {
+    std::lock_guard lock(_compaction_task_lock);
+    if (_tenant_ttl_state != TenantTtlState::PENDING || !_tenant_ttl_owner.has_value() ||
+        _tenant_ttl_owner->generation != owner_generation) {
+        return false;
+    }
+    _tenant_ttl_state = TenantTtlState::RUNNING;
+    return true;
+}
+
+bool Tablet::tenant_ttl_owner_matches(int64_t task_id, uint64_t owner_generation,
+                                      const TenantTtlPolicyWatermark& policy_watermark) {
+    std::lock_guard lock(_compaction_task_lock);
+    return _tenant_ttl_state == TenantTtlState::RUNNING && _tenant_ttl_owner.has_value() &&
+           _tenant_ttl_owner->task_id == task_id && _tenant_ttl_owner->generation == owner_generation &&
+           _tenant_ttl_owner->policy_watermark == policy_watermark;
+}
+
+void Tablet::finish_tenant_ttl(uint64_t owner_generation) {
+    std::lock_guard lock(_compaction_task_lock);
+    if (!_tenant_ttl_owner.has_value() || _tenant_ttl_owner->generation != owner_generation) {
+        return;
+    }
+    _tenant_ttl_state = TenantTtlState::IDLE;
+    _tenant_ttl_owner.reset();
+}
+
+TenantTtlStateSnapshot Tablet::tenant_ttl_state_for_debug() {
+    std::lock_guard lock(_compaction_task_lock);
+    return {.state = _tenant_ttl_state, .owner = _tenant_ttl_owner};
+}
+
+TenantTtlTaskCode Tablet::capture_tenant_ttl_coverage(const TenantTtlCompactionRequest& request,
+                                                      TenantTtlCoverage* coverage, Status* detail_status) {
+    if (coverage == nullptr || detail_status == nullptr) {
+        if (detail_status != nullptr) {
+            *detail_status = Status::InvalidArgument("tenant ttl coverage output must not be null");
+        }
+        return TenantTtlTaskCode::INVALID_ARGUMENT;
+    }
+    *coverage = TenantTtlCoverage();
+
+    std::shared_lock meta_lock(_meta_lock);
+    std::shared_lock schema_lock(_schema_lock);
+    if (tablet_state() != TABLET_RUNNING) {
+        *detail_status = Status::NotSupported("tenant ttl requires a running tablet");
+        return TenantTtlTaskCode::NOT_SUPPORTED;
+    }
+    if (_updates != nullptr) {
+        *detail_status = Status::NotSupported("tenant ttl does not support primary-key tablets");
+        return TenantTtlTaskCode::NOT_SUPPORTED;
+    }
+    if (_max_version_schema == nullptr || _max_version_schema->id() != request.expected_schema.schema_id ||
+        _max_version_schema->schema_version() != request.expected_schema.schema_version) {
+        *detail_status = Status::Aborted("tenant ttl request schema does not match the tablet schema");
+        return TenantTtlTaskCode::SCHEMA_CHANGED;
+    }
+
+    std::vector<RowsetSharedPtr> active_rowsets;
+    active_rowsets.reserve(_rs_version_map.size());
+    for (const auto& [version, rowset] : _rs_version_map) {
+        active_rowsets.emplace_back(rowset);
+    }
+    std::sort(active_rowsets.begin(), active_rowsets.end(), [](const auto& lhs, const auto& rhs) {
+        if (lhs->start_version() != rhs->start_version()) {
+            return lhs->start_version() < rhs->start_version();
+        }
+        return lhs->end_version() < rhs->end_version();
+    });
+    if (active_rowsets.empty()) {
+        *detail_status = Status::Corruption("tenant ttl tablet has no active rowset");
+        return TenantTtlTaskCode::DATA_INVARIANT_VIOLATION;
+    }
+
+    int64_t expected_start_version = 0;
+    std::string digest;
+    coverage->entries.reserve(active_rowsets.size());
+    for (const auto& rowset : active_rowsets) {
+        const Version version = rowset->version();
+        if (version.first != expected_start_version || version.second < version.first) {
+            *detail_status = Status::Corruption(fmt::format(
+                    "tenant ttl active version path is not continuous at expected version {}, actual [{}-{}]",
+                    expected_start_version, version.first, version.second));
+            return TenantTtlTaskCode::DATA_INVARIANT_VIOLATION;
+        }
+        if (rowset->rowset_meta()->rowset_state() != VISIBLE) {
+            *detail_status = Status::Corruption(
+                    fmt::format("tenant ttl rowset [{}-{}] is not visible", version.first, version.second));
+            return TenantTtlTaskCode::DATA_INVARIANT_VIOLATION;
+        }
+        if (rowset->rowset_meta()->segments_overlap() != NONOVERLAPPING) {
+            *detail_status = Status::NotSupported(
+                    fmt::format("tenant ttl rowset [{}-{}] has overlapping segments", version.first, version.second));
+            return TenantTtlTaskCode::NOT_SUPPORTED;
+        }
+        if (rowset->rowset_meta()->has_delete_predicate() || rowset->is_partial_update() ||
+            rowset->is_column_mode_partial_update()) {
+            *detail_status = Status::NotSupported(fmt::format(
+                    "tenant ttl rowset [{}-{}] has unsupported mutation metadata", version.first, version.second));
+            return TenantTtlTaskCode::NOT_SUPPORTED;
+        }
+        if (rowset->schema()->id() != _max_version_schema->id() ||
+            rowset->schema()->schema_version() != _max_version_schema->schema_version()) {
+            *detail_status = Status::Aborted(fmt::format(
+                    "tenant ttl rowset [{}-{}] schema differs from coverage schema", version.first, version.second));
+            return TenantTtlTaskCode::SCHEMA_CHANGED;
+        }
+        if (rowset->get_is_compacting()) {
+            *detail_status = Status::ResourceBusy(
+                    fmt::format("tenant ttl rowset [{}-{}] is already compacting", version.first, version.second));
+            return TenantTtlTaskCode::TABLET_BUSY;
+        }
+        Status load_status = rowset->load();
+        if (!load_status.ok()) {
+            *detail_status = load_status;
+            return TenantTtlTaskCode::INTERNAL_ERROR;
+        }
+
+        coverage->entries.emplace_back(TenantTtlCoverageEntry{
+                .version = version, .expected_rowset_id = rowset->rowset_id(), .source = rowset});
+        digest.append(fmt::format("{}-{}@{};", version.first, version.second, rowset->rowset_id().to_string()));
+        expected_start_version = version.second + 1;
+    }
+
+    coverage->snapshot_end_version = expected_start_version - 1;
+    if (request.fe_observed_max_version.has_value() &&
+        coverage->snapshot_end_version < request.fe_observed_max_version.value()) {
+        *detail_status = Status::ResourceBusy(
+                fmt::format("tenant ttl replica max continuous version {} is below FE observed version {}",
+                            coverage->snapshot_end_version, request.fe_observed_max_version.value()));
+        *coverage = TenantTtlCoverage();
+        return TenantTtlTaskCode::REPLICA_NOT_CAUGHT_UP;
+    }
+
+    coverage->schema_identity = TenantTtlSchemaIdentity{.captured_schema = _max_version_schema,
+                                                        .schema_id = _max_version_schema->id(),
+                                                        .schema_version = _max_version_schema->schema_version()};
+    coverage->coverage_digest = std::move(digest);
+    for (const auto& entry : coverage->entries) {
+        entry.source->set_is_compacting(true);
+    }
+    *detail_status = Status::OK();
+    return TenantTtlTaskCode::SUCCESS;
+}
+
+void Tablet::release_tenant_ttl_coverage(const TenantTtlCoverage& coverage) {
+    for (const auto& entry : coverage.entries) {
+        if (entry.source != nullptr) {
+            entry.source->set_is_compacting(false);
+        }
+    }
+}
+
+TenantTtlTaskCode Tablet::_validate_tenant_ttl_coverage_unlocked(const TenantTtlCoverage& coverage,
+                                                                 Status* detail_status) const {
+    DCHECK(detail_status != nullptr);
+    if (tablet_state() != TABLET_RUNNING) {
+        *detail_status = Status::NotSupported("tenant ttl tablet is no longer running");
+        return TenantTtlTaskCode::NOT_SUPPORTED;
+    }
+    if (_max_version_schema == nullptr || _max_version_schema.get() != coverage.schema_identity.captured_schema.get() ||
+        _max_version_schema->id() != coverage.schema_identity.schema_id ||
+        _max_version_schema->schema_version() != coverage.schema_identity.schema_version) {
+        *detail_status = Status::Aborted("tenant ttl tablet schema changed after coverage capture");
+        return TenantTtlTaskCode::SCHEMA_CHANGED;
+    }
+    for (const auto& entry : coverage.entries) {
+        const auto current = get_rowset_by_version(entry.version);
+        if (current == nullptr || current->rowset_id() != entry.expected_rowset_id) {
+            *detail_status = Status::Aborted(fmt::format("tenant ttl source rowset changed at version [{}-{}]",
+                                                         entry.version.first, entry.version.second));
+            return TenantTtlTaskCode::STALE_ROWSET;
+        }
+    }
+    *detail_status = Status::OK();
+    return TenantTtlTaskCode::SUCCESS;
+}
+
+TenantTtlTaskCode Tablet::validate_tenant_ttl_coverage(const TenantTtlCoverage& coverage, Status* detail_status) {
+    if (detail_status == nullptr) {
+        return TenantTtlTaskCode::INVALID_ARGUMENT;
+    }
+    std::shared_lock meta_lock(_meta_lock);
+    std::shared_lock schema_lock(_schema_lock);
+    return _validate_tenant_ttl_coverage_unlocked(coverage, detail_status);
+}
+
+TenantTtlTaskCode Tablet::commit_tenant_ttl_rowsets(const TenantTtlCoverage& coverage,
+                                                    const std::vector<TenantTtlReplacement>& replacements,
+                                                    std::vector<RowsetSharedPtr>* replaced_stale_rowsets,
+                                                    Status* detail_status) {
+    if (replaced_stale_rowsets == nullptr || detail_status == nullptr) {
+        if (detail_status != nullptr) {
+            *detail_status = Status::InvalidArgument("tenant ttl commit outputs must not be null");
+        }
+        return TenantTtlTaskCode::INVALID_ARGUMENT;
+    }
+    replaced_stale_rowsets->clear();
+
+    std::set<Version> replacement_versions;
+    for (const auto& replacement : replacements) {
+        if (replacement.output == nullptr || replacement.output->version() != replacement.source_version ||
+            replacement.output->rowset_id() == replacement.expected_source_rowset_id) {
+            *detail_status = Status::InvalidArgument("tenant ttl replacement has invalid output identity");
+            return TenantTtlTaskCode::INVALID_ARGUMENT;
+        }
+        if (!replacement_versions.emplace(replacement.source_version).second) {
+            *detail_status = Status::InvalidArgument("tenant ttl replacement contains duplicate source version");
+            return TenantTtlTaskCode::INVALID_ARGUMENT;
+        }
+        const auto coverage_entry = std::find_if(
+                coverage.entries.begin(), coverage.entries.end(), [&](const TenantTtlCoverageEntry& entry) {
+                    return entry.version == replacement.source_version &&
+                           entry.expected_rowset_id == replacement.expected_source_rowset_id;
+                });
+        if (coverage_entry == coverage.entries.end()) {
+            *detail_status = Status::InvalidArgument("tenant ttl replacement is outside the captured coverage");
+            return TenantTtlTaskCode::INVALID_ARGUMENT;
+        }
+        Status load_status = replacement.output->load();
+        if (!load_status.ok()) {
+            *detail_status = load_status;
+            return TenantTtlTaskCode::INTERNAL_ERROR;
+        }
+        Status verify_status = replacement.output->verify();
+        if (!verify_status.ok()) {
+            *detail_status = verify_status;
+            return TenantTtlTaskCode::INTERNAL_ERROR;
+        }
+    }
+
+    std::unique_lock meta_lock(_meta_lock);
+    std::shared_lock schema_lock(_schema_lock);
+    TenantTtlTaskCode validation_code = _validate_tenant_ttl_coverage_unlocked(coverage, detail_status);
+    if (validation_code != TenantTtlTaskCode::SUCCESS) {
+        return validation_code;
+    }
+
+    std::vector<RowsetSharedPtr> outputs;
+    std::vector<RowsetSharedPtr> changed_sources;
+    outputs.reserve(replacements.size());
+    changed_sources.reserve(replacements.size());
+    for (const auto& replacement : replacements) {
+        if (_contains_rowset(replacement.output->rowset_id())) {
+            *detail_status = Status::AlreadyExist("tenant ttl output rowset ID already exists in tablet");
+            return TenantTtlTaskCode::INTERNAL_ERROR;
+        }
+        outputs.emplace_back(replacement.output);
+        changed_sources.emplace_back(get_rowset_by_version(replacement.source_version));
+    }
+
+    modify_rowsets_without_lock(outputs, changed_sources, replaced_stale_rowsets);
+    save_meta(config::skip_schema_in_rowset_meta);
+    Rowset::close_rowsets(changed_sources);
+    *detail_status = Status::OK();
+    return TenantTtlTaskCode::SUCCESS;
+}
+
 // snapshot manager may call this api to check if version exists, so that
 // the version maybe not exist
 RowsetSharedPtr Tablet::get_rowset_by_version(const Version& version) const {
@@ -1681,7 +1962,8 @@ void Tablet::set_compaction_context(std::unique_ptr<CompactionContext>& context)
 std::shared_ptr<CompactionTask> Tablet::create_compaction_task() {
     std::lock_guard lock(_compaction_task_lock);
     std::shared_ptr<CompactionTask> compaction_task;
-    if (_enable_compaction && (config::enable_size_tiered_compaction_strategy || !_has_running_compaction)) {
+    if (_enable_compaction && _tenant_ttl_state == TenantTtlState::IDLE &&
+        (config::enable_size_tiered_compaction_strategy || !_has_running_compaction)) {
         // only the size tiered strategy supports the parallelization of compaction tasks under one tablet
         if (_compaction_context) {
             compaction_task = _compaction_context->policy->create_compaction(
@@ -1702,7 +1984,8 @@ bool Tablet::has_compaction_task() {
 
 bool Tablet::need_compaction() {
     std::lock_guard lock(_compaction_task_lock);
-    if (_enable_compaction && (config::enable_size_tiered_compaction_strategy || !_has_running_compaction)) {
+    if (_enable_compaction && _tenant_ttl_state == TenantTtlState::IDLE &&
+        (config::enable_size_tiered_compaction_strategy || !_has_running_compaction)) {
         // only the size tiered strategy supports the parallelization of compaction tasks under one tablet
         _compaction_context->type = INVALID_COMPACTION;
         if (_compaction_context->policy->need_compaction(&_compaction_context->score, &_compaction_context->type)) {
@@ -1714,7 +1997,8 @@ bool Tablet::need_compaction() {
 
 bool Tablet::force_base_compaction() {
     std::lock_guard lock(_compaction_task_lock);
-    if (_enable_compaction && (config::enable_size_tiered_compaction_strategy || !_has_running_compaction)) {
+    if (_enable_compaction && _tenant_ttl_state == TenantTtlState::IDLE &&
+        (config::enable_size_tiered_compaction_strategy || !_has_running_compaction)) {
         // only the size tiered strategy supports the parallelization of compaction tasks under one tablet
         _compaction_context->type = BASE_COMPACTION;
         if (_compaction_context->policy->need_compaction(&_compaction_context->score, &_compaction_context->type)) {

@@ -30,6 +30,7 @@
 #include "storage/chunk_iterator.h"
 #include "storage/compaction_utils.h"
 #include "storage/index/index_descriptor.h"
+#include "storage/rowset/rowset_writer_context.h"
 #include "storage/rowset/segment.h"
 #include "storage/rowset/segment_options.h"
 #include "storage/rowset/segment_writer.h"

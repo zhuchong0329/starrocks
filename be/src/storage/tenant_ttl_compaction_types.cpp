@@ -105,6 +105,18 @@ std::string_view tenant_filter_mode_to_string(TenantFilterMode mode) {
     return "UNKNOWN";
 }
 
+std::string_view tenant_ttl_state_to_string(TenantTtlState state) {
+    switch (state) {
+    case TenantTtlState::IDLE:
+        return "IDLE";
+    case TenantTtlState::PENDING:
+        return "PENDING";
+    case TenantTtlState::RUNNING:
+        return "RUNNING";
+    }
+    return "UNKNOWN";
+}
+
 std::string_view tenant_ttl_task_code_to_string(TenantTtlTaskCode code) {
     switch (code) {
     case TenantTtlTaskCode::SUCCESS:

@@ -53,6 +53,7 @@
 #include "storage/olap_define.h"
 #include "storage/rowset/rowset.h"
 #include "storage/tablet_meta.h"
+#include "storage/tenant_ttl_compaction_types.h"
 #include "storage/tuple.h"
 #include "storage/utils.h"
 #include "storage/version_graph.h"
@@ -190,6 +191,24 @@ public:
     void obtain_cumulative_lock() { _cumulative_lock.lock(); }
     void release_cumulative_lock() { _cumulative_lock.unlock(); }
     std::shared_mutex& get_cumulative_lock() { return _cumulative_lock; }
+
+    // Tenant-TTL admission is process local. These methods serialize all state
+    // access with _compaction_task_lock and never persist owner information.
+    TenantTtlAdmissionResult try_begin_tenant_ttl(int64_t task_id, const TenantTtlPolicyWatermark& policy_watermark);
+    bool mark_tenant_ttl_running(uint64_t owner_generation);
+    bool tenant_ttl_owner_matches(int64_t task_id, uint64_t owner_generation,
+                                  const TenantTtlPolicyWatermark& policy_watermark);
+    void finish_tenant_ttl(uint64_t owner_generation);
+    TenantTtlStateSnapshot tenant_ttl_state_for_debug();
+
+    TenantTtlTaskCode capture_tenant_ttl_coverage(const TenantTtlCompactionRequest& request,
+                                                  TenantTtlCoverage* coverage, Status* detail_status);
+    void release_tenant_ttl_coverage(const TenantTtlCoverage& coverage);
+    TenantTtlTaskCode validate_tenant_ttl_coverage(const TenantTtlCoverage& coverage, Status* detail_status);
+    TenantTtlTaskCode commit_tenant_ttl_rowsets(const TenantTtlCoverage& coverage,
+                                                const std::vector<TenantTtlReplacement>& replacements,
+                                                std::vector<RowsetSharedPtr>* replaced_stale_rowsets,
+                                                Status* detail_status);
 
     std::shared_mutex& get_migration_lock() { return _migration_lock; }
     // should use with migration lock.
@@ -371,6 +390,8 @@ private:
     void _delete_stale_rowset_by_version(const Version& version);
     Status _capture_consistent_rowsets_unlocked(const vector<Version>& version_path,
                                                 vector<RowsetSharedPtr>* rowsets) const;
+    TenantTtlTaskCode _validate_tenant_ttl_coverage_unlocked(const TenantTtlCoverage& coverage,
+                                                             Status* detail_status) const;
 
     // The process to generate binlog when publishing a rowset. These methods are protected by _meta_lock
     // _prepare_binlog_if_needed: persist the binlog file before saving the rowset meta in add_inc_rowset()
@@ -456,6 +477,10 @@ private:
 
     // used for default base cumulative compaction strategy to control the
     bool _has_running_compaction = false;
+
+    TenantTtlState _tenant_ttl_state = TenantTtlState::IDLE;
+    std::optional<TenantTtlOwner> _tenant_ttl_owner;
+    uint64_t _tenant_ttl_generation = 0;
 
     // if this tablet is broken, set to true. default is false
     // timestamp of last cumu compaction failure

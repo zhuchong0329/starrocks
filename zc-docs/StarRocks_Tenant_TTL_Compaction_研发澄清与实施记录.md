@@ -18,7 +18,7 @@
 
 Tenant-TTL Compaction 的需求、技术语义、测试边界和详细编码计划已经完成对齐。2026-09-04 开始第四步，按《StarRocks_Tenant_TTL_Compaction_BE_详细编码计划.md》的第 0～4 轮连续实施；每轮完成对应测试后独立提交并推送。第 5 轮 HTTP 手工入口和第 6～7 轮收口/增强测试不在本次连续编码范围内。
 
-当前实施进度：第 0～2 轮已完成并通过测试；开始第 3 轮“Tablet 准入、coverage 与原子提交”。第 0 轮已落地请求/结果契约和共享测试夹具；第 1 轮已落地只读取业务 `VARCHAR` tenant 列的精确 `TenantTtlRowFilter`。第 2 轮已落地策略无关的 `VerticalSegmentRewriter` 与 `FilteredRowsetWriter`：所有列组重放同一物理 rowid 范围，KEEP 对 `.dat` 及 GIN/Vector artifact 做目标 ordinal 重映射后的硬链接，DROP 不产生输出 Segment，REWRITE 生成一个新 Segment，目标 ordinal 始终连续；支持全 DROP 的空同版本 Rowset，并在 build 后无条件 `load()`、`verify()`。累计专项测试为第 0 轮 7 个、第 1 轮 6 个、第 2 轮 3 个，共 16 个，全部通过。
+当前实施进度：第 0～3 轮已完成并通过测试；开始第 4 轮“EngineTenantTtlCompactionTask 多 Rowset 闭环”。第 0 轮已落地请求/结果契约和共享测试夹具；第 1 轮已落地只读取业务 `VARCHAR` tenant 列的精确 `TenantTtlRowFilter`。第 2 轮已落地策略无关的 `VerticalSegmentRewriter` 与 `FilteredRowsetWriter`：所有列组重放同一物理 rowid 范围，KEEP 对 `.dat` 及 GIN/Vector artifact 做目标 ordinal 重映射后的硬链接，DROP 不产生输出 Segment，REWRITE 生成一个新 Segment，目标 ordinal 始终连续；支持全 DROP 的空同版本 Rowset，并在 build 后无条件 `load()`、`verify()`。第 3 轮已落地 Tablet 进程内 `IDLE/PENDING/RUNNING` 状态、generation fencing、base/cumulative 固定顺序独占 try-lock guard、只从 active version map 固定完整连续 coverage、统一 `is_compacting` 标记清理，以及独立于普通 Compaction 的完整 Rowset ID/schema identity CAS 和多 Rowset 同版本批量提交 wrapper；普通 `modify_rowsets_without_lock()` 保持原样。累计专项测试为第 0 轮 7 个、第 1 轮 6 个、第 2 轮 3 个、第 3 轮 6 个，共 22 个，全部通过。
 
 ## 2. 需求澄清记录
 
