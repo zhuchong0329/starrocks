@@ -8,7 +8,7 @@
 >
 > 方案在严格约束下可实现；它不是现有 Compaction 的配置开关，而是一条新的 FE 策略调度 + BE 单 Rowset 重写链路。建议先以 replication_num=1、本地 POSIX 存储、无 Rollup、canonical 数字 tenant 为生产 MVP 边界。
 
-源码基线：StarRocks main<br>Commit：9559176fab6e2cb885779f1e7b680133d58d6972<br>评估日期：2026-09-01<br>文档状态：设计评审稿 v1.0
+源码基线：StarRocks main<br>Commit：9559176fab6e2cb885779f1e7b680133d58d6972<br>评估日期：2026-09-02<br>文档状态：设计评审稿 v1.1
 
 # 文档控制与阅读说明
 
@@ -36,6 +36,8 @@
 
 - Segment ZoneMap 可做保守排除；精确首尾 tenant_id 可确认“整个 Segment 只有一个 tenant”。跨 tenant Segment 必须 REWRITE，不能仅凭两个独立 ZoneMap 推断每个 tenant 的时间范围。
 
+- 宽表 REWRITE 首期采用 Segment 级 Vertical rewrite：预扫描 TTL 列生成 SparseRange，各列组重放同一批 row ordinal；不把功能限制在 HorizontalRowsetWriter。
+
 - 分区直接删除必须走 FE 的 LocalMetastore.dropPartition 元数据路径；不能让 BE 先物理删文件。物理空间回收仍由既有异步清理链路完成。
 
 - replication_num=1 可规避副本间可见性窗口；replicated_storage=true 只优化导入复制，不能提供 TTL rewrite 的多副本原子屏障。
@@ -56,21 +58,35 @@
 
 2. 当前源码能力与缺口
 
-3. 总体架构与数据流
+3. 可行性判定与总体架构
 
-4. FE 属性、字典快照与分区裁决
+4. FE 属性、字典快照与分区三态裁决
 
 5. 任务协议、调度与结果闭环
 
-6. BE 资格检查、Segment 分类与混合 RowsetWriter
+6. BE 准入、Segment 分类与 Tenant-TTL Rewrite
 
-7. 原子提交、查询并发与 GC
+7. 混合 RowsetWriter：KEEP 链接、DROP 跳过、REWRITE 纵向重建
 
-8. 索引、加密、多副本与共享存储
+8. 原子提交、查询并发、幂等与 GC
 
-9. 类关系、调用栈与文件级改造清单
+9. 关键障碍与边界分析
 
-10. 测试、工作量、灰度与验收标准
+10. 类关系与调用栈
+
+11. 文件级代码改造清单
+
+12. 测试与验证方案
+
+13. 工作量评估与交付分期
+
+14. 灰度、回滚与验收标准
+
+附录 A：关键源码锚点
+
+附录 B：建议修正后的表属性片段
+
+附录 C：最终建议
 
 # 1. DDL 与身份语义审计
 
@@ -194,23 +210,19 @@ Segment 可为指定列创建 ColumnIterator（segment.h:115-143），并使用 
 | 任务闭环 | TenantTtlCompactionTask / TenantTtlTaskTracker | 按 BE/Tablet 派发、去重、超时、重试、汇总结果 |
 | BE 准入 | EngineTenantTtlCompactionTask | 校验 tablet、schema、rowset、存储类型、策略版本和并发锁 |
 | Segment 决策 | SegmentTtlClassifier | ZoneMap 粗排 + exact first/last 分类 KEEP/DROP/REWRITE |
-| 输出构建 | TenantTtlRowsetRewriter + HorizontalRowsetWriter | 链接 KEEP、跳过 DROP、过滤重写边界 Segment |
+| 输出构建 | TenantTtlRowsetRewriter + TenantTtlRowsetWriter | 预扫描 KeepRowRanges；链接 KEEP、跳过 DROP、纵向重写 REWRITE Segment |
 | 提交回收 | Tablet / StorageEngine | ID 校验、同版本原子替换、stale/unused rowset 延迟 GC |
 
 ```text
-Dictionary refresh ──> PolicySnapshot(version, min/max TTL, bucket bounds)
-│
-DynamicPartitionScheduler ──> TenantTtlScheduler
-├─ NOOP
-├─ DROP_PARTITION ──> LocalMetastore.dropPartition
-└─ REWRITE ──> Agent task ──> BE Tablet
-├─ KEEP: hard link
-├─ DROP: omit
-└─ REWRITE: filter + SegmentWriter
-│
-TabletMeta same-version swap
-│
-stale Rowset ──> ref=0 ──> GC
+PolicySnapshot(version, TTL bounds)
+└─ TenantTtlScheduler
+   ├─ NOOP
+   ├─ DROP_PARTITION ──> LocalMetastore.dropPartition
+   └─ REWRITE ──> BE Tablet
+      ├─ KEEP ──> hard link
+      ├─ DROP ──> omit
+      └─ REWRITE ──> SparseRange + vertical SegmentWriter
+         └─ Rowset swap ──> stale ref=0 ──> GC
 ```
 
 # 4. FE 属性、字典快照与分区三态裁决
@@ -392,42 +404,60 @@ return REWRITE;
 >
 > “tenant ZoneMap 覆盖目标值”不等于 Segment 一定含该 tenant；“tenant min/max + timestamp min/max”也不能推出某个中间 tenant 的 timestamp min/max。无法形成充分条件时必须 REWRITE，不能 DROP。
 
-# 7. 混合 RowsetWriter：KEEP 链接、DROP 跳过、REWRITE 重建
+# 7. 混合 RowsetWriter：KEEP 链接、DROP 跳过、REWRITE 纵向重建
 
-## 7.1 为什么首期强制 Horizontal
+## 7.1 首期采用 Segment 级 Vertical Rewrite
 
-Vertical Compaction 按列组多遍读取并用 RowSourceMask 对齐（compaction.cpp:239-352）；一个已完整 hard link 的 Segment 无法自然插入到尚未完成的列组输出中。Tenant-TTL 的 mixed writer 首期应固定为 HorizontalRowsetWriter：每个输出 Segment 一次包含完整列、ShortKey 与所有嵌入索引。
+Tenant-TTL 行过滤与 Horizontal/Vertical 正交。对宽表，首期不能依赖 HorizontalRowsetWriter；应先对候选 REWRITE Segment 只读取 tenant_id、recordTimestamp（若策略仍按 tenant VARCHAR 查询，则同时读取 tenant），在固定策略快照下生成该源 Segment 的 KeepRowRanges。KeepRowRanges 使用 SparseRange 表达，并通过 SegmentReadOptions::rowid_range_option 在每个列组读取时重放同一批源 row ordinal。
+
+精确预扫描后再次收敛决策：KeepRowRanges 覆盖全部行时升级为 KEEP 并 hard link；为空时升级为 DROP；仅部分覆盖时才进入 Vertical rewrite。这样 Tenant-TTL 谓词只求值一次，后续列组不需要重复查询字典，也不依赖 RowSourceMask 表达 Segment 内任意删除。
+
+首期固定保持源 Segment 边界：一个源 Segment 只产生一个 linked Segment、零个 Segment，或一个 vertically rewritten Segment，不跨源 Segment 合并或重分段。每个 REWRITE Segment 的首列组包含全部 sort key，并在返回 mixed writer 前完成所有列组、ShortKey、嵌入/外部索引与 footer，因此完整 KEEP Segment 可以在下一个连续 dst ordinal 直接链接。输出 Segment 数不会超过输入 Segment 数；小 Segment 的后续整理交给普通 Compaction。
+
+不建议让 TenantTtlRowsetWriter 直接继承或嵌套现有 VerticalRowsetWriter：该类是 final，_create_segment_writer/_flush_columns 为私有方法，并按整个 Rowset 持有 SegmentWriter 列表和输出编号。更清晰的边界是 TenantTtlRowsetWriter 只组装 Rowset，VerticalSegmentRewriter 复用公开的 SegmentWriter 多列组 API；后续可再把 writer factory 与 SegmentBuildResult 抽成两者共用的基础组件。
 
 ## 7.2 处理算法
 
 ```text
+plans = []
 for src_segment_id in [0, input.num_segments):
-decision = classifier.classify(src_segment)
-switch decision:
-KEEP:
-writer.flush_pending_rewrite_segment()
-writer.add_linked_segment(input, src_segment_id, next_dst_segment_id)
-DROP:
-stats.deleted_rows += src_segment.num_rows
-REWRITE:
-read full rows in source order
-keep_mask = !(recordTimestamp < cutoff(tenant))
-writer.add_chunk(filtered_rows)
-writer.flush_at_source_boundary_if_next_is_linked()
+    decision = classifier.classify(src_segment)
+    keep_ranges = null
+    if decision == REWRITE:
+        keep_ranges = scan_ttl_columns_to_sparse_ranges(src_segment, fixed_policy)
+        if keep_ranges.empty():
+            decision = DROP
+        else if keep_ranges.span_size() == src_segment.num_rows:
+            decision = KEEP
+    plans.append(decision, keep_ranges)
+
+dst_segment_id = 0
+for plan in plans ordered by src_segment_id:
+    switch plan.decision:
+    KEEP:
+        writer.add_linked_segment(input, plan.src_segment_id, dst_segment_id)
+        dst_segment_id += 1
+    DROP:
+        stats.deleted_rows += plan.src_segment.num_rows
+    REWRITE:
+        writer.rewrite_segment_vertically(
+            plan.src_segment, plan.keep_ranges, dst_segment_id)
+        dst_segment_id += 1
 
 if no segment changed: return NOOP
 output = writer.build(); output.load(); output.verify(); commit_if_source_unchanged()
 ```
 
-处理顺序必须严格按源 segment_id。REWRITE 可产生 0、1 或多个目标 Segment；KEEP 前先 flush 已重写数据，随后把源 Segment 链接到连续的目标编号。这样仍满足 NONOVERLAPPING，且 Rowset::verify 能对整体排序做最终校验。
+处理顺序必须严格按源 segment_id。rewrite_segment_vertically 每次只处理一个源 Segment，并在返回前完成所有列组和 footer；因此 mixed writer 始终只接收完整 Segment，不存在 complete hard link 插入未完成列组输出的问题。每个列组使用同一 SparseRange 读取保留行，天然保持源内顺序；连续 dst ordinal 和逐 Segment 0/1 映射保持 NONOVERLAPPING，最后仍由 Rowset::verify 做整体排序校验。
 
 ## 7.3 需要新增的 Rowset/Writer 接口
 
 | 接口 | 建议签名/职责 |
 | --- | --- |
 | Rowset::link_segment_files_to | 接收 src_segment_id、dst_rowset_id、dst_segment_id；链接 .dat 与所有 standalone index，失败时可回滚 |
-| HorizontalRowsetWriter::add_linked_segment | 登记 rows/data/index/raw-size、encryption meta、输出 ordinal，并更新 _num_segment |
-| HorizontalRowsetWriter::flush_segment_boundary | 在链接 Segment 前封口当前 SegmentWriter，防止编号/顺序交错 |
+| TenantTtlRowsetWriter::add_linked_segment | 登记 rows/data/index/raw-size、encryption meta、artifact 与输出 ordinal |
+| TenantTtlRowsetWriter::rewrite_segment_vertically | 接收源 Segment、KeepRowRanges 与 dst ordinal；调用 VerticalSegmentRewriter 并接收完整 SegmentBuildResult |
+| VerticalSegmentRewriter::rewrite | 每个列组使用同一 SparseRange 读取；复用 SegmentWriter::init/append_chunk/finalize_columns/finalize_footer |
 | RowsetWriter::add_rewrite_meta | 写 policy txn、evaluation_time、source rowset id、deleted rows 等幂等水位 |
 | Rowset::verify_artifacts | 验证每个目标 .dat、GIN/Vector 路径、encryption meta 数量与 Segment 数一致 |
 
@@ -436,6 +466,8 @@ output = writer.build(); output.load(); output.verify(); commit_if_source_unchan
 RowsetMetaPB 当前只保存 rowset 级 num_rows、data/index/total size 和 num_segments（olap_file.proto:112-164）；SegmentFooterPB 只有 num_rows，旧的 footprint 字段已废弃（segment.proto:204-217）。SegmentPB 在写入时有 data_size、index_size、num_rows、row_size，但它是传输/写入对象，不持久在本地 RowsetMeta（data.proto:111-140）。所以部分链接后无法从旧聚合值精确拆分。
 
 建议在 RowsetMetaPB 追加兼容字段 repeated SegmentStatsPB segment_stats = 67，至少包含：num_rows、segment_file_size、embedded_index_size、external_index_size、raw_row_size、可选 boundary fingerprint。所有新写 Rowset 都填充；老 Rowset 缺失时，TTL 任务要么全量重写，要么返回 NEED_SEGMENT_STATS，不能按比例猜测。
+
+VerticalSegmentRewriter 应返回 SegmentBuildResult，包含逐 Segment rows/data/index/raw-size、encryption meta 和外部 artifact 清单；TenantTtlRowsetWriter 只负责按 dst ordinal 汇总这些结果与 KEEP 元数据，避免把 Rowset 级状态散落在列组写入循环中。
 
 | 兼容场景 | 行为 |
 | --- | --- |
@@ -446,7 +478,7 @@ RowsetMetaPB 当前只保存 rowset 级 num_rows、data/index/total size 和 num
 
 ## 7.5 索引与加密文件的重映射
 
-- ShortKey、ZoneMap、Bloom、Bitmap 等嵌入 .dat 的结构随 KEEP Segment 原样保留；REWRITE 由 SegmentWriter 重建。
+- ShortKey、ZoneMap、Bloom、Bitmap 等嵌入 .dat 的结构随 KEEP Segment 原样保留；REWRITE 由 VerticalSegmentRewriter 复用 SegmentWriter 按列组重建。
 
 - 当前 whole-rowset linker 已逐 GIN 目录和 Vector 文件 hard link（rowset.cpp:457-490），新接口必须把 src ordinal 映射到 dst ordinal，不能沿用 segment_n=i。
 
@@ -551,9 +583,11 @@ AgentServer / agent_task.cpp
 ├─ classifies ─> SegmentTtlClassifier [NEW]
 │ ├─ ColumnReader ZoneMap
 │ └─ ColumnIterator ordinal seek
-├─ writes ─> HorizontalRowsetWriter
-│ ├─ add_linked_segment [NEW]
-│ └─ add_chunk / flush / build
+├─ prefilters ─> KeepRowRanges / SparseRange
+├─ assembles ─> TenantTtlRowsetWriter [NEW]
+│ ├─ KEEP ─> add_linked_segment
+│ └─ REWRITE ─> VerticalSegmentRewriter [NEW]
+│                 └─ SegmentWriter column groups
 └─ commits ─> Tablet::modify_rowsets_without_lock
 └─ stale/unused ─> StorageEngine GC
 ```
@@ -590,8 +624,13 @@ _validate_request_and_dictionary_version()
 _lock_and_pick_single_rowset()
 TenantTtlRowsetRewriter::rewrite()
 SegmentTtlClassifier::classify_all()
-HorizontalRowsetWriter::add_linked_segment() / add_chunk()
-RowsetWriter::build()
+TenantTtlRowsetRewriter::build_keep_ranges()
+TenantTtlRowsetWriter::add_linked_segment() /
+TenantTtlRowsetWriter::rewrite_segment_vertically()
+VerticalSegmentRewriter::rewrite()
+SegmentWriter::init() / append_chunk() /
+finalize_columns() / finalize_footer()
+TenantTtlRowsetWriter::build()
 Rowset::load() / verify() / verify_artifacts()
 _commit_if_source_rowset_id_matches()
 Tablet::modify_rowsets_without_lock()
@@ -634,7 +673,9 @@ finish_task(TFinishTaskRequest)
 | agent/agent_server.cpp、agent_task.cpp/h | server:525-531；task:571-593 | 注册新任务、传播真实 Status、填逐 Tablet result。 |
 | storage/dictionary_cache_manager.cpp/h | cpp:216-245、294-313 | TTL schema 校验、获取精确版本；可选导出 cache stats。 |
 | storage/rowset/rowset.h/cpp | cpp:169-224、447-514 | link_segment_files_to，src/dst ordinal 重映射与 artifact rollback。 |
-| storage/rowset/rowset_writer.h/cpp | cpp:145-168、508-562、758-790 | add_linked_segment、统计、加密 meta、异常清理。 |
+| storage/rowset/rowset_writer.h/cpp | h:267-289；cpp:145-168、508-562、758-790 | 抽取可复用的 Rowset Meta 汇总、SegmentWriter factory、统计、加密 meta 与异常清理能力。 |
+| storage/rowset/segment_writer.h/cpp | h:88-143；cpp:240-257 | 复用多列组写入 API；补充可返回逐 Segment artifact/stat 的通用结果结构。 |
+| storage/rowset/segment_options.h、segment_iterator.cpp | options:94-98；iterator:2650-2656 | 用 rowid_range_option 将同一 KeepRowRanges 应用于每个列组读取。 |
 | storage/compaction_task.h | 261-299 | 通用提交增强：version + rowset_id 校验。 |
 | storage/tablet.cpp | 373-422、750-810 | 复用同版本替换；可增加 CAS 风格 helper。 |
 | storage/storage_engine.cpp | 1234-1308 | 复用 unused GC；增加 TTL 指标/日志，无需改变引用语义。 |
@@ -649,7 +690,9 @@ finish_task(TFinishTaskRequest)
 | be/src/storage/task/engine_tenant_ttl_compaction_task.{h,cpp} | 任务准入、锁、字典版本、选 Rowset、结果封装 |
 | be/src/storage/tenant_ttl/tenant_ttl_policy.{h,cpp} | 字典 probe、TTL cutoff、缺失默认值 |
 | be/src/storage/tenant_ttl/segment_ttl_classifier.{h,cpp} | ZoneMap + exact boundary 三态分类 |
-| be/src/storage/tenant_ttl/tenant_ttl_rowset_rewriter.{h,cpp} | 按源顺序 mixed rewrite、验证与提交准备 |
+| be/src/storage/tenant_ttl/tenant_ttl_rowset_rewriter.{h,cpp} | 按源顺序生成计划、预扫描 KeepRowRanges、驱动 mixed writer、验证与提交准备 |
+| be/src/storage/tenant_ttl/tenant_ttl_rowset_writer.{h,cpp} | 汇总输出 Rowset ordinal/meta/artifact；执行 KEEP link、DROP skip、REWRITE dispatch |
+| be/src/storage/tenant_ttl/vertical_segment_rewriter.{h,cpp} | 按源 Segment 和 SparseRange 多列组读取，复用 SegmentWriter 重建一个完整 Segment |
 | be/test/storage/tenant_ttl/*_test.cpp | 分类、链接、并发、失败恢复、索引与 GC 单测 |
 
 ## 11.5 核心提交伪代码
@@ -685,8 +728,9 @@ return Status::OK();
 
 | 测试组 | 必须覆盖 |
 | --- | --- |
-| Segment 分类 | 目标范围外；单 tenant 全过期/全保留/部分；跨 tenant 边界；空 Segment；NULL tenant_id |
-| 排序 | 多个 KEEP/REWRITE 交错；REWRITE 拆多 Segment；输出 NONOVERLAPPING；Rowset::verify |
+| Segment 分类 | 目标范围外；单 tenant 全过期/全保留/部分；跨 tenant 边界；空 Segment；NULL tenant_id；精确预扫描后全量/空集/部分范围退化为 KEEP/DROP/REWRITE |
+| KeepRowRanges | SparseRange 合并；多 tenant 各自保留后缀；cutoff 边界；每列组读取相同 row ordinal 与行数；空/全范围不进入 writer |
+| 排序 | 多个 KEEP/REWRITE 交错；源 Segment 0/1 输出映射；目标 ordinal 连续；不跨源合并；输出 NONOVERLAPPING；Rowset::verify |
 | 文件复用 | inode 相同、目标 ordinal 连续、旧路径删除后新路径可读、跨文件系统拒绝 |
 | 索引 | ShortKey/ZoneMap/Bloom/Bitmap；GIN 目录；Vector 文件；REWRITE 重建后查询正确 |
 | 加密 | segment_encryption_metas 重排；透明加密开关；链接/重写混合 |
@@ -701,11 +745,11 @@ return Status::OK();
 
 2. 构造 Segment 布局：纯 tenant、跨 tenant 边界、目标范围外、临界 timestamp；触发 Base Compaction，确认 Rowset NONOVERLAPPING。
 
-3. 以 dry_run 运行任务，记录每个 Segment 的 min/max、first/last、分类与预计删除行数；用 SQL 全量计算对账。
+3. 以 dry_run 运行任务，记录每个 Segment 的 min/max、first/last、KeepRowRanges span/range count、最终分类与预计删除行数；用 SQL 全量计算对账。
 
-4. 执行真实 rewrite；核对 source/output Rowset version 相同、rowset_id 不同、目标文件 ordinal 连续。
+4. 执行真实 rewrite；核对 source/output Rowset version 相同、rowset_id 不同、目标文件 ordinal 连续、输出 Segment 数不超过输入且每个源 Segment 只有 0/1 个输出。
 
-5. 对 KEEP 文件执行 inode/文件大小校验；对 REWRITE 文件确认 inode 不同、ShortKey/ZoneMap/索引均可读。
+5. 对 KEEP 文件执行 inode/文件大小校验；对 REWRITE 文件确认 inode 不同、所有列组行数一致，且 ShortKey/ZoneMap/索引均可读。
 
 6. 查询验证：按 tenant、tenant_id、timestamp、全文/向量索引（如启用）核对结果；运行 Rowset::verify。
 
@@ -733,9 +777,9 @@ return Status::OK();
 | C. 复合分区分类、scheduler、限流/重试 | 10–15 | FE |
 | D. Thrift 任务、capability、逐 Tablet 结果 | 5–8 | FE + BE |
 | E. strict tenant 写入门禁与历史校验工具 | 6–10 | FE planner + BE sink |
-| F. Segment 分类器与精确边界读取 | 8–12 | BE |
+| F. Segment 分类器、SparseRange 预扫描与精确边界读取 | 8–12 | BE |
 | G. partial hard link、artifact remap、SegmentStats | 15–24 | BE storage |
-| H. rewrite、校验、CAS 提交、幂等/GC | 10–16 | BE storage |
+| H. TenantTtlRowsetWriter、Vertical Segment rewrite、校验、CAS 提交、幂等/GC | 10–16 | BE storage |
 | I. 单测、集成、failpoint、可观测性 | 18–28 | 全链路 |
 | 合计：本地单副本生产 MVP | 84–131 | 约 17–26 人周 |
 
@@ -748,12 +792,14 @@ return Status::OK();
 | 阶段 | 范围 | 退出标准 |
 | --- | --- | --- |
 | P0 设计/数据门禁 | 属性仅解析与 dry-run；历史 tenant canonical 扫描 | 零非法 tenant；分区决策与 SQL 全量对账一致 |
-| P1 BE POC | 手工单 Tablet、无外部索引、replica=1、single Rowset | KEEP inode 复用；DROP/REWRITE 行数与查询正确 |
+| P1 BE POC | 手工单 Tablet、宽表 Vertical Segment rewrite、无外部索引、replica=1、single Rowset | KEEP inode 复用；DROP/REWRITE 行数与查询正确；各列组 row ordinal 一致 |
 | P2 生产 MVP | FE scheduler、任务结果、SegmentStats、失败恢复、Base Index | 全测试矩阵通过；可灰度、可回滚、无 silent success |
 | P3 能力扩展 | GIN/Vector、更多 Index、replica>1 最终一致 | 副本 lag 可观测并有 SLA；索引全覆盖 |
 | P4 Shared-data | lake object reference reuse + metadata transaction | 不依赖 hard link；对象 GC 与 snapshot 引用正确 |
 
 ## 13.3 不应塞进首期的内容
+
+- 跨源 Segment 合并或重分段；首期保持每个源 Segment 产生 0/1 个输出，小文件由普通 Compaction 后续整理。
 
 - Page 级压缩块零拷贝；它需要重组 Segment footer 与所有 Page index。
 
@@ -831,6 +877,10 @@ return Status::OK();
 | 字符串 ZoneMap 上界 | be/src/storage/rowset/zone_map_index.cpp:231-249 |
 | Segment ZoneMap pruning | be/src/storage/rowset/segment.cpp:307-347 |
 | 精确 ordinal seek | be/src/storage/rowset/column_iterator.h:96-108 |
+| SparseRange 与逐 Segment rowid 选择 | be/src/storage/range.h:172-224；rowset/rowid_range_option.h:27-47 |
+| Segment reader 应用 rowid range | be/src/storage/rowset/segment_options.h:94-98；segment_iterator.cpp:2650-2656 |
+| Vertical SegmentWriter API | be/src/storage/rowset/segment_writer.h:88-143；segment_writer.cpp:240-257 |
+| 现有 VerticalRowsetWriter 封装边界 | be/src/storage/rowset/rowset_writer.h:267-289 |
 | 同版本 Rowset 替换 | be/src/storage/tablet.cpp:373-422 |
 | 现有提交仅查 version | be/src/storage/compaction_task.h:261-299 |
 | stale→unused | be/src/storage/tablet.cpp:750-810 |
