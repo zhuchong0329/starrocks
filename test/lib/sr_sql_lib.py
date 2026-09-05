@@ -2885,6 +2885,79 @@ out.append("${{dictMgr.NO_DICT_STRING_COLUMNS.contains(cid)}}")
         res = self.execute_cmd(exec_url)
         print(res)
 
+    def tenant_ttl_compact(
+        self,
+        database_name,
+        table_name,
+        tenant_column_name,
+        mode,
+        tenants_json,
+        task_id,
+        expected_code,
+        required_actions_csv="",
+    ):
+        """Invoke the build-isolated Tenant-TTL HTTP test seam for one-tablet test data.
+
+        SQL prepares and verifies rows; this helper discovers the physical Tablet and
+        schema identity, invokes the synchronous BE Engine task, and checks only stable
+        response fields. It is intentionally unsuitable as a production task sender.
+        """
+        tablets = self.execute_sql(f"SHOW TABLET FROM `{database_name}`.`{table_name}`", True)
+        tools.assert_true(tablets["status"], tablets["msg"])
+        columns = {str(desc[0]).lower(): idx for idx, desc in enumerate(tablets["desc"])}
+        tools.assert_true("metaurl" in columns, f"SHOW TABLET missing MetaUrl column: {tablets['desc']}")
+        tools.assert_equal(1, len(tablets["result"]), "Tenant-TTL SQL+HTTP test requires one Tablet replica")
+        meta_url = str(tablets["result"][0][columns["metaurl"]])
+        tools.assert_true(meta_url.startswith("http"), f"invalid Tablet MetaUrl: {meta_url}")
+
+        meta_response = requests.get(meta_url, timeout=30)
+        tools.assert_equal(200, meta_response.status_code, f"failed to fetch TabletMeta from {meta_url}")
+        tablet_meta = meta_response.json()
+        schema = tablet_meta.get("schema")
+        tools.assert_true(isinstance(schema, dict), f"TabletMeta missing schema object: {tablet_meta}")
+        schema_id = schema.get("id")
+        schema_version = schema.get("schema_version", schema.get("schemaVersion"))
+        tools.assert_true(schema_id is not None, f"TabletMeta schema missing id: {schema}")
+        tools.assert_true(schema_version is not None, f"TabletMeta schema missing schema_version: {schema}")
+
+        tenant_column_unique_id = None
+        for column in schema.get("column", []):
+            if column.get("name") == tenant_column_name:
+                tenant_column_unique_id = column.get("unique_id", column.get("uniqueId"))
+                break
+        tools.assert_true(
+            tenant_column_unique_id is not None,
+            f"TabletMeta schema has no column named {tenant_column_name}: {schema.get('column', [])}",
+        )
+
+        tenants = json.loads(tenants_json)
+        tools.assert_true(isinstance(tenants, list), "tenants_json must decode to a list")
+        payload = {
+            "protocol_version": 1,
+            "task_id": int(task_id),
+            "tablet_id": int(tablet_meta["tablet_id"]),
+            "partition_id": int(tablet_meta["partition_id"]),
+            "tenant_column_unique_id": int(tenant_column_unique_id),
+            "filter": {"mode": mode, "tenants": tenants},
+            "policy_watermark": {
+                "dictionary_id": 1,
+                "dictionary_txn_id": 1,
+                "evaluation_time_epoch_seconds": 1,
+            },
+            "expected_schema": {"schema_id": int(schema_id), "schema_version": int(schema_version)},
+        }
+        run_url = meta_url.split("/api/meta/header/", 1)[0] + "/api/tenant_ttl_compaction/run"
+        response = requests.post(run_url, json=payload, timeout=1800)
+        result = response.json()
+        tools.assert_equal(expected_code, result.get("code"), f"Tenant-TTL request failed: {result}")
+        tools.assert_equal(200, response.status_code, f"unexpected Tenant-TTL HTTP status: {result}")
+
+        actions = sorted({rowset.get("action") for rowset in result.get("rowsets", [])})
+        required_actions = sorted(filter(None, required_actions_csv.split(",")))
+        for action in required_actions:
+            tools.assert_true(action in actions, f"missing rowset action {action}: {result}")
+        return f"{result['code']} actions={','.join(actions)}"
+
     def wait_analyze_finish(self, database_name, table_name, sql):
         timeout = 300
         analyze_sql = "show analyze status where `Database` = 'default_catalog.%s'" % database_name

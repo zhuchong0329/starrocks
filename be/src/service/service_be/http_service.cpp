@@ -59,6 +59,9 @@
 #include "http/action/snapshot_action.h"
 #include "http/action/stop_be_action.h"
 #include "http/action/stream_load.h"
+#ifdef STARROCKS_TENANT_TTL_MANUAL_TEST_ENDPOINT
+#include "http/action/tenant_ttl_compaction_action.h"
+#endif
 #include "http/action/transaction_stream_load.h"
 #include "http/action/update_config_action.h"
 #include "http/default_path_handlers.h"
@@ -233,6 +236,12 @@ Status HttpServiceBE::start() {
     auto* run_compaction_action = new CompactionAction(CompactionActionType::RUN_COMPACTION);
     _ev_http_server->register_handler(HttpMethod::POST, "/api/compact", run_compaction_action);
     _http_handlers.emplace_back(run_compaction_action);
+
+#ifdef STARROCKS_TENANT_TTL_MANUAL_TEST_ENDPOINT
+    auto* tenant_ttl_compaction_action = new TenantTtlCompactionAction();
+    _ev_http_server->register_handler(HttpMethod::POST, "/api/tenant_ttl_compaction/run", tenant_ttl_compaction_action);
+    _http_handlers.emplace_back(tenant_ttl_compaction_action);
+#endif
 
     auto* show_repair_action = new CompactionAction(CompactionActionType::SHOW_REPAIR);
     _ev_http_server->register_handler(HttpMethod::GET, "/api/compaction/show_repair", show_repair_action);

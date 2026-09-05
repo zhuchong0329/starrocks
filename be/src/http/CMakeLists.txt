@@ -54,11 +54,18 @@ set(WEB_SERVER_FILES
   action/lake/dump_tablet_metadata_action.cpp
   action/stop_be_action.cpp)
 
+if(ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT)
+    list(APPEND WEB_SERVER_FILES action/tenant_ttl_compaction_action.cpp)
+endif()
+
 if(STARROCKS_JIT_ENABLE)
     set(WEB_SERVER_FILES ${WEB_SERVER_FILES} action/jit_cache_action.cpp)
 endif()
 
 add_library(Webserver STATIC ${WEB_SERVER_FILES})
+if(ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT)
+    target_compile_definitions(Webserver PRIVATE STARROCKS_TENANT_TTL_MANUAL_TEST_ENDPOINT)
+endif()
 
 # target_link_libraries(Webserver pthread dl Util)
 #ADD_BE_TEST(integer-array-test)

@@ -26,3 +26,7 @@ add_library(ServiceBE
     arrow_flight_sql_service.cpp
     arrow_flight_auth_server_middleware.cpp
 )
+
+if(ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT)
+    target_compile_definitions(ServiceBE PRIVATE STARROCKS_TENANT_TTL_MANUAL_TEST_ENDPOINT)
+endif()

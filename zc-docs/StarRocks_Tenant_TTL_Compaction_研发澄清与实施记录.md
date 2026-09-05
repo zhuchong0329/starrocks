@@ -4,7 +4,7 @@
 
 源码基线：StarRocks main，commit `9559176fab6e2cb885779f1e7b680133d58d6972`  
 建立日期：2026-09-03  
-当前阶段：第四步——第 0～4 轮编码和测试已完成，等待阶段复核
+当前阶段：第四步——第 0～5 轮编码和测试已完成，待进入第 6 轮收口
 文档状态：持续更新
 
 ## 1. 研发阶段
@@ -14,11 +14,11 @@
 | 第一步 | 需求澄清 | 已完成 |
 | 第二步 | 测试用例对齐 | 已完成 |
 | 第三步 | 编码计划文档 | 已完成 |
-| 第四步 | 编码和测试 | 第 0～4 轮已完成 |
+| 第四步 | 编码和测试 | 第 0～5 轮已完成 |
 
-Tenant-TTL Compaction 的需求、技术语义、测试边界和详细编码计划已经完成对齐。2026-09-04 开始第四步，按《StarRocks_Tenant_TTL_Compaction_BE_详细编码计划.md》的第 0～4 轮连续实施；每轮完成对应测试后独立提交并推送。第 5 轮 HTTP 手工入口和第 6～7 轮收口/增强测试不在本次连续编码范围内。
+Tenant-TTL Compaction 的需求、技术语义、测试边界和详细编码计划已经完成对齐。2026-09-04 开始第四步，第 0～4 轮已连续实施、分轮提交并推送；2026-09-05 经进一步对齐后实施第 5 轮 HTTP 手工入口和 SQL+HTTP 端到端。第 6～7 轮收口/增强测试尚未开始。
 
-当前实施进度：第 0～4 轮均已完成并通过专项测试。第 0 轮已落地请求/结果契约和共享测试夹具；第 1 轮已落地只读取业务 `VARCHAR` tenant 列的精确 `TenantTtlRowFilter`。第 2 轮已落地策略无关的 `VerticalSegmentRewriter` 与 `FilteredRowsetWriter`：所有列组重放同一物理 rowid 范围，KEEP 对 `.dat` 及 GIN/Vector artifact 做目标 ordinal 重映射后的硬链接，DROP 不产生输出 Segment，REWRITE 生成一个新 Segment，目标 ordinal 始终连续；支持全 DROP 的空同版本 Rowset，并在 build 后无条件 `load()`、`verify()`。第 3 轮已落地 Tablet 进程内 `IDLE/PENDING/RUNNING` 状态、generation fencing、base/cumulative 固定顺序独占 try-lock guard、只从 active version map 固定完整连续 coverage、统一 `is_compacting` 标记清理，以及独立于普通 Compaction 的完整 Rowset ID/schema identity CAS 和多 Rowset 同版本批量提交 wrapper；普通 `modify_rowsets_without_lock()` 保持原样。第 4 轮已落地正式 `EngineTenantTtlCompactionTask`：完成 eligibility、内存/取消检查、完整 coverage 的多 Rowset 扫描与 staged 构建、单次 CAS 提交、`NOOP_VERIFIED`、失败清理，以及固定维度 metrics、trace counter 和不输出 tenant 内容的终态日志；确定性故障注入证明第二个输出失败时不会发生部分提交或残留文件。累计专项测试为第 0 轮 7 个、第 1 轮 6 个、第 2 轮 3 个、第 3 轮 6 个、第 4 轮 11 个，共 33 个，全部通过。
+当前实施进度：第 0～5 轮均已完成并通过对应验证。第 0 轮已落地请求/结果契约和共享测试夹具；第 1 轮已落地只读取业务 `VARCHAR` tenant 列的精确 `TenantTtlRowFilter`。第 2 轮已落地策略无关的 `VerticalSegmentRewriter` 与 `FilteredRowsetWriter`：所有列组重放同一物理 rowid 范围，KEEP 对 `.dat` 及 GIN/Vector artifact 做目标 ordinal 重映射后的硬链接，DROP 不产生输出 Segment，REWRITE 生成一个新 Segment，目标 ordinal 始终连续；支持全 DROP 的空同版本 Rowset，并在 build 后无条件 `load()`、`verify()`。第 3 轮已落地 Tablet 进程内 `IDLE/PENDING/RUNNING` 状态、generation fencing、base/cumulative 固定顺序独占 try-lock guard、只从 active version map 固定完整连续 coverage、统一 `is_compacting` 标记清理，以及独立于普通 Compaction 的完整 Rowset ID/schema identity CAS 和多 Rowset 同版本批量提交 wrapper；普通 `modify_rowsets_without_lock()` 保持原样。第 4 轮已落地正式 `EngineTenantTtlCompactionTask`：完成 eligibility、内存/取消检查、完整 coverage 的多 Rowset 扫描与 staged 构建、单次 CAS 提交、`NOOP_VERIFIED`、失败清理，以及固定维度 metrics、trace counter 和不输出 tenant 内容的终态日志；确定性故障注入证明第二个输出失败时不会发生部分提交或残留文件。累计专项测试为第 0 轮 7 个、第 1 轮 6 个、第 2 轮 3 个、第 3 轮 6 个、第 4 轮 11 个，共 33 个，全部通过。第 5 轮已落地默认 OFF 的特殊 HTTP 编译开关、严格 JSON Action、条件路由，以及复用现有 `test/run.py` 的 SQL+HTTP T/R 用例。HTTP Action 专项 Release 测试 6/6 通过；真实 4.0.11 All-in-One 中 1 个串行 T/R case 通过，覆盖 `DELETE_LIST/KEEP_LIST`、NULL、多 Rowset `VERIFIED_NO_CHANGE/DROP/REWRITE` 和不同 task ID 重复谓词的 `NOOP_VERIFIED`。专用 ON 与默认 OFF Release 构建均成功，默认 OFF 二进制确认不含手工 Handler 标识和路由字符串。
 
 ## 2. 需求澄清记录
 
@@ -927,9 +927,9 @@ FE 把 `TABLET_BUSY/TTL_ALREADY_RUNNING` 视为可重试或继续跟踪的非终
 1. 首轮提供独立的同步 `POST /api/tenant_ttl_compaction/run` 手工验证入口，不在现有 `/api/compact` 中增加 `tenant_ttl` 分支，不复用普通手工 Compaction 的进程级 `_running` 开关。
 2. HTTP Action 只负责解析、规范化和校验请求，然后构造正式 `TenantTtlCompactionRequest` 并调用与未来 FE Agent Task 相同的 `EngineTenantTtlCompactionTask` 执行链。Action 中不复制 Rowset 选择、Segment 扫描、Writer 或 TabletMeta 提交逻辑。
 3. 入口仅支持 shared-nothing 本地非 PK Tablet；对 shared-data、PK Tablet 或其他不在首期范围内的 Tablet 明确返回 `NOT_SUPPORTED`。
-4. 请求使用已对齐的正式语义：`tablet_id`、`partition_id`、`task_id`、`tenant_column_unique_id`、`TenantFilterMode + tenants`、`policy_watermark` 和 `predicate_digest`。入口不接受 `rowset_ids/segment_ids`，不提供 `skip_lock`、`skip_rowset_id_check` 或 `force` 等绕过正式门禁的参数。
+4. 请求使用已对齐的正式语义：`protocol_version`、`tablet_id`、`partition_id`、`task_id`、`tenant_column_unique_id`、`TenantFilterMode + tenants`、`policy_watermark`、`expected_schema_id/expected_schema_version` 和可选 `fe_observed_max_version`。首期不使用 `request_digest/predicate_digest`。入口不接受 `schema_hash`、`rowset_ids/segment_ids`，不提供 `skip_lock`、`skip_rowset_id_check` 或 `force` 等绕过正式门禁的参数。
 5. coverage 必须由正式执行器在取得 Tablet admission 及 base/cumulative 独占锁后固定，HTTP 调用者不能选择或排除其中的 Rowset。HTTP 任务必须经过与未来 FE 任务相同的 Tablet 级 TTL 准入、Compaction try-lock、全 coverage `is_compacting`、提交前 Rowset ID 校验及一次性 TabletMeta 提交。
-6. 手工入口同步等待本次执行完成，返回 `SUCCESS/NOOP/TABLET_BUSY/TTL_ALREADY_RUNNING/STALE_ROWSET` 等真实任务结果，并返回 `processed_through_version`、coverage 中的 source/output Rowset 清单、行数及 Segment 统计。不得像现有普通 Agent Compaction handler 一样忽略底层执行错误后固定返回成功。
+6. 手工入口同步等待本次执行完成，返回 `SUCCESS/NOOP_VERIFIED/TABLET_BUSY/TTL_ALREADY_RUNNING/STALE_ROWSET` 等真实任务结果，并返回 `processed_through_version`、coverage 中的 source/output Rowset 清单、行数及 Segment 统计。不得像现有普通 Agent Compaction handler 一样忽略底层执行错误后固定返回成功。
 
 #### 编译宏与发布隔离
 
@@ -967,6 +967,16 @@ FE 把 `TABLET_BUSY/TTL_ALREADY_RUNNING` 视为可重试或继续跟踪的非终
 6. 第二批增强测试：覆盖崩溃恢复、深度竞态、随机属性、Sanitizer、多副本、性能资源和长稳运行。
 
 纯 SQL 在首轮不能独立触发 Tenant-TTL Compaction，因为正式 FE Agent Task 尚未实现；SQL+HTTP 是可行的端到端形式。应提供可复用测试 helper，通过 `SHOW TABLET` 等接口定位目标 Tablet 及 BE endpoint，构造正式请求并归一化动态 task/Rowset ID。该 helper 首次建设成本中等，完成后新增数据用例成本较低。开启手工 HTTP 专用宏的测试需要独立构建或专项 CI，不能依赖正常发布构建。
+
+#### SQL+HTTP 框架复用结论
+
+第 5 轮不创造新的 Python/脚本测试方式，直接复用仓库已有 `test/` SQL-tester。`test/run.py` 是统一 Python runner；T/R 用例原生支持在 SQL 步骤之间执行 `shell: curl`，也支持通过 `function:` 调用 `test/lib/sr_sql_lib.py` 中的 Python helper。仓库已有 Stream Load 等用例采用“SQL 建表 -> HTTP -> SQL 查询”的同类模式，`sr_sql_lib.py` 也已有通过 `SHOW TABLET` 定位 BE 并调用普通 Compaction HTTP 的 helper。
+
+既有参考位置明确为：`test/sql/test_stream_load/T/test_stream_load_basic_txn`（T/R 中直接 `shell: curl`）、`test/lib/sr_sql_lib.py::manual_compact`（发现 Tablet 后调用普通 Compaction HTTP）和 `test/sql/test_sort_key/T/test_sort_key_dup_tbl`（通过 `function: manual_compact(...)` 嵌入 helper）。因此 Tenant-TTL 是在现有能力上补充一个专项 helper 和用例目录，不是创造新的测试方式。
+
+Tenant-TTL 只新增 `test/sql/test_tenant_ttl_compaction/T`、对应的 `R` 基线，以及 `sr_sql_lib.py` 中负责 Tablet/BE 定位、JSON POST 和稳定字段断言的薄 helper。SQL 仍只负责建表、分批写入和用户可见结果验证，不新增产品 SQL 语法；HTTP 只负责触发正式 `EngineTenantTtlCompactionTask`。严格的 Rowset ID、version、stale/unused 和原子性断言继续由 BE 存储集成测试承担。
+
+第 5 轮实际用例不修改全局 Cumulative Compaction 配置。每张单 Tablet、单副本表分三次 INSERT，增量 Rowset 数量低于默认触发阈值；第一次 HTTP 响应必须同时包含 `VERIFIED_NO_CHANGE/DROP/REWRITE`，第二个 task ID 重复同一谓词必须返回 `NOOP_VERIFIED`，随后都由 SQL 查询验证用户可见数据。
 
 #### KEEP、DROP、REWRITE 的测试定义
 

@@ -1,0 +1,44 @@
+-- name: test_tenant_ttl_compaction @sequential
+
+CREATE DATABASE db_${uuid0};
+USE db_${uuid0};
+
+CREATE TABLE ttl_delete_list (
+    event_id BIGINT NOT NULL,
+    tenant VARCHAR(128) NULL,
+    payload INT NOT NULL
+)
+ENGINE=OLAP
+DUPLICATE KEY(event_id)
+DISTRIBUTED BY HASH(event_id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO ttl_delete_list VALUES (1, 'b', 10), (2, 'c', 20), (3, NULL, 30);
+INSERT INTO ttl_delete_list VALUES (4, 'a', 40), (5, 'a', 50);
+INSERT INTO ttl_delete_list VALUES (6, 'a', 60), (7, 'b', 70), (8, NULL, 80);
+
+function: tenant_ttl_compact('db_${uuid0}', 'ttl_delete_list', 'tenant', 'DELETE_LIST', '["a"]', 5001, 'SUCCESS', 'VERIFIED_NO_CHANGE,DROP,REWRITE')
+[ORDER] SELECT event_id, tenant, payload FROM ttl_delete_list ORDER BY event_id;
+function: tenant_ttl_compact('db_${uuid0}', 'ttl_delete_list', 'tenant', 'DELETE_LIST', '["a"]', 5002, 'NOOP_VERIFIED', 'VERIFIED_NO_CHANGE')
+[ORDER] SELECT event_id, tenant, payload FROM ttl_delete_list ORDER BY event_id;
+
+CREATE TABLE ttl_keep_list (
+    event_id BIGINT NOT NULL,
+    tenant VARCHAR(128) NULL,
+    payload INT NOT NULL
+)
+ENGINE=OLAP
+DUPLICATE KEY(event_id)
+DISTRIBUTED BY HASH(event_id) BUCKETS 1
+PROPERTIES ("replication_num" = "1");
+
+INSERT INTO ttl_keep_list VALUES (1, 'b', 10), (2, NULL, 20);
+INSERT INTO ttl_keep_list VALUES (3, 'a', 30), (4, 'c', 40);
+INSERT INTO ttl_keep_list VALUES (5, 'a', 50), (6, 'b', 60), (7, NULL, 70);
+
+function: tenant_ttl_compact('db_${uuid0}', 'ttl_keep_list', 'tenant', 'KEEP_LIST', '["b"]', 5003, 'SUCCESS', 'VERIFIED_NO_CHANGE,DROP,REWRITE')
+[ORDER] SELECT event_id, tenant, payload FROM ttl_keep_list ORDER BY event_id;
+function: tenant_ttl_compact('db_${uuid0}', 'ttl_keep_list', 'tenant', 'KEEP_LIST', '["b"]', 5004, 'NOOP_VERIFIED', 'VERIFIED_NO_CHANGE')
+[ORDER] SELECT event_id, tenant, payload FROM ttl_keep_list ORDER BY event_id;
+
+DROP DATABASE db_${uuid0};

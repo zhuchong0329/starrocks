@@ -109,6 +109,8 @@ Usage: $0 <options>
      --with-maven-batch-mode {ON|OFF}
                         build maven project in batch mode (default: $WITH_MAVEN_BATCH_MODE)
      --output           specify the output directory (default: $STARROCKS_HOME/output)
+     --enable-tenant-ttl-manual-test-endpoint
+                        build the manual Tenant-TTL compaction HTTP test endpoint (default: OFF)
      --disable-java-check-style
                         disable Java checkstyle checks during build (default: $DISABLE_JAVA_CHECK_STYLE)
      -h,--help          Show this help message
@@ -152,6 +154,7 @@ OPTS=$(getopt \
   -l 'without-avx2' \
   -l 'with-maven-batch-mode:' \
   -l 'output:' \
+  -l 'enable-tenant-ttl-manual-test-endpoint' \
   -l 'help' \
   -l 'disable-java-check-style' \
   -- "$@")
@@ -178,6 +181,7 @@ BUILD_JAVA_EXT=ON
 OUTPUT_COMPILE_TIME=OFF
 WITH_TENANN=ON
 WITH_RELATIVE_SRC_PATH=ON
+ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT=OFF
 
 # Default to OFF, turn it ON if current shell is non-interactive
 WITH_MAVEN_BATCH_MODE=OFF
@@ -288,6 +292,7 @@ else
             --with-source-file-relative-path) WITH_RELATIVE_SRC_PATH=$2 ; shift 2 ;;
             --with-maven-batch-mode) WITH_MAVEN_BATCH_MODE=$2 ; shift 2 ;;
             --output) STARROCKS_OUTPUT=$2 ; shift 2 ;;
+            --enable-tenant-ttl-manual-test-endpoint) ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT=ON; shift ;;
             -h) HELP=1; shift ;;
             --help) HELP=1; shift ;;
             -j) PARALLEL=$2; shift 2 ;;
@@ -336,6 +341,7 @@ echo "Get params:
     WITH_COMPRESS_DEBUG_SYMBOL  -- $WITH_COMPRESS
     WITH_STARCACHE              -- $WITH_STARCACHE
     ENABLE_SHARED_DATA          -- $USE_STAROS
+    TENANT_TTL_MANUAL_ENDPOINT  -- $ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT
     USE_AVX2                    -- $USE_AVX2
     USE_AVX512                  -- $USE_AVX512
     USE_SSE4_2                  -- $USE_SSE4_2
@@ -472,6 +478,7 @@ if [ ${BUILD_BE} -eq 1 ] || [ ${BUILD_FORMAT_LIB} -eq 1 ] ; then
                   -DBUILD_BE=${BUILD_BE}                                \
                   -DWITH_TENANN=${WITH_TENANN}                          \
                   -DSTARROCKS_JIT_ENABLE=${ENABLE_JIT}                  \
+                  -DENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT=${ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT} \
                   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON                    \
                   -DBUILD_FORMAT_LIB=${BUILD_FORMAT_LIB}                \
                   -DWITH_RELATIVE_SRC_PATH=${WITH_RELATIVE_SRC_PATH}    \

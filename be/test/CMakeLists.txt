@@ -640,6 +640,9 @@ ADD_BE_TEST(storage/tenant_ttl_row_filter_test)
 ADD_BE_TEST(storage/filtered_rowset_writer_test)
 ADD_BE_TEST(storage/tenant_ttl_tablet_primitives_test)
 ADD_BE_TEST(storage/engine_tenant_ttl_compaction_task_test)
+if(ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT)
+    ADD_BE_TEST(http/action/tenant_ttl_compaction_action_test)
+endif()
 
 # you can simply add test case as single binary without adding `main`
 # ADD_BE_TEST(exec/sorting_test)

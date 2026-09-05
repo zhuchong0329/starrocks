@@ -1,10 +1,10 @@
 # StarRocks Tenant-TTL Compaction BE 详细编码计划
 
-> 状态：第四步第 0～4 轮编码和测试已完成，等待阶段复核
+> 状态：第四步第 0～5 轮编码和测试已完成，待进入第 6 轮收口
 > 源码基线：StarRocks main，commit `10adb6a028de5218ef3be355d7fc7e3b82f9ab9d`  
 > 编制日期：2026-09-04  
 > 实施范围：首期 shared-nothing BE Tenant-TTL Compaction  
-> 实施节奏：第 0～4 轮已连续完成编码、专项测试和分轮提交
+> 实施节奏：第 0～5 轮已完成编码和对应验证；第 0～4 轮已分轮提交，第 5 轮随本次变更提交
 
 ## 1. 编制依据与结论优先级
 
@@ -198,7 +198,7 @@ struct TenantTtlCompactionRequest {
 };
 ```
 
-HTTP 和内部请求都不接收 `schema_hash`。如需路径或环境诊断，BE 可自行读取 `tablet->schema_hash()` 并以 `observed_schema_hash` 记入日志或响应；该值始终不参与任务准入或提交 CAS。`dictionary_txn_id` 与当前 `DictionaryCacheManager` 术语保持一致；它就是字典刷新成功后作为缓存版本的 FE 全局单调事务 ID。
+HTTP 和内部请求都不接收 `schema_hash`，结果协议也不增加诊断性 schema hash 字段。BE 仅可在内部确有路径诊断需要时读取 `tablet->schema_hash()`，该值不参与任务准入或提交 CAS。`dictionary_txn_id` 与当前 `DictionaryCacheManager` 术语保持一致；它就是字典刷新成功后作为缓存版本的 FE 全局单调事务 ID。
 
 `fe_observed_max_version` 只用于检查目标副本是否至少追上 FE 规划水位和记录诊断信息，不得把 BE 实际 coverage 截断到该水位：
 
@@ -771,6 +771,7 @@ Action 只做：JSON 解析、字段类型校验、tenant 名单规范化、构�
 | TABLET_NOT_FOUND | 404 |
 | STALE_ROWSET / SCHEMA_CHANGED | 409 |
 | TABLET_BUSY / TTL_ALREADY_RUNNING / REPLICA_NOT_CAUGHT_UP | 503 |
+| CANCELLED | 503 |
 | NOT_SUPPORTED | 501 |
 | INTERNAL_ERROR | 500 |
 
@@ -797,6 +798,19 @@ STARROCKS_TENANT_TTL_MANUAL_TEST_ENDPOINT
 3. `be/test/CMakeLists.txt` 的 HTTP Action 专项测试。
 
 正式 Engine task、过滤器、Writer、Tablet admission 和 commit 不受该宏保护，确保未来 FE 复用同一条生产执行链。
+
+### 14.2 SQL+HTTP 测试框架复用
+
+第 5 轮不创建新的 Python 测试框架或孤立 runner，直接复用仓库已有的 `test/` SQL-tester：
+
+- `test/run.py` 继续作为统一 Python 入口。
+- `test/sql/test_tenant_ttl_compaction/T` 负责 SQL 建表、分批写入、调用 helper 和查询验证。
+- `test/sql/test_tenant_ttl_compaction/R` 保存归一化后的预期结果。
+- `test/lib/sr_sql_lib.py` 只增加 Tenant-TTL 专用薄 helper，复用现有 SQL 执行、`SHOW TABLET`、BE HTTP endpoint 和 `requests.post` 能力。
+
+该模式与仓库现有“SQL 建表/造数 -> `shell: curl` 或 `function:` 调用 HTTP -> SQL 查询验数”用例一致。SQL 不新增 Tenant-TTL 语法，也不负责触发正式 FE 调度；特殊 HTTP Action 是首轮尚无 FE Agent Task 时的测试触发器。运行 T/R 用例的目标集群必须由显式打开 `ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT` 的 BE 构建，普通发布集群应因路由不存在而拒绝执行该专项用例。
+
+可直接参考的既有落点包括：`test/sql/test_stream_load/T/test_stream_load_basic_txn` 使用 `shell: curl` 组合 SQL 与 HTTP；`test/lib/sr_sql_lib.py::manual_compact` 通过 `SHOW TABLET` 定位 BE 并请求普通 Compaction HTTP；`test/sql/test_sort_key/T/test_sort_key_dup_tbl` 使用 `function: manual_compact(...)` 把该 helper 嵌入 T/R 流程。Tenant-TTL 沿用后一种 helper 组织方式。
 
 ## 15. 代码文件变更清单
 
@@ -1032,13 +1046,13 @@ KEEP_LIST   × KEEP/DROP/REWRITE
 - 增加默认 OFF build option、条件源文件、条件 include/route。
 - Action 使用 RapidJSON 严格解析 body，不接受未知的 bypass/Rowset/Segment 控制字段；调用方提供的 schema hash 不在请求字段白名单内，传入时按未知字段拒绝。
 - Action 同步调用正式 Engine task，返回真实结果和 retryable。
-- 在 SQL tester 增加专用 helper：按列名解析 `SHOW TABLET`，定位 BE HTTP 地址和 Tablet 信息，POST JSON，归一化动态 ID。
-- 专项 SQL 集群提高 Cumulative Compaction 触发阈值并在结束后恢复；调用前通过 Tablet meta/status 确认多 Rowset。
+- 复用仓库已有 `test/` SQL-tester，不创建新测试框架；增加专用 helper，按列名解析 `SHOW TABLET`，定位 BE HTTP 地址和 Tablet 信息，POST JSON，归一化动态 ID。
+- SQL 用例以单 Tablet、单副本表分三次 INSERT 产生三个增量 Rowset，数量保持在默认 Cumulative Compaction 触发阈值以下；不修改共享集群配置。HTTP 结果必须直接证明同一 coverage 同时包含 `VERIFIED_NO_CHANGE/DROP/REWRITE`。
 
 #### 对应测试
 
 - HTTP 合法 DELETE_LIST/KEEP_LIST、非法 JSON、字段缺失、mode 冲突、task ID/watermark 非法、unsupported Tablet、busy 和 stale 映射。
-- HTTP 请求携带调用方 schema hash 时按未知字段拒绝；响应如包含 BE 自行读取的 `observed_schema_hash`，仅验证其不参与准入和提交判断。
+- HTTP 请求携带调用方 schema hash 时按未知字段拒绝；首轮响应也不增加 `observed_schema_hash`。
 - HTTP 不能指定 rowset/segment，不能跳过锁/CAS，不能 force。
 - 默认构建不编译 Handler，路由 404；特殊构建路由存在。
 - SQL+HTTP DELETE_LIST、KEEP_LIST、多 Rowset混合、NULL、不带 tenant_id/指定排序键。
@@ -1049,6 +1063,13 @@ KEEP_LIST   × KEEP/DROP/REWRITE
 - 第一批最小测试集全部通过。
 - 发布构建检查不含手工 Handler 符号和路由字符串。
 - HTTP Action 不包含任何存储实现分支。
+
+#### 实施结果（2026-09-05）
+
+- 已落地默认 `OFF` 的 `ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT`、专用编译宏、严格 JSON Action 和条件路由；正式 Engine task 不受该宏保护。
+- HTTP Action 独立 Release 测试目标通过 3 个 suite、6 个 case，其中真实 Tablet 用例在同一个多 Rowset coverage 中同时产生 `VERIFIED_NO_CHANGE/DROP/REWRITE`，随后收敛到 `NOOP_VERIFIED`。
+- 复用仓库 `test/run.py` 的 1 个串行 T/R case 已在真实 4.0.11 All-in-One 集群通过；同一 case 覆盖 `DELETE_LIST`、`KEEP_LIST`、NULL、三个增量 Rowset 的三类行为和不同 task ID 重复谓词幂等。
+- 专用 Release 二进制确认包含路由并完成真实 HTTP 调用；同一当前源码以默认 `OFF` 重新构建后，最终二进制不含路由字符串或 `TenantTtlCompactionAction` 标识。
 
 ### 第 6 轮：第一批收口和代码评审修正
 
@@ -1163,7 +1184,7 @@ tenant_ttl_compaction_running
 2026-09-04 已完成以下五项编码前口径对齐：
 
 1. **tenant 类型**：首期只支持 nullable/non-nullable `VARCHAR`；`CHAR`、数值 tenant 和复杂类型返回 `NOT_SUPPORTED`。
-2. **schema expectation 与 CAS**：外部请求携带 `expected_schema_id + expected_schema_version + tenant_column_unique_id`，不接收 `schema_hash`。BE 固定 coverage 时持有当前 `TabletSchemaCSPtr`，所有输出使用该 Schema；提交前在 header lock 内比较当前 Schema 对象、schema ID/version 及全部 Rowset ID。如需诊断，BE 自行输出实际 `observed_schema_hash`，它不参与正确性校验。
+2. **schema expectation 与 CAS**：外部请求携带 `expected_schema_id + expected_schema_version + tenant_column_unique_id`，不接收 `schema_hash`。BE 固定 coverage 时持有当前 `TabletSchemaCSPtr`，所有输出使用该 Schema；提交前在 header lock 内比较当前 Schema 对象、schema ID/version 及全部 Rowset ID。结果协议不增加诊断性 schema hash 字段。
 3. **FE 观测版本**：仅作为“副本至少追到此版本”的下界，不作为 coverage 截断上界；有效 `snapshot_end_version` 始终由 BE 在取得互斥后确定。
 4. **task ID 与幂等**：首期不引入 `request_digest/predicate_digest`，也不保存 last task identity。正式任务使用 FE 分配的 Agent Task signature 作为 task ID；重试时 task ID 和请求内容不变。Tablet 只保存当前 `owner_task_id`，结束后不保留历史；重复请求依靠正式扫描和 `NOOP_VERIFIED` 收敛。
 5. **policy watermark**：固定为 `{dictionary_id, dictionary_txn_id, evaluation_time_epoch_seconds}`。首期 BE 不读取字典，只校验 watermark 格式及不可变请求/admission owner 的任务内一致性；不持久化完成水位，不判断跨任务或跨重启的新旧顺序，调度顺序由 FE 管理。

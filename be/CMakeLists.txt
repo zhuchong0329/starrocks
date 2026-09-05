@@ -96,6 +96,10 @@ message(STATUS "make test: ${MAKE_TEST}")
 
 option(WITH_GCOV "Build binary with gcov to get code coverage" OFF)
 
+option(ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT
+       "Build the manual Tenant-TTL compaction HTTP test endpoint" OFF)
+message(STATUS "Tenant-TTL manual HTTP test endpoint: ${ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT}")
+
 option(WITH_COMPRESS "Build binary with compresss debug section" ON)
 
 option(WITH_STARCACHE "Build binary with starcache library" ON)
@@ -1245,4 +1249,3 @@ endif()
 install(DIRECTORY
     ${BASE_DIR}/../webroot/be/
     DESTINATION ${OUTPUT_DIR}/www)
-
