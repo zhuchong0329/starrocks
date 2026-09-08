@@ -50,8 +50,8 @@ private:
     bool _owns_admission{false};
 };
 
-// Ensures every is_compacting flag set during coverage capture is cleared on
-// every exit path. It must be destroyed before TenantTtlTabletGuard.
+// Owns the reader references and is_compacting flags acquired during coverage
+// capture. It must be destroyed before TenantTtlTabletGuard.
 class TenantTtlCoverageGuard {
 public:
     explicit TenantTtlCoverageGuard(TabletSharedPtr tablet);

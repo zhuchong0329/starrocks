@@ -233,6 +233,15 @@ TEST_F(TenantTtlTabletPrimitivesTest, CapturesCompleteMultiRowsetCoverageAndClea
     ASSERT_NE(nullptr, add_rowset(Version(2, 2), {{{1, "a", 10}}}));
     ASSERT_NE(nullptr, add_rowset(Version(3, 3), {{{2, "b", 20}}}));
 
+    std::vector<RowsetSharedPtr> sources;
+    {
+        std::shared_lock meta_lock(_tablet->get_header_lock());
+        ASSERT_OK(_tablet->capture_consistent_rowsets(Version(0, 3), &sources));
+    }
+    for (const auto& source : sources) {
+        EXPECT_EQ(0, source->refs_by_reader());
+    }
+
     Status detail;
     TenantTtlTabletGuard tablet_guard(_tablet);
     ASSERT_EQ(TenantTtlTaskCode::SUCCESS, tablet_guard.try_acquire(request(), &detail));
@@ -248,6 +257,7 @@ TEST_F(TenantTtlTabletPrimitivesTest, CapturesCompleteMultiRowsetCoverageAndClea
         EXPECT_FALSE(coverage.coverage_digest.empty());
         for (const auto& entry : coverage.entries) {
             EXPECT_TRUE(entry.source->get_is_compacting());
+            EXPECT_EQ(1, entry.source->refs_by_reader());
         }
 
         ASSERT_NE(nullptr, add_rowset(Version(4, 4), {{{3, "c", 30}}}));
@@ -260,6 +270,41 @@ TEST_F(TenantTtlTabletPrimitivesTest, CapturesCompleteMultiRowsetCoverageAndClea
     ASSERT_OK(_tablet->capture_consistent_rowsets(Version(0, 4), &current));
     for (const auto& rowset : current) {
         EXPECT_FALSE(rowset->get_is_compacting());
+    }
+    for (const auto& source : sources) {
+        EXPECT_EQ(0, source->refs_by_reader());
+    }
+}
+
+TEST_F(TenantTtlTabletPrimitivesTest, CoverageLoadFailureReleasesAllReaderReferences) {
+    ASSERT_NE(nullptr, create_tablet());
+    ASSERT_NE(nullptr, add_rowset(Version(2, 2), {{{1, "a", 10}}}));
+    ASSERT_NE(nullptr, add_rowset(Version(3, 3), {{{2, "b", 20}}}));
+
+    std::vector<RowsetSharedPtr> sources;
+    {
+        std::shared_lock meta_lock(_tablet->get_header_lock());
+        ASSERT_OK(_tablet->capture_consistent_rowsets(Version(0, 3), &sources));
+    }
+    int load_calls = 0;
+    SyncPoint::GetInstance()->SetCallBack("Tablet::capture_tenant_ttl_coverage:load_rowset", [&](void* arg) {
+        if (++load_calls == 2) {
+            *static_cast<Status*>(arg) = Status::IOError("injected Tenant-TTL Rowset load failure");
+        }
+    });
+    SyncPoint::GetInstance()->EnableProcessing();
+
+    Status detail;
+    TenantTtlTabletGuard tablet_guard(_tablet);
+    ASSERT_EQ(TenantTtlTaskCode::SUCCESS, tablet_guard.try_acquire(request(), &detail));
+    TenantTtlCoverageGuard coverage_guard(_tablet);
+    EXPECT_EQ(TenantTtlTaskCode::INTERNAL_ERROR, coverage_guard.capture(request(), &detail));
+    EXPECT_TRUE(coverage_guard.coverage().entries.empty());
+    EXPECT_FALSE(coverage_guard.owns_coverage());
+    EXPECT_EQ(2, load_calls);
+    for (const auto& source : sources) {
+        EXPECT_EQ(0, source->refs_by_reader());
+        EXPECT_FALSE(source->get_is_compacting());
     }
 }
 

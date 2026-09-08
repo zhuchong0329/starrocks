@@ -174,6 +174,7 @@ protected:
         EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
         for (const auto& source : sources) {
             EXPECT_FALSE(source->get_is_compacting());
+            EXPECT_EQ(0, source->refs_by_reader());
         }
         const bool base_lock_acquired = _tablet->get_base_lock().try_lock();
         EXPECT_TRUE(base_lock_acquired);
@@ -370,6 +371,35 @@ TEST_F(EngineTenantTtlCompactionTaskTest, EmptyDeleteListNoopsAfterCoverageValid
     EXPECT_EQ(0, result.scanned_rows);
     EXPECT_EQ(0, result.deleted_rows);
     EXPECT_EQ(before, snapshot_active_rowsets());
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, ReaderReferencesProtectSegmentsFromCloseDuringRewrite) {
+    ASSERT_NE(nullptr, create_tablet());
+    auto source = add_rowset(Version(2, 2), {{{1, "delete", 10}, {2, "keep", 20}, {3, "keep", 30}}});
+    ASSERT_NE(nullptr, source);
+    ASSERT_EQ(1, source->num_segments());
+    ASSERT_OK(source->load());
+    ASSERT_EQ(1, source->segments().size());
+    const auto sources = active_rowsets();
+
+    int close_calls = 0;
+    SyncPoint::GetInstance()->SetCallBack("EngineTenantTtlCompactionTask::coverage_captured", [&](void*) {
+        EXPECT_EQ(1, source->refs_by_reader());
+        const size_t segment_count = source->segments().size();
+        source->close();
+        ++close_calls;
+        EXPECT_EQ(segment_count, source->segments().size());
+    });
+    SyncPoint::GetInstance()->EnableProcessing();
+
+    const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}));
+    EXPECT_EQ(TenantTtlTaskCode::SUCCESS, result.code);
+    EXPECT_EQ(1, close_calls);
+    const auto rows = read_tablet_rows();
+    ASSERT_EQ(2, rows.size());
+    EXPECT_EQ(2, rows[0].event_id);
+    EXPECT_EQ(3, rows[1].event_id);
+    expect_all_guards_released(sources);
 }
 
 TEST_F(EngineTenantTtlCompactionTaskTest, LaterOutputFailureCleansStagingAndDoesNotPartiallyCommit) {
