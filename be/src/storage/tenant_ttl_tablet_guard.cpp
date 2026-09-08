@@ -44,6 +44,22 @@ TenantTtlTaskCode TenantTtlTabletGuard::try_acquire(const TenantTtlCompactionReq
     _generation = admission.generation;
     _owns_admission = true;
 
+    // Storage migration copies Rowsets without holding its lock and verifies
+    // only the max version before switching Tablets. Keep the shared lock for
+    // the complete Tenant-TTL task so a same-version Rowset replacement cannot
+    // be lost during migration.
+    _migration_lock = std::shared_lock<std::shared_mutex>(_tablet->get_migration_lock(), std::try_to_lock);
+    if (!_migration_lock.owns_lock()) {
+        *detail_status = Status::ResourceBusy("tenant ttl failed to acquire migration lock");
+        release();
+        return TenantTtlTaskCode::TABLET_BUSY;
+    }
+    if (Tablet::check_migrate(_tablet)) {
+        *detail_status = Status::ResourceBusy("tenant ttl tablet is migrating or has been replaced");
+        release();
+        return TenantTtlTaskCode::TABLET_BUSY;
+    }
+
     // Ordinary compaction takes a shared lock on exactly one of these locks.
     // Taking both exclusively in this fixed order prevents either kind from
     // starting while the full Tablet coverage is being rewritten.
@@ -75,6 +91,9 @@ void TenantTtlTabletGuard::release() {
     }
     if (_base_lock.owns_lock()) {
         _base_lock.unlock();
+    }
+    if (_migration_lock.owns_lock()) {
+        _migration_lock.unlock();
     }
     if (_owns_admission) {
         _tablet->finish_tenant_ttl(_generation);

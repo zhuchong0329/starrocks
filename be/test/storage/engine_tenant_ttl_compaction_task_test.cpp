@@ -185,6 +185,11 @@ protected:
         if (cumulative_lock_acquired) {
             _tablet->get_cumulative_lock().unlock();
         }
+        const bool migration_lock_acquired = _tablet->get_migration_lock().try_lock();
+        EXPECT_TRUE(migration_lock_acquired);
+        if (migration_lock_acquired) {
+            _tablet->get_migration_lock().unlock();
+        }
     }
 };
 
