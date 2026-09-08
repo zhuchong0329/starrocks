@@ -559,12 +559,6 @@ TenantTtlTaskCode Tablet::capture_tenant_ttl_coverage(const TenantTtlCompactionR
                     fmt::format("tenant ttl rowset [{}-{}] is already compacting", version.first, version.second));
             return TenantTtlTaskCode::TABLET_BUSY;
         }
-        Status load_status = rowset->load();
-        if (!load_status.ok()) {
-            *detail_status = load_status;
-            return TenantTtlTaskCode::INTERNAL_ERROR;
-        }
-
         coverage->entries.emplace_back(TenantTtlCoverageEntry{
                 .version = version, .expected_rowset_id = rowset->rowset_id(), .source = rowset});
         digest.append(fmt::format("{}-{}@{};", version.first, version.second, rowset->rowset_id().to_string()));
@@ -585,6 +579,26 @@ TenantTtlTaskCode Tablet::capture_tenant_ttl_coverage(const TenantTtlCompactionR
                                                         .schema_id = _max_version_schema->id(),
                                                         .schema_version = _max_version_schema->schema_version()};
     coverage->coverage_digest = std::move(digest);
+
+    // A shared_ptr keeps the Rowset object alive, but only a reader reference
+    // prevents close() from unloading its Segment objects. Acquire the complete
+    // coverage before loading any Rowset so all failure paths can release the
+    // same batch without exposing a partially protected coverage.
+    Rowset::acquire_readers(active_rowsets);
+    TEST_SYNC_POINT_CALLBACK("Tablet::capture_tenant_ttl_coverage:after_acquire_readers", &active_rowsets);
+    for (const auto& rowset : active_rowsets) {
+        Status load_status = Status::OK();
+        TEST_SYNC_POINT_CALLBACK("Tablet::capture_tenant_ttl_coverage:load_rowset", &load_status);
+        if (load_status.ok()) {
+            load_status = rowset->load();
+        }
+        if (!load_status.ok()) {
+            Rowset::release_readers(active_rowsets);
+            *coverage = TenantTtlCoverage();
+            *detail_status = std::move(load_status);
+            return TenantTtlTaskCode::INTERNAL_ERROR;
+        }
+    }
     for (const auto& entry : coverage->entries) {
         entry.source->set_is_compacting(true);
     }
@@ -593,11 +607,15 @@ TenantTtlTaskCode Tablet::capture_tenant_ttl_coverage(const TenantTtlCompactionR
 }
 
 void Tablet::release_tenant_ttl_coverage(const TenantTtlCoverage& coverage) {
+    std::vector<RowsetSharedPtr> rowsets;
+    rowsets.reserve(coverage.entries.size());
     for (const auto& entry : coverage.entries) {
         if (entry.source != nullptr) {
             entry.source->set_is_compacting(false);
+            rowsets.emplace_back(entry.source);
         }
     }
+    Rowset::release_readers(rowsets);
 }
 
 TenantTtlTaskCode Tablet::_validate_tenant_ttl_coverage_unlocked(const TenantTtlCoverage& coverage,
