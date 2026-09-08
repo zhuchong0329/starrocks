@@ -37,7 +37,7 @@ FE 下发的 Tenant-TTL Compaction 只携带业务 tenant 过滤条件。`tenant
 
 #### 已确认结论
 
-1. 首期 Tenant-TTL 不检查 `tenant_id` 是否存在、是否为 `CAST(tenant AS BIGINT)`，也不检查排序前缀是否为 `(tenant_id, recordTimestamp)`；不实现基于这些条件选择 ShortKey/ZoneMap 快速路径的逻辑。
+1. 首期 Tenant-TTL 不检查 `tenant_id` 是否存在、是否为 `CAST(tenant AS BIGINT)`，也不检查排序前缀是否为 `(tenant_id, recordTimestamp)`；不实现基于生成列或排序键的 ShortKey 候选范围。第 12 轮只将已有业务 `tenant` 精确谓词下推给 Segment iterator，复用底层通用 ZoneMap；该优化不依赖 `tenant_id` 或排序键，也不作为准入条件。
 2. FE 在固定字典快照和评估时间下，依据时间分区的半开范围证明每个目标 tenant 在该分区内已经整体过期。BE 不读取 `recordTimestamp`，也不重新计算逐行 cutoff。
 3. FE 把策略结果物化成业务 tenant 名单。请求使用互斥的 `DELETE_LIST` 或 `KEEP_LIST` 模式，BE 只读取业务 `tenant` 列生成 `keep_row_ranges`。
 4. BE 不通过 `DictionaryCacheManager` 重新取得或执行字典内容。`dictionary_id/dictionary_version/evaluation_time` 作为 policy watermark 随请求携带，用于幂等、审计和新旧任务顺序控制。
@@ -144,16 +144,33 @@ BE 只校验 Tablet/partition、业务 tenant column unique id 与类型、名�
 
 #### 问题
 
-首期不实现 `tenant_id`、ShortKey、排序前缀或定制 ZoneMap 粗判的优化选择逻辑后，如何为每个 Segment 生成 KEEP/DROP/REWRITE 计划？
+在不引入 `tenant_id`、ShortKey、排序前缀或定制 Segment 统计的前提下，如何复用现有 ZoneMap，仍为每个 Segment 生成精确的 KEEP/DROP/REWRITE 计划？
 
 #### 建议结论
 
-首期对 coverage 中每个 Segment 精确扫描业务 `tenant` 列，根据 FE 已物化的 `TenantFilter { mode, tenants }` 生成源 row ordinal 的 `keep_row_ranges`。不读取 `recordTimestamp`、不查询 tenant 字典、不检查 `tenant_id` 和排序键，也不建立新的 ShortKey/ZoneMap 快速路径选择分支。
+对 coverage 中每个 Segment，根据 FE 已物化的 `TenantFilter { mode, tenants }` 构造业务 `tenant` 列上的精确 PredicateTree，同时生成 `pred_tree_for_zone_map`，交给现有 Segment iterator。Segment iterator 可先用 Segment/Page ZoneMap 排除不可能匹配的范围，再在剩余候选行上执行原始业务 `tenant` 精确谓词，并返回物理 rowid。任务根据 rowid 生成最终 `keep_row_ranges`。
+
+两种模式的谓词极性固定为：
+
+```text
+DELETE_LIST:
+    exact predicate = tenant IN delete_list
+    iterator rowids = rows to DROP
+    keep_ranges = [0, num_rows) - iterator rowids
+
+KEEP_LIST:
+    exact predicate = tenant IN keep_list OR tenant IS NULL
+    iterator rowids = rows to KEEP
+    keep_ranges = iterator rowids
+```
+
+`KEEP_LIST` 的 `IS NULL` 分支必须保留，以继续满足 NULL tenant 始终保留的已确认语义。不读取 `recordTimestamp`、不查询 tenant 字典、不检查 `tenant_id` 和排序键，不创建 ShortKey range。ZoneMap 只缩小候选范围，不替代业务 tenant 精确谓词。
 
 建议流程为：
 
 ```text
-keep_ranges = scan_business_tenant_column(segment, tenant_filter)
+candidate_rowids = scan_business_tenant_with_predicate_and_zonemap(segment, tenant_filter)
+keep_ranges = convert_by_filter_mode(candidate_rowids, segment.num_rows)
 
 if keep_ranges.span_size() == segment.num_rows:
     KEEP by hard link
@@ -172,14 +189,16 @@ else:
 #### 研发约束
 
 1. Tenant-TTL 行过滤器只消费已物化的 `TenantFilter`，不解析字典或计算时间 cutoff。
-2. 每个 Segment 只扫描一次业务 tenant 列，并输出源 row ordinal 的 `SparseRange`。
+2. 每个 Segment 使用现有 Segment iterator 的 predicate、Segment/Page ZoneMap 和 rowid 返回能力；ZoneMap 不可用或选择性不足时，自然退化为对业务 tenant 列的精确扫描。
 3. `DELETE_LIST` 与 `KEEP_LIST` 的极性必须在生成 `keep_row_ranges` 时统一转换；`FilteredRowsetWriter` 永远只消费“保留哪些行”。
 4. 只有 `0 < keep_row_ranges.span_size() < num_rows` 才创建 `VerticalSegmentRewriter`。
-5. 首期不新增 tenant_id/ShortKey/排序键/定制 ZoneMap 优化选择逻辑。底层通用 reader 若透明使用已有索引，不得改变最终结果或成为资格门禁。
+5. 本轮只复用业务 tenant 列的现有 ZoneMap；不新增 `tenant_id`/ShortKey/排序键/定制 ZoneMap 优化选择逻辑。ZoneMap 不得改变最终结果或成为资格门禁。
+6. 对非空 Segment，打开 iterator 或首次读取返回 EOF 可能表示 Segment 级 ZoneMap 已排除全部候选，不得再统一当作数据损坏。`DELETE_LIST` 在该情况下收敛为 KEEP，`KEEP_LIST` 收敛为 DROP。
+7. 返回 rowid 必须严格递增、小于 `segment.num_rows()`，并用于构建半开 `SparseRange`；任何越界、重复或无序 rowid 按不可信读取结果失败。
 
 #### 对第二步测试对齐的输入
 
-后续测试至少覆盖：DELETE_LIST 精扫后全 KEEP、全 DROP、部分保留；KEEP_LIST 精扫后全 KEEP、全 DROP、部分保留；NULL tenant 保留；两种模式的 `keep_row_ranges` 极性正确；扫描过程不读取 `recordTimestamp`、`tenant_id` 或字典；精扫后全范围/空集不进入 Vertical writer，只有部分范围进入 REWRITE。
+后续测试至少覆盖：DELETE_LIST 的 Segment ZoneMap 零候选→KEEP、全命中→DROP、部分命中→REWRITE；KEEP_LIST 的零候选→DROP、全命中→KEEP、部分命中→REWRITE；Page ZoneMap 实际排除行页；NULL tenant 在 KEEP_LIST 中保留；两种模式返回 rowid 与逐行 oracle 完全一致；无 ZoneMap 或 ZoneMap 不可用时回退结果不变；扫描过程不读取 `recordTimestamp`、`tenant_id` 或字典。
 
 ### REQ-7.1-002：FilteredRowsetWriter、SparseRange 与逐 Segment 调用顺序
 
@@ -912,7 +931,7 @@ FE 把 `TABLET_BUSY/TTL_ALREADY_RUNNING` 视为可重试或继续跟踪的非终
 
 #### 资源代价
 
-零命中任务的最坏成本是一遍 coverage 业务 tenant 单列读取、解压和比较，不读取 `recordTimestamp`、`tenant_id`、字典或其他业务列，也不产生 Segment/Rowset 写入、Hard Link、TabletMeta 保存和后续 GC。首期不为降低这次扫描新增 tenant Bloom Filter、tenant_id/Short Key 或定制 ZoneMap 选择逻辑；现有读取链路能够自然利用的通用裁剪不改变本需求边界。
+零命中任务在 tenant ZoneMap 不存在、关闭或无选择性时，最坏成本仍是一遍 coverage 业务 tenant 单列读取、解压和精确谓词比较；不读取 `recordTimestamp`、`tenant_id`、字典或其他业务列，也不产生 Segment/Rowset 写入、Hard Link、TabletMeta 保存和后续 GC。第 12 轮把业务 tenant 精确谓词下推给现有 Segment iterator，使 Segment/Page ZoneMap 可在有选择性时减少实际读取；不新增 tenant Bloom Filter、tenant_id/Short Key 或定制 ZoneMap 选择逻辑。
 
 #### 对第二步测试对齐的输入
 
@@ -1104,7 +1123,7 @@ Tenant-TTL 只新增 `test/sql/test_tenant_ttl_compaction/T`、对应的 `R` 基
 ## 5. 已确认结论索引
 
 - `REQ-6.1-001`：首期由 FE 根据固定字典快照、评估时间和分区上界，物化出互斥的 `DELETE_LIST/KEEP_LIST` tenant 过滤模式；BE 不读取 `recordTimestamp` 或字典，不检查 `tenant_id` 和排序键，只精确扫描业务 tenant。DELETE_LIST 适合少量删除，KEEP_LIST 适合少量保留；filter mode、规范化名单与 policy watermark 共同进入 predicate digest。
-- `REQ-7.1-001`：首期对每个 Segment 精确扫描业务 tenant，根据 FE 物化的 `DELETE_LIST/KEEP_LIST` 生成 `keep_row_ranges`，扫描结果再收敛为 KEEP/DROP/REWRITE；不新增 tenant_id、ShortKey、排序键或定制 ZoneMap 优化选择逻辑。
+- `REQ-7.1-001`：对每个 Segment 构造业务 tenant 精确谓词，复用现有 Segment/Page ZoneMap 缩小候选范围，并通过 iterator 返回的物理 rowid 生成 `keep_row_ranges`；ZoneMap 不可用时自然退化为精确扫描。不引入 `tenant_id`、ShortKey、排序键或定制 ZoneMap 逻辑。
 - `REQ-7.1-002`：`FilteredRowsetWriter` 是与具体过滤策略无关的目标 Rowset 组装器；`VerticalSegmentRewriter` 每次完整重写一个 Segment；`SparseRange` 表示源 Segment 内保留的 row ordinal，所有列组重放同一范围。组装器只登记已完成的 Segment，目标 ordinal 连续，最终由 `Rowset::verify()` 检查整体排序。
 - `REQ-7.1-003`：原 `TenantTtlRowsetWriter` 正式命名为 `FilteredRowsetWriter`，只消费通用 `SegmentFilterPlan` 和 `keep_row_ranges`，不解析或执行 tenant TTL/SQL 谓词；首期仍只实现 Tenant-TTL 计划生成逻辑。
 - `REQ-7.4-001`：首期不修改 `RowsetMetaPB`，不新增 `SegmentStatsPB` 或 `NEED_SEGMENT_STATS` 门槛。KEEP Segment 通过 `Segment::collect_runtime_stats()` 从现有 footer、ColumnMeta 和文件 artifact 运行时收集统计；REWRITE Segment 从 `SegmentWriter` finalize 结果取值；`FilteredRowsetWriter` 仅在内存中汇总并写回现有 Rowset 级字段。

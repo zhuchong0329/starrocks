@@ -1,10 +1,10 @@
 # StarRocks Tenant-TTL Compaction BE 详细编码计划
 
-> 状态：第四步第 0～6 轮已完成；第 7～10 轮 Review 修复计划待用户确认后实施
+> 状态：第四步第 0～6 轮已完成；第 7～12 轮 Review 修复已确认，按轮次实施；第 13 轮暂不启动
 > 源码基线：StarRocks main，commit `10adb6a028de5218ef3be355d7fc7e3b82f9ab9d`  
 > 编制日期：2026-09-04  
 > 实施范围：首期 shared-nothing BE Tenant-TTL Compaction  
-> 实施节奏：第 0～6 轮已完成；第 7～10 轮依次修复 migration 互斥、Segment overlap、delete predicate 和 generation 魔数；原第 7 轮顺延为第 11 轮
+> 实施节奏：第 0～6 轮已完成；第 7～12 轮依次修复 migration 互斥、Rowset reader 生命周期、Segment overlap、delete predicate、generation 魔数，并增加业务 tenant ZoneMap 精确谓词路径；第二批增强测试顺延为第 13 轮且暂不启动
 
 ## 1. 编制依据与结论优先级
 
@@ -39,6 +39,8 @@
 15. coverage 允许 `NONOVERLAPPING`、`OVERLAPPING` 和 `OVERLAP_UNKNOWN` Rowset；后两者按 Segment 独立精确过滤，多 Segment 输出保守继承源 overlap 属性。
 16. coverage 允许标准零行 delete-predicate Rowset；保持其 Rowset ID、version 和 predicate 元数据不变，不在 Tenant-TTL 中消费 predicate。
 17. generation 的无效值使用统一语义常量，不在 owner、guard、result、Tablet 和测试中分散使用魔数 `0`。
+18. coverage 中全部源 Rowset 在任何 `load()` 之前批量取得 reader 引用，并持有到规划、读取、link/rewrite、NOOP 复查或提交全部结束，防止 `_segments` 被并发 `close()` 清空。
+19. 业务 tenant 精确谓词下推到现有 Segment iterator，复用 Segment/Page ZoneMap 并返回物理 rowid；ZoneMap 不可用时自然退化为精确扫描，同时增加物理读取与 ZoneMap 裁剪指标。
 
 ## 3. 明确不在首期范围内
 
@@ -48,7 +50,7 @@
 - shared-data/Lake Tenant-TTL Compaction。
 - Primary Key、Unique Key 或 Aggregate Key Tablet。
 - 对 `recordTimestamp` 做分区内部分时间删除。
-- `tenant_id`、Short Key、排序键或定制 ZoneMap 的候选范围选择优化。
+- `tenant_id`、Short Key、排序键、`SeekRange` 或定制 ZoneMap/Segment 统计的候选范围选择优化；第 12 轮只复用业务 tenant 列已有的通用 ZoneMap。
 - 动态扩展 coverage 追赶任务执行期间持续到来的新写入。
 - 多个 TTL 任务对同一 Tablet 并行、局部成功提交或动态重规划。
 - try-lock 公平队列、`TTL_PENDING` 跨请求 lease、优先级提升或防饥饿。
@@ -104,6 +106,8 @@ coverage = 当前 version map 中完整覆盖 [0, snapshot_end_version]
 - 源 Rowset 全量删除时输出 `num_rows=0`、`num_segments=0` 的同 version 空 Rowset。
 - 源 Rowset 为 `OVERLAPPING`/`OVERLAP_UNKNOWN` 且输出仍含多 Segment 时，输出必须原样继承对应 overlap 属性；输出仅有零或一 Segment 时归一化为 `NONOVERLAPPING`。
 - 标准零行 delete-predicate Rowset 必须记录为 `VERIFIED_NO_CHANGE`，不得创建替换 Rowset。
+- coverage 中全部源 Rowset 必须在任何 `load()` 前先取得 reader 引用；在 coverage guard 释放前，`close()` 不得真正清空任何源 Rowset 的 `_segments`。
+- `is_compacting` 与 reader 引用必须同时持有：前者负责 Compaction 选择互斥，后者负责 Segment 加载生命周期，两者不能互相替代。
 
 ### 4.4 提交不变式
 
@@ -139,7 +143,8 @@ EngineTenantTtlCompactionTask
 Tablet::capture_tenant_ttl_coverage()
     │ header read lock 内固定完整 coverage
     │ 持有当前 TabletSchemaCSPtr 并记录全部 (version,rowset_id)
-    │ 标记 coverage Rowset is_compacting=true
+    │ 先批量 acquire_readers，再逐个 load
+    │ 全部 load 成功后标记 coverage Rowset is_compacting=true
     ▼
 TenantTtlRowFilter
     │ 每个 Segment 只扫描业务 tenant 列
@@ -452,11 +457,12 @@ TTL 取得 admission 时，在同一 `_compaction_task_lock` 临界区内检查 
 
 禁止在持有 header lock 时再获取 `_compaction_task_lock`，避免与现有“任务锁内执行策略选择、策略读取 Tablet 元数据”的顺序形成反向死锁。
 
-对象构造顺序建议为：admission guard、migration shared guard、base guard、cumulative guard、coverage rowset-mark guard、staged-output guard。migration、base 和 cumulative 三把锁在捕获 coverage 前取得，并持有到扫描、构建、提交或失败清理结束。正常和异常退出时按逆序清理：
+对象构造顺序建议为：admission guard、migration shared guard、base guard、cumulative guard、coverage guard（同时拥有 Rowset reader 引用与 `is_compacting` 标记）、staged-output guard。migration、base 和 cumulative 三把锁在捕获 coverage 前取得，并持有到扫描、构建、提交或失败清理结束。正常和异常退出时按逆序清理：
 
 ```text
 清理未提交 staged outputs
 清除 coverage Rowset is_compacting
+释放 coverage Rowset reader 引用
 释放 cumulative/base/migration locks
 最后在 _compaction_task_lock 下恢复 TTL_IDLE
 ```
@@ -491,12 +497,14 @@ StatusOr<TenantTtlCoverage> Tablet::capture_tenant_ttl_coverage(
 1. 读取 `_timestamped_version_tracker` 的最大连续版本上界。
 2. 从当前 `_rs_version_map` 解出完整 `[0,B]` 路径；不得回退到 `_stale_rs_version_map`。
 3. 检查 version 无空洞、重叠或暂不可读的更高 active Rowset。
-4. 按 version 升序记录强引用、version 和 Rowset ID。
+4. 按 version 升序记录 `shared_ptr<Rowset>`、version 和 Rowset ID；`shared_ptr` 只保护 Rowset 对象生命期，不代替 reader 引用。
 5. 持有当前 `TabletSchemaCSPtr`，记录 schema ID/version，并将它作为 coverage 的 schema identity。
 6. 检查每个 Rowset 的 eligibility 和 `is_compacting`。
-7. 只有全部通过后才统一设置 coverage Rowset 的 `is_compacting=true`。
+7. 全量元数据检查通过后，对 coverage 中全部源 Rowset 批量调用 `Rowset::acquire_readers()`。
+8. 保持 reader 引用的前提下逐个调用 `rowset->load()`；任意加载失败则释放整批 reader 引用并返回。
+9. 只有全部加载成功后才统一设置 coverage Rowset 的 `is_compacting=true`，并将两种保护的所有权交给 `TenantTtlCoverageGuard`。
 
-“检查一部分、标记一部分、后续失败”的实现必须回滚已经设置的标记；优先采用先全量验证、后全量标记。
+“检查一部分、保护或标记一部分、后续失败”的实现必须回滚已取得的 reader 引用和已设置的标记；优先采用“先全量验证、再批量 acquire、再全量 load、最后全量标记”。
 
 ### 9.2 输出 staging
 
@@ -600,15 +608,15 @@ StatusOr<SegmentFilterPlan> TenantTtlRowFilter::plan_segment(
 
 1. `rowset.load()` 并取得指定 Segment。
 2. 根据 unique ID 从固定 Rowset schema 中找到 tenant column ordinal；构造仅含该列的 `Schema`。
-3. 创建 `SegmentReadOptions` 和 Segment iterator；首期不提供自定义 predicate/ZoneMap/ShortKey 选择条件。
-4. 按 `config::vector_chunk_size` 或内存预算确定 chunk size，只读取 tenant 列。
-5. 对每个 Chunk：
-   - 先读取 nullable bitmap；NULL 追加到 keep range。
-   - 非 NULL 值按精确二进制 VARCHAR 与规范化集合比较。
-   - 将连续保留 row ordinal 合并为半开区间，避免逐行 Range 对象膨胀。
-   - 同时累计 source/kept/deleted 行数。
-6. 校验扫描行数等于 `segment.num_rows()`。
-7. 根据保留行数收敛：全保留为 KEEP、零保留为 DROP、其余为 REWRITE。
+3. 为 `DELETE_LIST` 构造 `tenant IN delete_list`；为 `KEEP_LIST` 构造 `tenant IN keep_list OR tenant IS NULL`。使用 `ZonemapPredicatesRewriter` 同步生成 `pred_tree_for_zone_map`。
+4. 创建 `SegmentReadOptions` 和 Segment iterator，设置精确 `pred_tree` 与 ZoneMap predicate tree；不设置 `ranges`、`short_key_ranges`，不读取 `tenant_id`。
+5. 按 `config::vector_chunk_size` 或内存预算确定 chunk size，只读取 tenant 列，并调用 `iterator->get_next(chunk, &rowids)` 取得命中行的物理 row ordinal。
+6. 对 `DELETE_LIST` 将命中 rowid 的补集转换为 `keep_row_ranges`；对 `KEEP_LIST` 直接将命中 rowid 转换为 `keep_row_ranges`。连续 rowid 合并为半开区间，避免逐行 Range 对象膨胀。
+7. 校验 rowid 严格递增、不重复且不越界，并校验 source/kept/deleted 行数守恒。
+8. 对非空 Segment，ZoneMap 将候选集完全排除导致的 EOF 是正常结果：DELETE_LIST 收敛为 KEEP，KEEP_LIST 收敛为 DROP。
+9. 根据保留行数收敛：全保留为 KEEP、零保留为 DROP、其余为 REWRITE。
+
+ZoneMap 只缩小候选 Segment/Page，最终命中集合仍由业务 tenant 精确谓词产生。没有 ZoneMap、配置关闭或统计选择性不足时，底层 iterator 自动退化为精确 tenant 扫描，不能成为任务准入失败原因。
 
 名单查找使用预构建的只读 hash set，排序 vector 用于稳定响应和测试。名单内容不写入日志，日志只记录名单数量，避免租户信息泄露及大日志。
 
@@ -844,7 +852,7 @@ STARROCKS_TENANT_TTL_MANUAL_TEST_ENDPOINT
 | 文件 | 职责 |
 | --- | --- |
 | `be/src/storage/tenant_ttl_compaction_types.h/.cpp` | 请求、结果、名单规范化、coverage/计划公共类型 |
-| `be/src/storage/tenant_ttl_row_filter.h/.cpp` | 业务 tenant 单列精扫并生成 SegmentFilterPlan |
+| `be/src/storage/tenant_ttl_row_filter.h/.cpp` | 业务 tenant 精确 PredicateTree、现有 ZoneMap 裁剪、物理 rowid 到 SegmentFilterPlan |
 | `be/src/storage/rowset/vertical_segment_rewriter.h/.cpp` | 单源 Segment 按 SparseRange 纵向重写 |
 | `be/src/storage/rowset/filtered_rowset_writer.h/.cpp` | 通用 KEEP/DROP/REWRITE Rowset 组装、统计和 artifact 清理 |
 | `be/src/storage/task/engine_tenant_ttl_compaction_task.h/.cpp` | admission、coverage、多 Rowset staging、原子提交编排 |
@@ -868,7 +876,7 @@ STARROCKS_TENANT_TTL_MANUAL_TEST_ENDPOINT
 | `be/src/http/CMakeLists.txt` | option 开启时加入手工 Action |
 | `be/src/service/service_be/http_service.cpp` | 宏保护的 include 和路由注册 |
 | `be/CMakeLists.txt` | 默认 OFF 的手工入口 build option 和宏定义 |
-| `be/src/util/starrocks_metrics.h/.cpp` | 固定维度的 Tenant-TTL 请求、结果、行数、字节和耗时指标 |
+| `be/src/util/starrocks_metrics.h/.cpp` | 固定维度的 Tenant-TTL 请求、结果、逻辑/物理扫描、ZoneMap 裁剪、字节和耗时指标 |
 | `be/test/CMakeLists.txt` | 加入新单测/独立集成测试和条件 HTTP 测试 |
 | `test/lib/sr_sql_lib.py` | 特殊测试环境复用的 Tablet 定位、HTTP POST 和结果归一化 helper |
 
@@ -1184,7 +1192,7 @@ KEEP_LIST   × KEEP/DROP/REWRITE
 - 固定获取顺序：TTL admission -> migration shared try-lock -> `Tablet::check_migrate()` -> base unique try-lock -> cumulative unique try-lock -> RUNNING。
 - `Tablet::check_migrate()` 同时校验 `is_migrating()` 和 TabletManager 中的当前 Tablet 对象身份；不得只检查 boolean 标记。
 - migration 冲突或 Tablet 指针已失效时返回可重试 `TABLET_BUSY`，不在 BE 内等待、sleep 或循环抢锁。
-- 固定释放顺序：coverage `is_compacting` -> cumulative -> base -> migration -> admission。
+- 固定释放顺序：coverage `is_compacting` 与 reader 引用 -> cumulative -> base -> migration -> admission。第 7 轮只实现 migration 互斥，reader 引用的具体接管在独立第 8 轮完成。
 - 保持 base/cumulative 现有 `std::unique_lock` 排他模式，不修改 migration 任务或普通 Compaction 的锁模式。
 
 #### 对应测试
@@ -1207,7 +1215,43 @@ KEEP_LIST   × KEEP/DROP/REWRITE
 - 建议标题：`fix(storage): [007] serialize tenant ttl with tablet migration`。
 - commit body 必须说明“migration 只校验最大 version，无法发现 TTL 同 version Rowset 替换”的根因、新锁顺序、`check_migrate()` 的对象身份校验、退出清理及实际测试。
 
-### 第 8 轮（Review-002）：支持 `OVERLAPPING` / `OVERLAP_UNKNOWN` Rowset
+### 第 8 轮（Review-005，P0）：保护 coverage Rowset 的 Segment 生命周期
+
+#### 目标
+
+消除 Tenant-TTL 在已 `load()` 但 reader 引用为零时，源 Rowset 被 MetadataCache 或其他路径 `close()` 并清空 `_segments`，随后直接 Segment 访问越界或发生数据竞争的 P0 生命周期漏洞。
+
+#### 详细设计
+
+- 在 coverage 元数据捕获与门禁校验完成后，先收集全部源 Rowset，批量调用 `Rowset::acquire_readers()`，然后才逐个执行 `rowset->load()`。
+- 所有 Rowset 加载成功后再设置 `is_compacting=true`，并由 `TenantTtlCoverageGuard` 同时接管 compacting 标记和 reader 引用所有权。
+- reader 引用覆盖 Segment 计划、tenant 扫描、KEEP hard link、DROP、REWRITE、staged output 校验、`NOOP_VERIFIED` 复查以及提交完成前的全部源 Rowset 访问。
+- guard 退出时先清除 coverage Rowset 的 `is_compacting`，再批量 `Rowset::release_readers()`；coverage guard 仍必须早于 tablet guard 析构，使 reader 引用在 migration/base/cumulative/admission 互斥仍然持有时完成释放。
+- 批量 acquire 后如果任意 `load()` 失败，在返回前对整批源 Rowset 执行 `release_readers()`，清空未发布 coverage，不遗留 reader 引用或 `is_compacting`。
+- 保留 `is_compacting`：它负责阻止普通 Compaction 重复选中，reader 引用负责阻止 Segment 真正卸载，两者职责不同。
+- 不修改 MetadataCache、`Rowset::close()`、普通 `TabletReader`、普通 Compaction 或 `Tablet::modify_rowsets_without_lock()` 的行为。
+
+#### 对应测试
+
+- coverage 成功后通过 SyncPoint 对源 Rowset 主动调用 `close()`模拟 MetadataCache 淘汰，验证 Segment 不被提前清空且 Tenant-TTL 结果正确。
+- 单 Rowset 和多 Rowset coverage 均断言 guard 持有期 reader 引用增加，guard 退出后恢复执行前值。
+- 批量 acquire 后模拟第 N 个 Rowset `load()` 失败，验证前后全部 Rowset 无 reader 引用泄漏、无 compacting 标记泄漏。
+- 成功、`NOOP_VERIFIED`、取消、Writer 失败、Rowset ID CAS 冲突和 TabletMeta 保存失败等已有退出路径增加 reader 引用恢复断言。
+- 重跑受影响的 coverage、Engine task、KEEP/DROP/REWRITE、stale/unused 和代表性普通 Compaction 回归。
+
+#### 完成标准
+
+- 任何 coverage 源 Rowset 都不会在 Tenant-TTL 使用期间因 `close()` 而清空 `_segments`。
+- 全部成功、NOOP 和失败出口无 reader 引用、`is_compacting`、Tablet 锁或 admission 泄漏。
+- 已有 Rowset 提交、stale/unused 和普通 Compaction 语义不变。
+- 当轮 diff 不包含 overlap、delete predicate、generation 常量或第二批增强测试修改。
+
+#### 独立提交要求
+
+- 建议标题：`fix(storage): [008] pin tenant ttl coverage rowsets for reading`。
+- commit body 必须说明 `load()`、`is_compacting`、`shared_ptr` 和 reader 引用的职责差异，MetadataCache `close()` 导致 `_segments` 清空的根因，acquire-before-load 顺序、全出口 RAII 清理及实际测试。
+
+### 第 9 轮（Review-002）：支持 `OVERLAPPING` / `OVERLAP_UNKNOWN` Rowset
 
 #### 目标
 
@@ -1239,10 +1283,10 @@ KEEP_LIST   × KEEP/DROP/REWRITE
 
 #### 独立提交要求
 
-- 建议标题：`fix(storage): [008] support overlapping tenant ttl rowsets`。
+- 建议标题：`fix(storage): [009] support overlapping tenant ttl rowsets`。
 - commit body 必须说明 `DUP_KEYS` 逐 Segment 过滤与 merge 后过滤的结果等价性、overlap 元数据保守继承规则、不选择前置 Compaction/Merge Iterator 的范围边界及实际测试。
 
-### 第 9 轮（Review-003）：支持标准零行 Delete Predicate Rowset
+### 第 10 轮（Review-003）：支持标准零行 Delete Predicate Rowset
 
 #### 目标
 
@@ -1276,10 +1320,10 @@ KEEP_LIST   × KEEP/DROP/REWRITE
 
 #### 独立提交要求
 
-- 建议标题：`fix(storage): [009] preserve delete predicates during tenant ttl`。
+- 建议标题：`fix(storage): [010] preserve delete predicates during tenant ttl`。
 - commit body 必须说明标准 DELETE 产生零行 predicate Rowset 的现状、predicate 的 version 语义、为什么 TTL 不应消费/复制 predicate、非零行防御性校验和实际测试。
 
-### 第 10 轮（Review-004）：命名无效 Tenant-TTL Generation
+### 第 11 轮（Review-004）：命名无效 Tenant-TTL Generation
 
 #### 目标
 
@@ -1307,14 +1351,65 @@ KEEP_LIST   × KEEP/DROP/REWRITE
 
 #### 独立提交要求
 
-- 建议标题：`refactor(storage): [010] name invalid tenant ttl generation`。
+- 建议标题：`refactor(storage): [011] name invalid tenant ttl generation`。
 - commit body 必须说明 `0` 的无效 fencing token 语义、全部替换点、不改变运行逻辑的兼容性结论和实际测试。
 
-### 第 11 轮：第二批增强测试和生产化加固
+### 第 12 轮（Review-006）：业务 tenant ZoneMap、精确谓词与 rowid 返回
 
 #### 目标
 
-证明并发、故障、重启、多副本和持续运行条件下仍可靠；该轮不阻塞最早的功能验证，但应在正式 FE 联调/生产发布前完成核心项。
+在不增加 `tenant_id`、Short Key、排序键依赖或 FE 请求字段的前提下，把现有业务 tenant 精确条件下推到 Segment iterator，复用已有 Segment/Page ZoneMap 降低 tenant 单列读取量，并用返回的物理 rowid 继续生成完全正确的 KEEP/DROP/REWRITE 计划。
+
+#### 详细设计
+
+- `TenantTtlRowFilter` 持有构造 PredicateTree 所需的 predicate 对象生命周期；`DELETE_LIST` 使用 `tenant IN delete_list`，`KEEP_LIST` 使用 `tenant IN keep_list OR tenant IS NULL`。
+- 将精确 PredicateTree 写入 `SegmentReadOptions::pred_tree`，通过 `ZonemapPredicatesRewriter` 生成 `pred_tree_for_zone_map`，使现有 `Segment::_new_iterator()` 和 `SegmentIterator::_get_row_ranges_by_zone_map()` 分别执行 Segment/Page ZoneMap 裁剪。
+- 调用 `ChunkIterator::get_next(chunk, &rowids)` 获取精确谓词命中行的物理 row ordinal；不再依赖“iterator 返回 Segment 全部行且本地递增 row_ordinal”的假设。
+- DELETE_LIST 把命中 rowid 视为 DROP 集，并对 `[0, source_rows)` 求补集生成 `keep_row_ranges`；KEEP_LIST 把命中 rowid 直接视为 KEEP 集。
+- 对 rowid 执行严格递增、不重复和边界校验；最终保持 `source_rows == kept_rows + deleted_rows`。
+- 非空 Segment 因 Segment ZoneMap 排除全部候选而在打开或读取时返回 EOF 属于正常结果：DELETE_LIST 得到 KEEP，KEEP_LIST 得到 DROP；其他读取错误仍整任务失败。
+- tenant ZoneMap 不存在、配置关闭或选择性不足时由现有 iterator 自然退化为精确谓词扫描，不增加资格门禁和显式 fallback Writer。
+- 本轮不设置 `SegmentReadOptions::ranges`/`short_key_ranges`，不读取或验证 `tenant_id`，不派生 `CAST(VARCHAR AS BIGINT)`，不扩展 FE/HTTP 请求协议。
+
+#### Metrics、trace 与日志
+
+- 保持现有 `tenant_ttl_compaction_rows_scanned_total` 的兼容口径不变，继续表示 coverage 中经过逻辑判定的源行总数。
+- 新增 `tenant_ttl_compaction_tenant_rows_read_total`，累计 `OlapReaderStatistics::raw_rows_read`。
+- 新增 `tenant_ttl_compaction_rows_pruned_by_segment_zonemap_total`，累计 `segment_stats_filtered`。
+- 新增 `tenant_ttl_compaction_rows_pruned_by_page_zonemap_total`，累计 `rows_stats_filtered`。
+- 增加相同口径的 trace counters 和终态日志字段；所有指标使用固定名称，不以 tenant、task ID 或 Tablet ID 作为 label。
+- 不人为构造“coverage 行数等于各统计项简单求和”的关系；底层统计可能还包含精确谓词过滤阶段，测试按 `OlapReaderStatistics` 的实际定义分别断言。
+
+#### 对应测试
+
+- DELETE_LIST 的 Segment ZoneMap 零候选→KEEP、精确全命中→DROP、部分命中→REWRITE。
+- KEEP_LIST 的 Segment ZoneMap 零候选→DROP、精确全命中→KEEP、部分命中→REWRITE。
+- nullable/non-nullable VARCHAR tenant；NULL tenant 在 DELETE_LIST 和 KEEP_LIST 中均保留。
+- 多 Page Segment 中只有部分 Page 可能命中，断言 `rows_stats_filtered > 0`、`raw_rows_read < source_rows`，并与逐行 oracle 对比 rowid 和 `keep_row_ranges`。
+- 关闭 ZoneMap 或使用无选择性数据，断言回退后的计划与开启 ZoneMap 完全一致。
+- 行数边界、首尾命中、离散命中和全空候选的半开 SparseRange 正确。
+- 通过可控测试入口验证重复、无序和越界 rowid 在 Writer 创建前失败；若不能在不污染生产接口的前提下注入，则至少对 rowid→SparseRange 纯逻辑 helper 做完整单测。
+- metrics、trace 和日志在成功、NOOP、取消及读取失败路径只累计已经发生的工作；旧 metric 口径不变且无高基数 label。
+- 重跑现有 RowFilter、Engine task、单/多 Rowset KEEP/DROP/REWRITE、`NOOP_VERIFIED`、HTTP 以及受影响的 SegmentIterator ZoneMap 测试。
+
+#### 完成标准
+
+- 开启和关闭 ZoneMap 时，所有业务结果、rowid、`keep_row_ranges` 和最终 Tablet 数据完全一致。
+- 可选择数据上 Segment/Page ZoneMap 统计证明实际减少 tenant 读取行数。
+- 不具备 `tenant_id`、指定排序键或 ZoneMap 的表仍然成功执行。
+- 不修改请求协议、Tablet coverage/commit、FilteredRowsetWriter、VerticalSegmentRewriter 或普通 Compaction 路径。
+- 当轮 diff 不包含 Short Key、`tenant_id` 派生或第二批增强测试。
+
+#### 独立提交要求
+
+- 建议标题：`perf(storage): [012] prune tenant ttl scans with zonemaps`。
+- commit body 必须说明原实现未向 Segment iterator 提供谓词导致 ZoneMap 无法生效、两种名单模式的谓词/rowid 极性、EOF 新语义、无索引回退、指标兼容性和实际测试。
+
+### 第 13 轮：第二批增强测试和生产化加固（暂不启动）
+
+#### 目标
+
+证明并发、故障、重启、多副本和持续运行条件下仍可靠。该轮已明确暂不启动，待 BE 代码 review 和 FE 开发完成后再单独对齐启动时点与范围。
 
 #### 详细设计
 
@@ -1352,6 +1447,9 @@ KEEP_LIST   × KEEP/DROP/REWRITE
 ```text
 tenant_ttl_compaction_requests_total{result=success|noop|busy|conflict|failed}
 tenant_ttl_compaction_rows_scanned_total
+tenant_ttl_compaction_tenant_rows_read_total
+tenant_ttl_compaction_rows_pruned_by_segment_zonemap_total
+tenant_ttl_compaction_rows_pruned_by_page_zonemap_total
 tenant_ttl_compaction_rows_deleted_total
 tenant_ttl_compaction_rowsets_total{action=keep|drop|rewrite}
 tenant_ttl_compaction_segments_total{action=keep|drop|rewrite}
@@ -1361,7 +1459,9 @@ tenant_ttl_compaction_duration_us
 tenant_ttl_compaction_running
 ```
 
-单任务日志至少包含：task ID、tablet/partition、watermark、schema ID/version、snapshot/processed version、coverage digest、tenant 名单数量、Rowset/Segment动作计数、删除/保留行数、读写字节、耗时和最终 code。tenant 名单本身不输出。
+`tenant_ttl_compaction_rows_scanned_total` 保持表示 coverage 逻辑源行数；`tenant_rows_read`、Segment ZoneMap 裁剪和 Page ZoneMap 裁剪分别使用 `OlapReaderStatistics::raw_rows_read`、`segment_stats_filtered` 和 `rows_stats_filtered` 的底层口径，不为兼容新优化而重定义旧指标。
+
+单任务日志至少包含：task ID、tablet/partition、watermark、schema ID/version、snapshot/processed version、coverage digest、tenant 名单数量、Rowset/Segment动作计数、删除/保留行数、tenant 实际读取行数、Segment/Page ZoneMap 裁剪行数、读写字节、耗时和最终 code。tenant 名单本身不输出。
 
 建议 SyncPoint/failpoint 从第一轮实现时就放置在：
 
@@ -1388,6 +1488,9 @@ tenant_ttl_compaction_running
 | Writer 失败残留文件/Rowset ID | build 前 ArtifactGuard、build 后 StagedRowsetsGuard、failpoint 遍历 |
 | 锁顺序死锁 | 固定 task admission -> migration(shared) -> base(unique) -> cumulative(unique) -> header 的分阶段顺序；禁止 header 内取 task lock；SyncPoint/TSAN |
 | migration 遗漏同 version TTL 替换 | TTL 全生命周期持有 migration shared lock，获取后执行 `Tablet::check_migrate()`；冲突返回可重试 `TABLET_BUSY` |
+| 源 Rowset 在 TTL 读取期被 `close()` 卸载 | coverage 全量验证后先批量 `acquire_readers()` 再 `load()`；guard 持有 reader 引用到最后一次 Segment 访问结束，全退出路径统一释放 |
+| ZoneMap 谓词极性或 EOF 解释错误导致误删 | DELETE_LIST 使用命中集合的补集、KEEP_LIST 使用命中集合并显式包含 NULL；EOF 按 mode 收敛；与逐行 oracle 双跑并校验 rowid/行数守恒 |
+| ZoneMap 不可用时错误拒绝任务 | 不增加 ZoneMap 准入门禁；只通过现有 Segment iterator 下推精确谓词，无索引或配置关闭时自然退化 |
 | overlap 元数据错误声明 | 多 Segment 输出原样继承 `OVERLAPPING`/`OVERLAP_UNKNOWN`；零或单 Segment 才归一化为 `NONOVERLAPPING`；提交前校验组合 |
 | TTL 导致 delete predicate 失效或数据复活 | 标准零行 predicate Rowset 保持 active 且参加 CAS；TTL 不消费、复制或清理 predicate；非零行组合按不变式错误拒绝 |
 | tenant 名单过大引起内存/日志问题 | 单份规范化 vector + hash set、MemTracker、HTTP body/list 上限、日志只记名单数量 |
@@ -1404,18 +1507,20 @@ tenant_ttl_compaction_running
 4. **task ID 与幂等**：首期不引入 `request_digest/predicate_digest`，也不保存 last task identity。正式任务使用 FE 分配的 Agent Task signature 作为 task ID；重试时 task ID 和请求内容不变。Tablet 只保存当前 `owner_task_id`，结束后不保留历史；重复请求依靠正式扫描和 `NOOP_VERIFIED` 收敛。
 5. **policy watermark**：固定为 `{dictionary_id, dictionary_txn_id, evaluation_time_epoch_seconds}`。首期 BE 不读取字典，只校验 watermark 格式及不可变请求/admission owner 的任务内一致性；不持久化完成水位，不判断跨任务或跨重启的新旧顺序，调度顺序由 FE 管理。
 
-第 6 轮后又完成以下四项 Review 口径对齐，依次列入第 7～10 轮：
+第 6 轮后又完成以下六项 Review 口径对齐，依次列入第 7～12 轮：
 
 6. **migration 互斥**：Tenant-TTL 持有 migration shared try-lock 并执行 `Tablet::check_migrate()`，同时保持 base/cumulative 排他 try-locks。
-7. **Segment overlap**：`OVERLAPPING`/`OVERLAP_UNKNOWN` 均使用逐 Segment 精确过滤；多 Segment 输出保守继承源属性，不强制 merge。
-8. **delete predicate**：标准零行 predicate Rowset 保持不变且参加 coverage CAS；TTL 扫描原始物理 tenant，不消费 predicate。
-9. **generation 常量**：用 `kInvalidTenantTtlGeneration` 统一表达无效 fencing token，不改变运行语义。
+7. **Rowset reader 生命周期**：coverage 全量验证后先批量 `acquire_readers()` 再 `load()`；reader 引用和 `is_compacting` 由 coverage guard 持有到任务完全结束，防止 `_segments` 被并发 `close()` 清空。
+8. **Segment overlap**：`OVERLAPPING`/`OVERLAP_UNKNOWN` 均使用逐 Segment 精确过滤；多 Segment 输出保守继承源属性，不强制 merge。
+9. **delete predicate**：标准零行 predicate Rowset 保持不变且参加 coverage CAS；TTL 扫描原始物理 tenant，不消费 predicate。
+10. **generation 常量**：用 `kInvalidTenantTtlGeneration` 统一表达无效 fencing token，不改变运行语义。
+11. **业务 tenant ZoneMap**：把 DELETE_LIST/KEEP_LIST 的业务 tenant 精确 PredicateTree 下推给 Segment iterator，复用 Segment/Page ZoneMap 并返回物理 rowid；不引入 `tenant_id`、Short Key、排序键依赖或请求字段扩展。
 
-第四步第 0～6 轮已经完成；第 7～10 轮待用户确认本计划后依次实施；原第 7 轮“第二批增强测试和生产化加固”顺延为第 11 轮。后续若需改变上述任一口径，应先修订本计划的数据结构、状态码和对应测试。
+第四步第 0～6 轮已经完成；第 7～12 轮 Review 修复已获确认，按独立轮次依次实施。“第二批增强测试和生产化加固”顺延为第 13 轮，且在 BE 代码 review 和 FE 开发完成前不启动。后续若需改变上述任一口径，应先修订本计划的数据结构、状态码和对应测试。
 
 ## 20. 计划验收与后续动作
 
-第 0～6 轮已完成。本次新增的第 7～10 轮 Review 修复计划需先由用户确认，收到开始编码指令后才按以下顺序实施：
+第 0～6 轮已完成。第 7～12 轮 Review 修复计划已由用户确认，按以下顺序实施；第 13 轮保持暂停：
 
 ```text
 开始第四步
@@ -1427,10 +1532,12 @@ tenant_ttl_compaction_running
   -> 第 5 轮 HTTP/SQL+HTTP
   -> 第 6 轮第一批收口
   -> 第 7 轮 migration 互斥
-  -> 第 8 轮 OVERLAPPING/OVERLAP_UNKNOWN
-  -> 第 9 轮 delete predicate
-  -> 第 10 轮 generation 语义常量
-  -> 第 11 轮第二批增强
+  -> 第 8 轮 Rowset reader 生命周期（P0）
+  -> 第 9 轮 OVERLAPPING/OVERLAP_UNKNOWN
+  -> 第 10 轮 delete predicate
+  -> 第 11 轮 generation 语义常量
+  -> 第 12 轮业务 tenant ZoneMap + 精确谓词 + rowid
+  -X 第 13 轮第二批增强（暂不启动）
 ```
 
 每轮结束必须提交：代码差异、已运行测试、未运行测试及原因、已知风险和下一轮入口条件。第 7 轮起必须遵守第 16.1 节的独立 commit 规则：标题带三位轮次编号，并提供包含问题、实现、兼容性和测试的详细 commit body。
