@@ -199,6 +199,31 @@ protected:
         return rowset;
     }
 
+    RowsetSharedPtr build_delete_predicate_rowset(
+            const Version& version, const std::vector<std::vector<TenantTtlTestRow>>& segments = {}) {
+        RowsetSharedPtr rowset = build_rowset(version, segments);
+        if (rowset == nullptr) {
+            return nullptr;
+        }
+        auto* delete_predicate = rowset->rowset_meta()->mutable_delete_predicate();
+        delete_predicate->set_version(version.first);
+        auto* in_predicate = delete_predicate->add_in_predicates();
+        in_predicate->set_column_name("tenant");
+        in_predicate->set_is_not_in(false);
+        in_predicate->add_values("predicate-target");
+        return rowset;
+    }
+
+    RowsetSharedPtr add_delete_predicate_rowset(
+            const Version& version, const std::vector<std::vector<TenantTtlTestRow>>& segments = {}) {
+        RowsetSharedPtr rowset = build_delete_predicate_rowset(version, segments);
+        if (rowset == nullptr) {
+            return nullptr;
+        }
+        EXPECT_OK(_tablet->add_rowset(rowset, false));
+        return rowset;
+    }
+
     std::vector<TenantTtlRowsetSnapshot> snapshot_active_rowsets() const {
         std::vector<TenantTtlRowsetSnapshot> snapshot;
         std::shared_lock lock(_tablet->get_header_lock());

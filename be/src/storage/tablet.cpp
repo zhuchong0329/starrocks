@@ -537,11 +537,16 @@ TenantTtlTaskCode Tablet::capture_tenant_ttl_coverage(const TenantTtlCompactionR
                     fmt::format("tenant ttl rowset [{}-{}] is not visible", version.first, version.second));
             return TenantTtlTaskCode::DATA_INVARIANT_VIOLATION;
         }
-        if (rowset->rowset_meta()->has_delete_predicate() || rowset->is_partial_update() ||
-            rowset->is_column_mode_partial_update()) {
+        if (rowset->is_partial_update() || rowset->is_column_mode_partial_update()) {
             *detail_status = Status::NotSupported(fmt::format(
                     "tenant ttl rowset [{}-{}] has unsupported mutation metadata", version.first, version.second));
             return TenantTtlTaskCode::NOT_SUPPORTED;
+        }
+        if (rowset->rowset_meta()->has_delete_predicate() && rowset->num_rows() != 0) {
+            *detail_status = Status::Corruption(
+                    fmt::format("tenant ttl delete-predicate rowset [{}-{}] unexpectedly contains {} physical rows",
+                                version.first, version.second, rowset->num_rows()));
+            return TenantTtlTaskCode::DATA_INVARIANT_VIOLATION;
         }
         if (rowset->schema()->id() != _max_version_schema->id() ||
             rowset->schema()->schema_version() != _max_version_schema->schema_version()) {

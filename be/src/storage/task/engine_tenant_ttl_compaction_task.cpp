@@ -411,6 +411,12 @@ Status EngineTenantTtlCompactionTask::execute() {
                                             .source_rowset_id = entry.expected_rowset_id,
                                             .source_rows = entry.source->num_rows(),
                                             .source_segments = static_cast<int32_t>(entry.source->num_segments())};
+        if (entry.source->rowset_meta()->has_delete_predicate()) {
+            DCHECK_EQ(0, entry.source->num_rows());
+            rowset_result.action = TenantTtlRowsetAction::VERIFIED_NO_CHANGE;
+            _result.rowsets.emplace_back(std::move(rowset_result));
+            continue;
+        }
         std::vector<SegmentFilterPlan> plans;
         plans.reserve(entry.source->num_segments());
         for (uint32_t segment_id = 0; segment_id < entry.source->num_segments(); ++segment_id) {
