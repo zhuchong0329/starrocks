@@ -45,6 +45,12 @@ struct SingleRowsetCase {
 
 class EngineTenantTtlCompactionTaskTest : public TenantTtlCompactionTestBase {
 protected:
+    void TearDown() override {
+        SyncPoint::GetInstance()->DisableProcessing();
+        SyncPoint::GetInstance()->ClearAllCallBacks();
+        TenantTtlCompactionTestBase::TearDown();
+    }
+
     TenantTtlCompactionRequest request(TenantFilterMode mode, std::vector<std::string> tenants,
                                        int64_t task_id = 1001) const {
         return {.task_id = task_id,
@@ -71,6 +77,17 @@ protected:
     RowsetSharedPtr active_rowset(const Version& version) const {
         std::shared_lock lock(_tablet->get_header_lock());
         return _tablet->get_rowset_by_version(version);
+    }
+
+    std::vector<RowsetSharedPtr> active_rowsets() const {
+        std::shared_lock lock(_tablet->get_header_lock());
+        const auto max_rowset = _tablet->rowset_with_max_version();
+        if (max_rowset == nullptr) {
+            return {};
+        }
+        std::vector<RowsetSharedPtr> rowsets;
+        EXPECT_OK(_tablet->capture_consistent_rowsets(Version(0, max_rowset->end_version()), &rowsets));
+        return rowsets;
     }
 
     std::vector<TenantTtlTestRow> read_rowset(const RowsetSharedPtr& rowset) const {
@@ -151,6 +168,23 @@ protected:
         }
         EXPECT_FALSE(error) << error.message();
         return result;
+    }
+
+    void expect_all_guards_released(const std::vector<RowsetSharedPtr>& sources) const {
+        EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
+        for (const auto& source : sources) {
+            EXPECT_FALSE(source->get_is_compacting());
+        }
+        const bool base_lock_acquired = _tablet->get_base_lock().try_lock();
+        EXPECT_TRUE(base_lock_acquired);
+        if (base_lock_acquired) {
+            _tablet->get_base_lock().unlock();
+        }
+        const bool cumulative_lock_acquired = _tablet->get_cumulative_lock().try_lock();
+        EXPECT_TRUE(cumulative_lock_acquired);
+        if (cumulative_lock_acquired) {
+            _tablet->get_cumulative_lock().unlock();
+        }
     }
 };
 
@@ -307,14 +341,16 @@ TEST_F(EngineTenantTtlCompactionTaskTest, KeepListCommitsKeepDropRewriteAndThenN
 
 TEST_F(EngineTenantTtlCompactionTaskTest, CancellationLeavesAllRowsetsAndTabletStateUntouched) {
     ASSERT_NE(nullptr, create_tablet(false));
-    ASSERT_NE(nullptr, add_rowset(Version(2, 2), {{{1, "a", 10}, {2, "b", 20}}}));
+    const auto source = add_rowset(Version(2, 2), {{{1, "a", 10}, {2, "b", 20}}});
+    ASSERT_NE(nullptr, source);
+    const auto sources = active_rowsets();
     const auto before = snapshot_active_rowsets();
     std::atomic<bool> cancelled{true};
 
     const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"a"}), &cancelled);
     EXPECT_EQ(TenantTtlTaskCode::CANCELLED, result.code);
     EXPECT_EQ(before, snapshot_active_rowsets());
-    EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
+    expect_all_guards_released(sources);
 }
 
 TEST_F(EngineTenantTtlCompactionTaskTest, EmptyDeleteListNoopsAfterCoverageValidation) {
@@ -333,9 +369,13 @@ TEST_F(EngineTenantTtlCompactionTaskTest, EmptyDeleteListNoopsAfterCoverageValid
 
 TEST_F(EngineTenantTtlCompactionTaskTest, LaterOutputFailureCleansStagingAndDoesNotPartiallyCommit) {
     ASSERT_NE(nullptr, create_tablet());
-    ASSERT_NE(nullptr, add_rowset(Version(2, 2), {{{1, "a", 10}, {2, "b", 20}}}));
-    ASSERT_NE(nullptr, add_rowset(Version(3, 3), {{{3, "a", 30}, {4, "c", 40}}}));
-    ASSERT_NE(nullptr, add_rowset(Version(4, 4), {{{5, "a", 50}, {6, "d", 60}}}));
+    const auto source2 = add_rowset(Version(2, 2), {{{1, "a", 10}, {2, "b", 20}}});
+    const auto source3 = add_rowset(Version(3, 3), {{{3, "a", 30}, {4, "c", 40}}});
+    const auto source4 = add_rowset(Version(4, 4), {{{5, "a", 50}, {6, "d", 60}}});
+    ASSERT_NE(nullptr, source2);
+    ASSERT_NE(nullptr, source3);
+    ASSERT_NE(nullptr, source4);
+    const auto sources = active_rowsets();
     const auto before_rowsets = snapshot_active_rowsets();
     const auto before_files = tablet_files();
 
@@ -354,7 +394,63 @@ TEST_F(EngineTenantTtlCompactionTaskTest, LaterOutputFailureCleansStagingAndDoes
     EXPECT_EQ(TenantTtlTaskCode::INTERNAL_ERROR, result.code);
     EXPECT_EQ(before_rowsets, snapshot_active_rowsets());
     EXPECT_EQ(before_files, tablet_files());
-    EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
+    expect_all_guards_released(sources);
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, CancellationAfterFirstStagedOutputCleansEverything) {
+    ASSERT_NE(nullptr, create_tablet());
+    const auto source2 = add_rowset(Version(2, 2), {{{1, "a", 10}, {2, "b", 20}}});
+    const auto source3 = add_rowset(Version(3, 3), {{{3, "a", 30}, {4, "c", 40}}});
+    ASSERT_NE(nullptr, source2);
+    ASSERT_NE(nullptr, source3);
+    const auto sources = active_rowsets();
+    const auto before_rowsets = snapshot_active_rowsets();
+    const auto before_files = tablet_files();
+    std::atomic<bool> cancelled{false};
+    int staged_outputs = 0;
+
+    SyncPoint::GetInstance()->SetCallBack("EngineTenantTtlCompactionTask::output_staged", [&](void*) {
+        ++staged_outputs;
+        cancelled.store(true, std::memory_order_release);
+    });
+    SyncPoint::GetInstance()->EnableProcessing();
+    const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"a"}), &cancelled);
+
+    EXPECT_EQ(1, staged_outputs);
+    EXPECT_EQ(TenantTtlTaskCode::CANCELLED, result.code);
+    EXPECT_EQ(before_rowsets, snapshot_active_rowsets());
+    EXPECT_EQ(before_files, tablet_files());
+    expect_all_guards_released(sources);
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, RowsetIdChangeBeforeCommitRejectsAndCleansAllStagedOutputs) {
+    ASSERT_NE(nullptr, create_tablet());
+    const auto source2 = add_rowset(Version(2, 2), {{{1, "a", 10}, {2, "b", 20}}});
+    const auto source3 = add_rowset(Version(3, 3), {{{3, "a", 30}, {4, "c", 40}}});
+    ASSERT_NE(nullptr, source2);
+    ASSERT_NE(nullptr, source3);
+    const auto sources = active_rowsets();
+    const auto competing = build_rowset(Version(0, 3), {{{10, "other", 100}}});
+    ASSERT_NE(nullptr, competing);
+    const auto before_files = tablet_files();
+    int rowset_changes = 0;
+
+    SyncPoint::GetInstance()->SetCallBack("EngineTenantTtlCompactionTask::before_commit", [&](void*) {
+        ++rowset_changes;
+        _tablet->overwrite_rowset(competing, 3);
+    });
+    SyncPoint::GetInstance()->EnableProcessing();
+    const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"a"}));
+
+    EXPECT_EQ(1, rowset_changes);
+    EXPECT_EQ(TenantTtlTaskCode::STALE_ROWSET, result.code);
+    EXPECT_TRUE(result.retryable);
+    EXPECT_EQ(before_files, tablet_files());
+    const auto active = snapshot_active_rowsets();
+    ASSERT_EQ(1, active.size());
+    EXPECT_EQ(Version(0, 3), active[0].version);
+    EXPECT_EQ(competing->rowset_id(), active[0].rowset_id);
+    expect_all_guards_released(sources);
 }
 
 } // namespace starrocks

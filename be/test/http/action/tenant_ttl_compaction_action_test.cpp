@@ -38,10 +38,15 @@ namespace {
 
 HttpStatus g_reply_status = HttpStatus::INTERNAL_SERVER_ERROR;
 std::string g_reply_body;
+int g_discarded_replies = 0;
 
 void capture_reply(HttpRequest*, HttpStatus status, std::string_view body) {
     g_reply_status = status;
     g_reply_body.assign(body);
+}
+
+void discard_reply(HttpRequest*, HttpStatus, std::string_view) {
+    ++g_discarded_replies;
 }
 
 std::string legal_request_json(std::string_view mode = "DELETE_LIST", std::string_view tenants = R"(["b","a","a"])",
@@ -204,6 +209,47 @@ TEST_F(TenantTtlCompactionActionExecutionTest, ExecutesMultiRowsetKeepDropRewrit
     EXPECT_STREQ("NOOP_VERIFIED", second["code"].GetString());
     EXPECT_EQ(0, second["deleted_rows"].GetInt64());
     EXPECT_EQ(after_first, snapshot_active_rowsets());
+}
+
+TEST_F(TenantTtlCompactionActionExecutionTest, LostHttpReplyDoesNotOwnTaskLifetimeAndRetryNoops) {
+    ASSERT_NE(nullptr, create_tablet());
+    const auto source = add_rowset(Version(2, 2), {{{1, "a", 10}, {2, "b", 20}}});
+    ASSERT_NE(nullptr, source);
+    const auto before = snapshot_active_rowsets();
+    g_discarded_replies = 0;
+
+    const std::string body = legal_request_json("DELETE_LIST", R"(["a"])", 2001, _tablet_id, _partition_id,
+                                                kTenantColumnUniqueId, kSchemaId, kSchemaVersion);
+    evhttp_request* ev_request = evhttp_request_new(nullptr, nullptr);
+    ASSERT_NE(nullptr, ev_request);
+    ASSERT_EQ(0, evbuffer_add(evhttp_request_get_input_buffer(ev_request), body.data(), body.size()));
+    HttpRequest request(ev_request);
+    request.set_method(HttpMethod::POST);
+    TenantTtlCompactionAction action;
+    s_injected_send_reply = discard_reply;
+    action.handle(&request);
+    evhttp_request_free(ev_request);
+    s_injected_send_reply = capture_reply;
+
+    EXPECT_EQ(1, g_discarded_replies);
+    EXPECT_NE(before, snapshot_active_rowsets());
+    EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
+    EXPECT_FALSE(source->get_is_compacting());
+    const bool base_lock_acquired = _tablet->get_base_lock().try_lock();
+    EXPECT_TRUE(base_lock_acquired);
+    if (base_lock_acquired) {
+        _tablet->get_base_lock().unlock();
+    }
+    const bool cumulative_lock_acquired = _tablet->get_cumulative_lock().try_lock();
+    EXPECT_TRUE(cumulative_lock_acquired);
+    if (cumulative_lock_acquired) {
+        _tablet->get_cumulative_lock().unlock();
+    }
+
+    auto retry = post(legal_request_json("DELETE_LIST", R"(["a"])", 2002, _tablet_id, _partition_id,
+                                         kTenantColumnUniqueId, kSchemaId, kSchemaVersion));
+    ASSERT_EQ(HttpStatus::OK, g_reply_status);
+    EXPECT_STREQ("NOOP_VERIFIED", retry["code"].GetString());
 }
 
 TEST(TenantTtlCompactionActionHttpTest, ReturnsStableBadRequestBody) {

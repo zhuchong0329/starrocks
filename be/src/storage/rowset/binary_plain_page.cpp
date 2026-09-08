@@ -115,13 +115,7 @@ bool BinaryPlainPageDecoder<Type>::append_range(uint32_t idx, uint32_t end, Colu
         const uint32_t page_data_offset = offset_uncheck(idx);
         // vectorized loop
         for (uint32_t i = idx; i < end - 1; i++) {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-            auto offset = _offsets_ptr[i + 1];
-#else
-            // direct call offset_uncheck() will break auto-vectorized
-            // maybe we can remove this condition compile after we upgrade the toolchain
             auto offset = offset_uncheck(i + 1);
-#endif
             uint32_t current_offset = offset - page_data_offset + begin_offset;
             offsets[current_offset_sz++] = current_offset;
         }

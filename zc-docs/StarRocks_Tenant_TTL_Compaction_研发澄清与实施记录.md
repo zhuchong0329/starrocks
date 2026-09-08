@@ -4,7 +4,7 @@
 
 源码基线：StarRocks main，commit `9559176fab6e2cb885779f1e7b680133d58d6972`  
 建立日期：2026-09-03  
-当前阶段：第四步——第 0～5 轮编码和测试已完成，待进入第 6 轮收口
+当前阶段：第四步——第 0～6 轮编码和测试已完成，待用户确认首期 BE 编码阶段收口
 文档状态：持续更新
 
 ## 1. 研发阶段
@@ -14,11 +14,13 @@
 | 第一步 | 需求澄清 | 已完成 |
 | 第二步 | 测试用例对齐 | 已完成 |
 | 第三步 | 编码计划文档 | 已完成 |
-| 第四步 | 编码和测试 | 第 0～5 轮已完成 |
+| 第四步 | 编码和测试 | 第 0～6 轮已完成，待收口确认 |
 
-Tenant-TTL Compaction 的需求、技术语义、测试边界和详细编码计划已经完成对齐。2026-09-04 开始第四步，第 0～4 轮已连续实施、分轮提交并推送；2026-09-05 经进一步对齐后实施第 5 轮 HTTP 手工入口和 SQL+HTTP 端到端。第 6～7 轮收口/增强测试尚未开始。
+Tenant-TTL Compaction 的需求、技术语义、测试边界和详细编码计划已经完成对齐。2026-09-04 开始第四步，第 0～4 轮已连续实施、分轮提交并推送；2026-09-05 经进一步对齐后实施第 5 轮 HTTP 手工入口和 SQL+HTTP 端到端；2026-09-08 完成第 6 轮代码评审修正、Sanitizer 和受影响回归。第 7 轮增强测试尚未开始。
 
-当前实施进度：第 0～5 轮均已完成并通过对应验证。第 0 轮已落地请求/结果契约和共享测试夹具；第 1 轮已落地只读取业务 `VARCHAR` tenant 列的精确 `TenantTtlRowFilter`。第 2 轮已落地策略无关的 `VerticalSegmentRewriter` 与 `FilteredRowsetWriter`：所有列组重放同一物理 rowid 范围，KEEP 对 `.dat` 及 GIN/Vector artifact 做目标 ordinal 重映射后的硬链接，DROP 不产生输出 Segment，REWRITE 生成一个新 Segment，目标 ordinal 始终连续；支持全 DROP 的空同版本 Rowset，并在 build 后无条件 `load()`、`verify()`。第 3 轮已落地 Tablet 进程内 `IDLE/PENDING/RUNNING` 状态、generation fencing、base/cumulative 固定顺序独占 try-lock guard、只从 active version map 固定完整连续 coverage、统一 `is_compacting` 标记清理，以及独立于普通 Compaction 的完整 Rowset ID/schema identity CAS 和多 Rowset 同版本批量提交 wrapper；普通 `modify_rowsets_without_lock()` 保持原样。第 4 轮已落地正式 `EngineTenantTtlCompactionTask`：完成 eligibility、内存/取消检查、完整 coverage 的多 Rowset 扫描与 staged 构建、单次 CAS 提交、`NOOP_VERIFIED`、失败清理，以及固定维度 metrics、trace counter 和不输出 tenant 内容的终态日志；确定性故障注入证明第二个输出失败时不会发生部分提交或残留文件。累计专项测试为第 0 轮 7 个、第 1 轮 6 个、第 2 轮 3 个、第 3 轮 6 个、第 4 轮 11 个，共 33 个，全部通过。第 5 轮已落地默认 OFF 的特殊 HTTP 编译开关、严格 JSON Action、条件路由，以及复用现有 `test/run.py` 的 SQL+HTTP T/R 用例。HTTP Action 专项 Release 测试 6/6 通过；真实 4.0.11 All-in-One 中 1 个串行 T/R case 通过，覆盖 `DELETE_LIST/KEEP_LIST`、NULL、多 Rowset `VERIFIED_NO_CHANGE/DROP/REWRITE` 和不同 task ID 重复谓词的 `NOOP_VERIFIED`。专用 ON 与默认 OFF Release 构建均成功，默认 OFF 二进制确认不含手工 Handler 标识和路由字符串。
+当前实施进度：第 0～6 轮均已完成并通过对应验证。第 0 轮已落地请求/结果契约和共享测试夹具；第 1 轮已落地只读取业务 `VARCHAR` tenant 列的精确 `TenantTtlRowFilter`。第 2 轮已落地策略无关的 `VerticalSegmentRewriter` 与 `FilteredRowsetWriter`：所有列组重放同一物理 rowid 范围，KEEP 对 `.dat` 及 GIN/Vector artifact 做目标 ordinal 重映射后的硬链接，DROP 不产生输出 Segment，REWRITE 生成一个新 Segment，目标 ordinal 始终连续；支持全 DROP 的空同版本 Rowset，并在 build 后无条件 `load()`、`verify()`。第 3 轮已落地 Tablet 进程内 `IDLE/PENDING/RUNNING` 状态、generation fencing、base/cumulative 固定顺序独占 try-lock guard、只从 active version map 固定完整连续 coverage、统一 `is_compacting` 标记清理，以及独立于普通 Compaction 的完整 Rowset ID/schema identity CAS 和多 Rowset 同版本批量提交 wrapper；普通 `modify_rowsets_without_lock()` 保持原样。第 4 轮已落地正式 `EngineTenantTtlCompactionTask`：完成 eligibility、内存/取消检查、完整 coverage 的多 Rowset 扫描与 staged 构建、单次 CAS 提交、`NOOP_VERIFIED`、失败清理，以及固定维度 metrics、trace counter 和不输出 tenant 内容的终态日志；确定性故障注入证明第二个输出失败时不会发生部分提交或残留文件。累计专项测试为第 0 轮 7 个、第 1 轮 6 个、第 2 轮 3 个、第 3 轮 6 个、第 4 轮 11 个，共 33 个，全部通过。第 5 轮已落地默认 OFF 的特殊 HTTP 编译开关、严格 JSON Action、条件路由，以及复用现有 `test/run.py` 的 SQL+HTTP T/R 用例。HTTP Action 专项 Release 测试 6/6 通过；真实 4.0.11 All-in-One 中 1 个串行 T/R case 通过，覆盖 `DELETE_LIST/KEEP_LIST`、NULL、多 Rowset `VERIFIED_NO_CHANGE/DROP/REWRITE` 和不同 task ID 重复谓词的 `NOOP_VERIFIED`。专用 ON 与默认 OFF Release 构建均成功，默认 OFF 二进制确认不含手工 Handler 标识和路由字符串。
+
+第 6 轮未扩展业务能力，重点完成原子提交、资源清理和普通 Compaction 隔离审查。coverage/commit 现会拒绝空 coverage、版本断点、非法边界、空 replacement、伪造 source identity 和不匹配的输出 Rowset 元数据；提交前 Rowset ID 变化仍返回可重试冲突，所有输出只批量替换一次并只保存一次 TabletMeta。新增确定性用例覆盖 staged output 后取消、第二个输出失败、提交前 Rowset ID 改变、TTL 与普通任务双向准入阻塞及 HTTP 响应丢失后重试 `NOOP_VERIFIED`。核心独立目标累计 37/37、HTTP Action 7/7 通过；ASAN 核心加 HTTP 44/44，UBSAN 核心 37/37，另通过普通 Base/Cumulative Horizontal/Vertical、shortcut compaction 和 `BinaryColumn` 空值边界定向回归。默认关闭手工 HTTP 入口的 Release `starrocks_be` 构建/链接通过，二进制确认不含手工路由字符串或 Handler 标识。完整 `starrocks_test` 按本轮已确认范围暂不执行。`OVERLAPPING` Segment 仍不在首期本轮处理范围，现有 `NONOVERLAPPING` 门禁保持不变。
 
 ## 2. 需求澄清记录
 

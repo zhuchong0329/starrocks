@@ -146,7 +146,7 @@ protected:
         return _tablet;
     }
 
-    RowsetSharedPtr add_rowset(const Version& version, const std::vector<std::vector<TenantTtlTestRow>>& segments) {
+    RowsetSharedPtr build_rowset(const Version& version, const std::vector<std::vector<TenantTtlTestRow>>& segments) {
         EXPECT_NE(nullptr, _tablet);
         RowsetWriterContext context;
         context.rowset_id = _engine->next_rowset_id();
@@ -185,7 +185,14 @@ protected:
         if (!rowset_or.ok()) {
             return nullptr;
         }
-        RowsetSharedPtr rowset = std::move(rowset_or).value();
+        return std::move(rowset_or).value();
+    }
+
+    RowsetSharedPtr add_rowset(const Version& version, const std::vector<std::vector<TenantTtlTestRow>>& segments) {
+        RowsetSharedPtr rowset = build_rowset(version, segments);
+        if (rowset == nullptr) {
+            return nullptr;
+        }
         EXPECT_OK(_tablet->add_rowset(rowset, false));
         return rowset;
     }

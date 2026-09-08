@@ -199,7 +199,8 @@ public:
         _num_elems = decode_fixed32_le((const uint8_t*)&_data[_data.get_size() - sizeof(uint32_t)]);
         _offsets_pos =
                 static_cast<uint32_t>(_data.get_size()) - (_num_elems + 1) * static_cast<uint32_t>(sizeof(uint32_t));
-        _offsets_ptr = reinterpret_cast<uint32_t*>(_data.data + _offsets_pos);
+        // The string payload has arbitrary length, so the offset trailer is not guaranteed to be uint32-aligned.
+        _offsets_ptr = reinterpret_cast<const uint8_t*>(_data.data + _offsets_pos);
 
         if (_data.size < config::small_dictionary_page_size) {
             _parsed_datas = std::vector<Slice>();
@@ -279,22 +280,14 @@ private:
     // Return the offset within '_data' where the string value with index 'idx' can be found.
     uint32_t offset(int idx) const { return idx < _num_elems ? offset_uncheck(idx) : _offsets_pos; }
 
-    uint32_t offset_uncheck(int idx) const {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-        return _offsets_ptr[idx];
-#else
-        const uint32_t pos = _offsets_pos + idx * static_cast<uint32_t>(sizeof(uint32_t));
-        const auto* const p = reinterpret_cast<const uint8_t*>(&_data[pos]);
-        return decode_fixed32_le(p);
-#endif
-    }
+    uint32_t offset_uncheck(int idx) const { return decode_fixed32_le(_offsets_ptr + idx * sizeof(uint32_t)); }
 
     Slice _data;
     bool _parsed;
 
     uint32_t _num_elems;
     uint32_t _offsets_pos;
-    uint32_t* _offsets_ptr = nullptr;
+    const uint8_t* _offsets_ptr = nullptr;
 
     // Index of the currently seeked element in the page.
     uint32_t _cur_idx;

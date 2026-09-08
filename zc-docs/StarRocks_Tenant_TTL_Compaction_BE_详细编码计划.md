@@ -1,10 +1,10 @@
 # StarRocks Tenant-TTL Compaction BE 详细编码计划
 
-> 状态：第四步第 0～5 轮编码和测试已完成，待进入第 6 轮收口
+> 状态：第四步第 0～6 轮编码和测试已完成，待用户确认首期 BE 编码阶段收口
 > 源码基线：StarRocks main，commit `10adb6a028de5218ef3be355d7fc7e3b82f9ab9d`  
 > 编制日期：2026-09-04  
 > 实施范围：首期 shared-nothing BE Tenant-TTL Compaction  
-> 实施节奏：第 0～5 轮已完成编码和对应验证；第 0～4 轮已分轮提交，第 5 轮随本次变更提交
+> 实施节奏：第 0～6 轮已完成编码和对应验证；第 0～5 轮已分轮提交，第 6 轮完成代码评审修正与第一批收口
 
 ## 1. 编制依据与结论优先级
 
@@ -1098,6 +1098,27 @@ KEEP_LIST   × KEEP/DROP/REWRITE
 - 普通 Compaction 行为和性能路径未被改写。
 - 用户再次确认后，首期 BE 编码阶段才可宣告完成。
 
+#### 实施结果（2026-09-08）
+
+- 加固完整 coverage 校验：拒绝空 coverage、版本断点、伪造 source identity、非法 snapshot 边界和空 replacement；同 version 提交前继续执行完整 `(version,rowset_id)` CAS。
+- 加固输出 Rowset 校验：提交前检查 schema 对象、tablet/partition/uid、schema hash、VISIBLE、`NONOVERLAPPING`、GTID 及行数上界；多 Rowset 仍在同一个 header lock 临界区内一次批量替换，并通过 SyncPoint 证明只调用一次 `save_meta()`。
+- 补齐取消、第二个输出失败、提交前 Rowset ID 变化和 HTTP 响应丢失等确定性故障用例；所有失败路径均验证 staged artifact、`is_compacting`、TTL owner/state 以及 base/cumulative locks 被清理。
+- UBSAN 暴露并修复两处既有底层未定义行为：空 `BinaryColumn` append 取无效元素地址，以及任意长度字符串 payload 后的 binary plain page offset trailer 非对齐读取。修复不改变 Tenant-TTL 语义或普通 Compaction 提交路径。
+- Tenant-TTL 六个核心独立目标共 37/37 通过；HTTP Action 7/7 通过。ASAN 覆盖核心与 HTTP 共 44/44，UBSAN 核心 37/37；UBSAN 仅保留进程退出时 OpenTelemetry no-op tracer 的既有第三方报告，业务/存储调用栈报告为 0。
+- ASAN 下另行通过 `BinaryColumn` 空值边界 1 项、Base Horizontal/Vertical 2 项、Cumulative Horizontal/Vertical 2 项和 shortcut compaction 1 项。按本轮确认范围未运行完整 `starrocks_test`，而以受影响目标和代表性普通 Compaction 回归收口。
+- 默认 `ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT=OFF` 的 Release `starrocks_be` 增量构建和链接通过，最终二进制确认不含手工路由字符串或 `TenantTtlCompactionAction` 标识。
+- `OVERLAPPING` Segment 不在本轮处理范围；资格门禁继续要求源/目标 Rowset 为 `NONOVERLAPPING`，没有新增 fallback 或语义变化。
+
+第 4 节不变式与本轮主要验证的对应关系如下：
+
+| 不变式 | 主要测试/断言 |
+| --- | --- |
+| 数据过滤和单/多 Rowset KEEP/DROP/REWRITE | `TenantTtlRowFilterTest`、`FilteredRowsetWriterTest`、`EngineTenantTtlSingleRowsetTest.ExecutesCompleteActionMatrix`、两种名单模式的多 Rowset Engine 用例 |
+| coverage 完整性和提交 CAS | `CapturesCompleteMultiRowsetCoverageAndClearsMarks`、`RejectsReplicaBelowFeWatermarkAndActiveVersionHole`、`FullCasRejectsRowsetIdAndSchemaIdentityChanges`、`RejectsMalformedCoverageAndEmptyCommitWithoutMutation` |
+| 多 Rowset 原子替换和单次持久化 | `CommitsMultipleSameVersionReplacementsAfterFullCas`、`LaterOutputFailureCleansStagingAndDoesNotPartiallyCommit`、`RowsetIdChangeBeforeCommitRejectsAndCleansAllStagedOutputs` |
+| 并发互斥和退出清理 | `AdmissionUsesGenerationAsFencingToken`、`GuardReleasesAdmissionAndEarlierLockOnTryLockFailure`、`AdmissionAndOrdinaryCompactionCreationBlockEachOther`、两个 cancellation Engine 用例 |
+| 幂等与 HTTP 生命周期 | DELETE/KEEP 多 Rowset Engine 二次执行 `NOOP_VERIFIED`、`LostHttpReplyDoesNotOwnTaskLifetimeAndRetryNoops` |
+
 ### 第 7 轮：第二批增强测试和生产化加固
 
 #### 目标
@@ -1189,7 +1210,7 @@ tenant_ttl_compaction_running
 4. **task ID 与幂等**：首期不引入 `request_digest/predicate_digest`，也不保存 last task identity。正式任务使用 FE 分配的 Agent Task signature 作为 task ID；重试时 task ID 和请求内容不变。Tablet 只保存当前 `owner_task_id`，结束后不保留历史；重复请求依靠正式扫描和 `NOOP_VERIFIED` 收敛。
 5. **policy watermark**：固定为 `{dictionary_id, dictionary_txn_id, evaluation_time_epoch_seconds}`。首期 BE 不读取字典，只校验 watermark 格式及不可变请求/admission owner 的任务内一致性；不持久化完成水位，不判断跨任务或跨重启的新旧顺序，调度顺序由 FE 管理。
 
-第四步编码将严格按第 0～6 轮推进，第 7 轮作为第二批增强测试单独排期。后续若需改变上述任一口径，应先修订本计划的数据结构、状态码和对应测试。
+第四步第 0～6 轮已经完成，第 7 轮作为第二批增强测试单独排期。后续若需改变上述任一口径，应先修订本计划的数据结构、状态码和对应测试。
 
 ## 20. 计划验收与后续动作
 
