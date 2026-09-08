@@ -122,7 +122,7 @@ TEST_F(TenantTtlTabletPrimitivesTest, AdmissionUsesGenerationAsFencingToken) {
 
     const auto first = _tablet->try_begin_tenant_ttl(req.task_id, req.policy_watermark);
     ASSERT_EQ(TenantTtlTaskCode::SUCCESS, first.code);
-    ASSERT_GT(first.generation, 0);
+    ASSERT_NE(kInvalidTenantTtlGeneration, first.generation);
     EXPECT_EQ(TenantTtlState::PENDING, _tablet->tenant_ttl_state_for_debug().state);
     EXPECT_EQ(TenantTtlTaskCode::TTL_ALREADY_RUNNING,
               _tablet->try_begin_tenant_ttl(req.task_id, req.policy_watermark).code);
@@ -196,9 +196,13 @@ TEST_F(TenantTtlTabletPrimitivesTest, GuardReleasesAdmissionAndEarlierLockOnTryL
     }
     {
         TenantTtlTabletGuard guard(_tablet);
+        EXPECT_EQ(kInvalidTenantTtlGeneration, guard.generation());
         ASSERT_EQ(TenantTtlTaskCode::SUCCESS, guard.try_acquire(req, &detail));
+        EXPECT_NE(kInvalidTenantTtlGeneration, guard.generation());
         EXPECT_EQ(TenantTtlState::RUNNING, _tablet->tenant_ttl_state_for_debug().state);
         EXPECT_FALSE(can_take_migration_exclusively());
+        guard.release();
+        EXPECT_EQ(kInvalidTenantTtlGeneration, guard.generation());
     }
     EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
     EXPECT_TRUE(can_take_migration_exclusively());

@@ -29,6 +29,7 @@
 namespace starrocks {
 
 inline constexpr uint32_t kTenantTtlProtocolVersion = 1;
+inline constexpr uint64_t kInvalidTenantTtlGeneration = 0;
 
 enum class TenantFilterMode : uint8_t {
     DELETE_LIST = 0,
@@ -60,7 +61,7 @@ enum class TenantTtlState : uint8_t {
 struct TenantTtlOwner {
     int64_t task_id{0};
     TenantTtlPolicyWatermark policy_watermark;
-    uint64_t generation{0};
+    uint64_t generation{kInvalidTenantTtlGeneration};
 };
 
 struct TenantTtlStateSnapshot {
@@ -107,7 +108,7 @@ enum class TenantTtlTaskCode : uint8_t {
 
 struct TenantTtlAdmissionResult {
     TenantTtlTaskCode code{TenantTtlTaskCode::INTERNAL_ERROR};
-    uint64_t generation{0};
+    uint64_t generation{kInvalidTenantTtlGeneration};
 };
 
 enum class TenantTtlRowsetAction : uint8_t {
