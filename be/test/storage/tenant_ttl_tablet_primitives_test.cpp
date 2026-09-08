@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <future>
+#include <thread>
+
 #include "storage/compaction_context.h"
 #include "storage/compaction_policy.h"
 #include "storage/compaction_task.h"
@@ -146,12 +149,41 @@ TEST_F(TenantTtlTabletPrimitivesTest, GuardReleasesAdmissionAndEarlierLockOnTryL
     ASSERT_NE(nullptr, create_tablet());
     const auto req = request();
     Status detail;
+    const auto can_take_migration_exclusively = [&] {
+        bool acquired = false;
+        std::thread thread([&] {
+            acquired = _tablet->get_migration_lock().try_lock();
+            if (acquired) {
+                _tablet->get_migration_lock().unlock();
+            }
+        });
+        thread.join();
+        return acquired;
+    };
 
+    {
+        std::promise<void> migration_locked;
+        auto migration_locked_future = migration_locked.get_future();
+        std::promise<void> release_migration;
+        auto release_migration_future = release_migration.get_future();
+        std::thread migration([&] {
+            std::unique_lock migration_lock(_tablet->get_migration_lock());
+            migration_locked.set_value();
+            release_migration_future.wait();
+        });
+        migration_locked_future.wait();
+        TenantTtlTabletGuard guard(_tablet);
+        EXPECT_EQ(TenantTtlTaskCode::TABLET_BUSY, guard.try_acquire(req, &detail));
+        EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
+        release_migration.set_value();
+        migration.join();
+    }
     {
         std::unique_lock base_lock(_tablet->get_base_lock());
         TenantTtlTabletGuard guard(_tablet);
         EXPECT_EQ(TenantTtlTaskCode::TABLET_BUSY, guard.try_acquire(req, &detail));
         EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
+        EXPECT_TRUE(can_take_migration_exclusively());
     }
     {
         std::unique_lock cumulative_lock(_tablet->get_cumulative_lock());
@@ -160,13 +192,40 @@ TEST_F(TenantTtlTabletPrimitivesTest, GuardReleasesAdmissionAndEarlierLockOnTryL
         EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
         EXPECT_TRUE(_tablet->get_base_lock().try_lock());
         _tablet->get_base_lock().unlock();
+        EXPECT_TRUE(can_take_migration_exclusively());
     }
     {
         TenantTtlTabletGuard guard(_tablet);
         ASSERT_EQ(TenantTtlTaskCode::SUCCESS, guard.try_acquire(req, &detail));
         EXPECT_EQ(TenantTtlState::RUNNING, _tablet->tenant_ttl_state_for_debug().state);
+        EXPECT_FALSE(can_take_migration_exclusively());
     }
     EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
+    EXPECT_TRUE(can_take_migration_exclusively());
+}
+
+TEST_F(TenantTtlTabletPrimitivesTest, GuardRejectsMigratingAndReplacedTabletObjects) {
+    ASSERT_NE(nullptr, create_tablet());
+    const auto req = request();
+    Status detail;
+
+    _tablet->set_is_migrating(true);
+    {
+        TenantTtlTabletGuard guard(_tablet);
+        EXPECT_EQ(TenantTtlTaskCode::TABLET_BUSY, guard.try_acquire(req, &detail));
+        EXPECT_EQ(TenantTtlState::IDLE, _tablet->tenant_ttl_state_for_debug().state);
+    }
+    _tablet->set_is_migrating(false);
+
+    auto stale_meta = TabletMeta::create();
+    _tablet->generate_tablet_meta_copy(stale_meta);
+    auto stale_tablet = Tablet::create_tablet_from_meta(stale_meta, _tablet->data_dir());
+    ASSERT_NE(nullptr, stale_tablet);
+    {
+        TenantTtlTabletGuard guard(stale_tablet);
+        EXPECT_EQ(TenantTtlTaskCode::TABLET_BUSY, guard.try_acquire(req, &detail));
+        EXPECT_EQ(TenantTtlState::IDLE, stale_tablet->tenant_ttl_state_for_debug().state);
+    }
 }
 
 TEST_F(TenantTtlTabletPrimitivesTest, CapturesCompleteMultiRowsetCoverageAndClearsMarks) {

@@ -24,8 +24,9 @@ namespace starrocks {
 class Tablet;
 using TabletSharedPtr = std::shared_ptr<Tablet>;
 
-// Owns one process-local Tenant-TTL admission and the two compaction locks.
-// The acquisition order is admission -> base(unique) -> cumulative(unique).
+// Owns one process-local Tenant-TTL admission, the migration shared lock, and
+// both compaction locks. The acquisition order is admission ->
+// migration(shared) -> base(unique) -> cumulative(unique).
 class TenantTtlTabletGuard {
 public:
     explicit TenantTtlTabletGuard(TabletSharedPtr tablet);
@@ -42,6 +43,7 @@ public:
 
 private:
     TabletSharedPtr _tablet;
+    std::shared_lock<std::shared_mutex> _migration_lock;
     std::unique_lock<std::shared_mutex> _base_lock;
     std::unique_lock<std::shared_mutex> _cumulative_lock;
     uint64_t _generation{0};
