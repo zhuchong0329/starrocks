@@ -192,6 +192,36 @@ protected:
             _tablet->get_migration_lock().unlock();
         }
     }
+
+    void expect_multi_segment_overlap_rewrite(SegmentsOverlapPB input_overlap) {
+        ASSERT_NE(nullptr, create_tablet());
+        auto source = add_rowset(Version(2, 2),
+                                 {{{1, "keep", 10}, {2, "keep", 20}},
+                                  {{3, "delete", 30}, {4, "delete", 40}},
+                                  {{5, "delete", 50}, {6, "keep", 60}}},
+                                 input_overlap);
+        ASSERT_NE(nullptr, source);
+
+        const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}));
+        ASSERT_EQ(TenantTtlTaskCode::SUCCESS, result.code);
+        ASSERT_EQ(2, result.rowsets.size());
+        const auto& rowset_result = result.rowsets.back();
+        EXPECT_EQ(TenantTtlRowsetAction::REWRITE, rowset_result.action);
+        EXPECT_EQ(1, rowset_result.linked_segments);
+        EXPECT_EQ(1, rowset_result.dropped_segments);
+        EXPECT_EQ(1, rowset_result.rewritten_segments);
+
+        const auto output = active_rowset(Version(2, 2));
+        ASSERT_NE(nullptr, output);
+        EXPECT_NE(source->rowset_id(), output->rowset_id());
+        EXPECT_EQ(2, output->num_segments());
+        EXPECT_EQ(input_overlap, output->rowset_meta()->segments_overlap());
+        const auto rows = read_tablet_rows();
+        ASSERT_EQ(3, rows.size());
+        EXPECT_EQ(1, rows[0].event_id);
+        EXPECT_EQ(2, rows[1].event_id);
+        EXPECT_EQ(6, rows[2].event_id);
+    }
 };
 
 class EngineTenantTtlSingleRowsetTest : public EngineTenantTtlCompactionTaskTest,
@@ -400,6 +430,38 @@ TEST_F(EngineTenantTtlCompactionTaskTest, ReaderReferencesProtectSegmentsFromClo
     EXPECT_EQ(2, rows[0].event_id);
     EXPECT_EQ(3, rows[1].event_id);
     expect_all_guards_released(sources);
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, OverlappingSegmentsAreFilteredIndependentlyAndConservativelyInherited) {
+    expect_multi_segment_overlap_rewrite(OVERLAPPING);
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, UnknownOverlapIsFilteredIndependentlyAndConservativelyInherited) {
+    expect_multi_segment_overlap_rewrite(OVERLAP_UNKNOWN);
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, OverlappingOutputWithOneSegmentIsNormalizedAndNoopKeepsSource) {
+    ASSERT_NE(nullptr, create_tablet());
+    auto source = add_rowset(Version(2, 2),
+                             {{{1, "delete", 10}, {2, "delete", 20}}, {{3, "keep", 30}, {4, "keep", 40}}},
+                             OVERLAPPING);
+    ASSERT_NE(nullptr, source);
+
+    const auto noop = execute(request(TenantFilterMode::DELETE_LIST, {"missing"}));
+    EXPECT_EQ(TenantTtlTaskCode::NOOP_VERIFIED, noop.code);
+    EXPECT_EQ(source->rowset_id(), active_rowset(Version(2, 2))->rowset_id());
+    EXPECT_EQ(OVERLAPPING, active_rowset(Version(2, 2))->rowset_meta()->segments_overlap());
+
+    const auto rewritten = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}, 1002));
+    EXPECT_EQ(TenantTtlTaskCode::SUCCESS, rewritten.code);
+    const auto output = active_rowset(Version(2, 2));
+    ASSERT_NE(nullptr, output);
+    EXPECT_EQ(1, output->num_segments());
+    EXPECT_EQ(NONOVERLAPPING, output->rowset_meta()->segments_overlap());
+    const auto rows = read_tablet_rows();
+    ASSERT_EQ(2, rows.size());
+    EXPECT_EQ(3, rows[0].event_id);
+    EXPECT_EQ(4, rows[1].event_id);
 }
 
 TEST_F(EngineTenantTtlCompactionTaskTest, LaterOutputFailureCleansStagingAndDoesNotPartiallyCommit) {

@@ -537,11 +537,6 @@ TenantTtlTaskCode Tablet::capture_tenant_ttl_coverage(const TenantTtlCompactionR
                     fmt::format("tenant ttl rowset [{}-{}] is not visible", version.first, version.second));
             return TenantTtlTaskCode::DATA_INVARIANT_VIOLATION;
         }
-        if (rowset->rowset_meta()->segments_overlap() != NONOVERLAPPING) {
-            *detail_status = Status::NotSupported(
-                    fmt::format("tenant ttl rowset [{}-{}] has overlapping segments", version.first, version.second));
-            return TenantTtlTaskCode::NOT_SUPPORTED;
-        }
         if (rowset->rowset_meta()->has_delete_predicate() || rowset->is_partial_update() ||
             rowset->is_column_mode_partial_update()) {
             *detail_status = Status::NotSupported(fmt::format(
@@ -705,10 +700,13 @@ TenantTtlTaskCode Tablet::commit_tenant_ttl_rowsets(const TenantTtlCoverage& cov
             return TenantTtlTaskCode::INVALID_ARGUMENT;
         }
         const auto& output_meta = replacement.output->rowset_meta();
+        const auto expected_overlap = replacement.output->num_segments() <= 1
+                                              ? NONOVERLAPPING
+                                              : coverage_entry->source->rowset_meta()->segments_overlap();
         if (replacement.output->schema().get() != coverage.schema_identity.captured_schema.get() ||
             output_meta->tablet_id() != tablet_id() || output_meta->partition_id() != partition_id() ||
             output_meta->tablet_uid() != tablet_uid() || output_meta->tablet_schema_hash() != schema_hash() ||
-            output_meta->rowset_state() != VISIBLE || output_meta->segments_overlap() != NONOVERLAPPING ||
+            output_meta->rowset_state() != VISIBLE || output_meta->segments_overlap() != expected_overlap ||
             output_meta->gtid() != coverage_entry->source->rowset_meta()->gtid() ||
             replacement.output->num_rows() > coverage_entry->source->num_rows()) {
             *detail_status = Status::InvalidArgument("tenant ttl replacement metadata does not match its source");

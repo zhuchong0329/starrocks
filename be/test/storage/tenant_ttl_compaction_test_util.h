@@ -146,7 +146,8 @@ protected:
         return _tablet;
     }
 
-    RowsetSharedPtr build_rowset(const Version& version, const std::vector<std::vector<TenantTtlTestRow>>& segments) {
+    RowsetSharedPtr build_rowset(const Version& version, const std::vector<std::vector<TenantTtlTestRow>>& segments,
+                                 SegmentsOverlapPB segments_overlap = NONOVERLAPPING) {
         EXPECT_NE(nullptr, _tablet);
         RowsetWriterContext context;
         context.rowset_id = _engine->next_rowset_id();
@@ -158,7 +159,7 @@ protected:
         context.rowset_state = VISIBLE;
         context.tablet_schema = _tablet->tablet_schema();
         context.version = version;
-        context.segments_overlap = NONOVERLAPPING;
+        context.segments_overlap = segments_overlap;
 
         std::unique_ptr<RowsetWriter> writer;
         EXPECT_OK(RowsetFactory::create_rowset_writer(context, &writer));
@@ -188,8 +189,9 @@ protected:
         return std::move(rowset_or).value();
     }
 
-    RowsetSharedPtr add_rowset(const Version& version, const std::vector<std::vector<TenantTtlTestRow>>& segments) {
-        RowsetSharedPtr rowset = build_rowset(version, segments);
+    RowsetSharedPtr add_rowset(const Version& version, const std::vector<std::vector<TenantTtlTestRow>>& segments,
+                               SegmentsOverlapPB segments_overlap = NONOVERLAPPING) {
+        RowsetSharedPtr rowset = build_rowset(version, segments, segments_overlap);
         if (rowset == nullptr) {
             return nullptr;
         }

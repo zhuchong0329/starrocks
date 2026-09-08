@@ -257,7 +257,7 @@ Status validate_no_delta_column_groups(const TabletSharedPtr& tablet, const Tena
 }
 
 RowsetWriterContext make_output_context(const TabletSharedPtr& tablet, const TenantTtlCoverage& coverage,
-                                        const RowsetSharedPtr& source) {
+                                        const RowsetSharedPtr& source, int32_t output_segment_count) {
     RowsetWriterContext context;
     context.rowset_id = StorageEngine::instance()->next_rowset_id();
     context.tablet_uid = tablet->tablet_uid();
@@ -268,7 +268,8 @@ RowsetWriterContext make_output_context(const TabletSharedPtr& tablet, const Ten
     context.rowset_state = VISIBLE;
     context.tablet_schema = coverage.schema_identity.captured_schema;
     context.version = source->version();
-    context.segments_overlap = NONOVERLAPPING;
+    context.segments_overlap = output_segment_count <= 1 ? NONOVERLAPPING
+                                                          : source->rowset_meta()->segments_overlap();
     context.gtid = source->rowset_meta()->gtid();
     context.is_compaction = true;
     return context;
@@ -443,8 +444,10 @@ Status EngineTenantTtlCompactionTask::execute() {
             continue;
         }
 
-        auto writer = std::make_unique<FilteredRowsetWriter>(make_output_context(tablet, coverage, entry.source), 4096,
-                                                             _mem_tracker.get(), _is_cancelled);
+        const int32_t output_segment_count = rowset_result.linked_segments + rowset_result.rewritten_segments;
+        auto writer = std::make_unique<FilteredRowsetWriter>(
+                make_output_context(tablet, coverage, entry.source, output_segment_count), 4096, _mem_tracker.get(),
+                _is_cancelled);
         status = writer->init();
         if (!status.ok()) {
             return _finish(TenantTtlTaskCode::INTERNAL_ERROR, std::move(status));
