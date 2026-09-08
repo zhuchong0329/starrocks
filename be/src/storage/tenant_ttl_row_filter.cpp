@@ -16,19 +16,61 @@
 
 #include <algorithm>
 #include <limits>
-#include <string_view>
+#include <optional>
 #include <utility>
 #include <vector>
 
 #include "column/chunk.h"
+#include "common/object_pool.h"
 #include "fs/fs.h"
 #include "runtime/mem_tracker.h"
 #include "storage/chunk_helper.h"
 #include "storage/chunk_iterator.h"
+#include "storage/column_predicate.h"
+#include "storage/column_predicate_rewriter.h"
+#include "storage/predicate_tree/predicate_tree.h"
 #include "storage/rowset/segment_options.h"
+#include "testutil/sync_point.h"
 #include "util/defer_op.h"
 
 namespace starrocks {
+namespace {
+
+Status finalize_segment_plan(const SparseRange<>& matching_rows, TenantFilterMode mode, SegmentFilterPlan* plan) {
+    const rowid_t matching_row_count = matching_rows.span_size();
+    if (matching_row_count > plan->source_rows) {
+        return Status::Corruption("Tenant-TTL predicate returned more rowids than the Segment contains");
+    }
+
+    if (mode == TenantFilterMode::KEEP_LIST) {
+        plan->kept_rows = matching_row_count;
+        plan->keep_row_ranges = std::make_shared<SparseRange<>>(matching_rows);
+    } else {
+        plan->kept_rows = plan->source_rows - matching_row_count;
+        plan->keep_row_ranges = std::make_shared<SparseRange<>>();
+        rowid_t cursor = 0;
+        for (size_t i = 0; i < matching_rows.size(); ++i) {
+            const auto& drop_range = matching_rows[i];
+            plan->keep_row_ranges->add(Range<rowid_t>(cursor, drop_range.begin()));
+            cursor = drop_range.end();
+        }
+        plan->keep_row_ranges->add(Range<rowid_t>(cursor, plan->source_rows));
+    }
+
+    plan->deleted_rows = plan->source_rows - plan->kept_rows;
+    if (plan->deleted_rows == 0) {
+        plan->action = SegmentFilterAction::KEEP;
+        plan->keep_row_ranges.reset();
+    } else if (plan->kept_rows == 0) {
+        plan->action = SegmentFilterAction::DROP;
+        plan->keep_row_ranges.reset();
+    } else {
+        plan->action = SegmentFilterAction::REWRITE;
+    }
+    return Status::OK();
+}
+
+} // namespace
 
 TenantTtlRowFilter::TenantTtlRowFilter(TabletSchemaCSPtr tablet_schema, int32_t tenant_column_unique_id,
                                        TenantFilter filter, size_t chunk_size, MemTracker* mem_tracker,
@@ -59,8 +101,8 @@ Status TenantTtlRowFilter::validate() const {
     if (_filter.mode != TenantFilterMode::DELETE_LIST && _filter.mode != TenantFilterMode::KEEP_LIST) {
         return Status::InvalidArgument("Tenant-TTL filter mode is invalid");
     }
-    if (_filter.mode == TenantFilterMode::KEEP_LIST && _filter.tenants.empty()) {
-        return Status::InvalidArgument("Tenant-TTL KEEP_LIST must not be empty");
+    if (_filter.tenants.empty()) {
+        return Status::InvalidArgument("Tenant-TTL row filter requires a non-empty tenant list");
     }
     if (_chunk_size == 0 || _chunk_size > static_cast<size_t>(std::numeric_limits<int>::max())) {
         return Status::InvalidArgument("Tenant-TTL chunk size is invalid");
@@ -78,18 +120,6 @@ Status TenantTtlRowFilter::_check_resource_state() const {
     return Status::OK();
 }
 
-bool TenantTtlRowFilter::_is_listed(const Slice& tenant) const {
-    const std::string_view value(tenant.data, tenant.size);
-    const auto it = std::lower_bound(_filter.tenants.begin(), _filter.tenants.end(), value,
-                                     [](const std::string& lhs, std::string_view rhs) { return lhs < rhs; });
-    return it != _filter.tenants.end() && std::string_view(*it) == value;
-}
-
-bool TenantTtlRowFilter::_should_keep(const Slice& tenant) const {
-    const bool listed = _is_listed(tenant);
-    return _filter.mode == TenantFilterMode::DELETE_LIST ? !listed : listed;
-}
-
 StatusOr<SegmentFilterPlan> TenantTtlRowFilter::plan_segment(const SegmentSharedPtr& segment,
                                                              uint32_t src_segment_id) const {
     RETURN_IF_ERROR(validate());
@@ -101,7 +131,6 @@ StatusOr<SegmentFilterPlan> TenantTtlRowFilter::plan_segment(const SegmentShared
     SegmentFilterPlan plan;
     plan.src_segment_id = src_segment_id;
     plan.source_rows = segment->num_rows();
-    plan.keep_row_ranges = std::make_shared<SparseRange<>>();
     if (plan.source_rows == 0) {
         plan.action = SegmentFilterAction::KEEP;
         return plan;
@@ -118,9 +147,37 @@ StatusOr<SegmentFilterPlan> TenantTtlRowFilter::plan_segment(const SegmentShared
     read_options.is_cancelled = _is_cancelled;
     read_options.tablet_schema = _tablet_schema;
 
+    ObjectPool predicate_pool;
+    const auto type_info = get_type_info(_tablet_schema->column(_tenant_column_index));
+    auto* in_predicate = predicate_pool.add(
+            new_column_in_predicate(type_info, static_cast<ColumnId>(_tenant_column_index), _filter.tenants));
+    PredicateAndNode predicate_root;
+    if (_filter.mode == TenantFilterMode::KEEP_LIST &&
+        _tablet_schema->column(_tenant_column_index).is_nullable()) {
+        PredicateOrNode keep_or_null;
+        keep_or_null.add_child(PredicateColumnNode{in_predicate});
+        auto* null_predicate = predicate_pool.add(
+                new_column_null_predicate(type_info, static_cast<ColumnId>(_tenant_column_index), true));
+        keep_or_null.add_child(PredicateColumnNode{null_predicate});
+        predicate_root.add_child(std::move(keep_or_null));
+    } else {
+        predicate_root.add_child(PredicateColumnNode{in_predicate});
+    }
+    read_options.pred_tree = PredicateTree::create(std::move(predicate_root));
+    RETURN_IF_ERROR(ZonemapPredicatesRewriter::rewrite_predicate_tree(
+            &predicate_pool, read_options.pred_tree, read_options.pred_tree_for_zone_map));
+
+    DeferOp collect_reader_stats([this, &reader_stats]() {
+        _stats.tenant_rows_read += reader_stats.raw_rows_read;
+        _stats.rows_pruned_by_segment_zonemap += reader_stats.segment_stats_filtered;
+        _stats.rows_pruned_by_page_zonemap += reader_stats.rows_stats_filtered;
+    });
+
     auto iterator_or = segment->new_iterator(tenant_schema, read_options);
     if (iterator_or.status().is_end_of_file()) {
-        return Status::Corruption("Tenant-TTL non-empty segment unexpectedly returned EOF while opening iterator");
+        const SparseRange<> no_matching_rows;
+        RETURN_IF_ERROR(finalize_segment_plan(no_matching_rows, _filter.mode, &plan));
+        return plan;
     }
     ASSIGN_OR_RETURN(auto iterator, std::move(iterator_or));
     if (iterator == nullptr) {
@@ -131,13 +188,14 @@ StatusOr<SegmentFilterPlan> TenantTtlRowFilter::plan_segment(const SegmentShared
     DeferOp close_iterator([&iterator]() { iterator->close(); });
 
     auto chunk = ChunkHelper::new_chunk(tenant_schema, _chunk_size);
-    uint32_t row_ordinal = 0;
-    uint32_t keep_run_begin = 0;
-    bool in_keep_run = false;
+    SparseRange<> matching_rows;
+    std::optional<rowid_t> last_matching_rowid;
+    rowid_t matching_run_begin = 0;
     while (true) {
         RETURN_IF_ERROR(_check_resource_state());
         chunk->reset();
-        const Status status = iterator->get_next(chunk.get());
+        std::vector<rowid_t> rowids;
+        const Status status = iterator->get_next(chunk.get(), &rowids);
         if (status.is_end_of_file()) {
             break;
         }
@@ -145,42 +203,31 @@ StatusOr<SegmentFilterPlan> TenantTtlRowFilter::plan_segment(const SegmentShared
         if (chunk->num_columns() != 1) {
             return Status::Corruption("Tenant-TTL tenant iterator returned an unexpected column count");
         }
-        const auto& tenant_column = chunk->get_column_by_index(0);
-        for (size_t i = 0; i < chunk->num_rows(); ++i) {
-            if (row_ordinal >= plan.source_rows) {
-                return Status::Corruption("Tenant-TTL tenant iterator returned too many rows");
+        TEST_SYNC_POINT_CALLBACK("TenantTtlRowFilter::plan_segment:matching_rowids", &rowids);
+        if (rowids.size() != chunk->num_rows()) {
+            return Status::Corruption("Tenant-TTL tenant iterator returned a mismatched rowid count");
+        }
+        for (const rowid_t rowid : rowids) {
+            if (rowid >= plan.source_rows) {
+                return Status::Corruption("Tenant-TTL tenant iterator returned an out-of-range rowid");
             }
-            const Datum tenant = tenant_column->get(i);
-            // SQL NULL has no tenant identity and is therefore always retained.
-            const bool keep = tenant.is_null() || _should_keep(tenant.get_slice());
-            if (keep && !in_keep_run) {
-                keep_run_begin = row_ordinal;
-                in_keep_run = true;
-            } else if (!keep && in_keep_run) {
-                plan.keep_row_ranges->add(Range<rowid_t>(keep_run_begin, row_ordinal));
-                in_keep_run = false;
+            if (last_matching_rowid.has_value() && rowid <= last_matching_rowid.value()) {
+                return Status::Corruption("Tenant-TTL tenant iterator returned duplicate or unordered rowids");
             }
-            plan.kept_rows += keep;
-            ++row_ordinal;
+            if (!last_matching_rowid.has_value()) {
+                matching_run_begin = rowid;
+            } else if (rowid != last_matching_rowid.value() + 1) {
+                matching_rows.add(Range<rowid_t>(matching_run_begin, last_matching_rowid.value() + 1));
+                matching_run_begin = rowid;
+            }
+            last_matching_rowid = rowid;
         }
     }
-    if (in_keep_run) {
-        plan.keep_row_ranges->add(Range<rowid_t>(keep_run_begin, row_ordinal));
-    }
-    if (row_ordinal != plan.source_rows) {
-        return Status::Corruption("Tenant-TTL tenant iterator row count does not match segment metadata");
+    if (last_matching_rowid.has_value()) {
+        matching_rows.add(Range<rowid_t>(matching_run_begin, last_matching_rowid.value() + 1));
     }
 
-    plan.deleted_rows = plan.source_rows - plan.kept_rows;
-    if (plan.deleted_rows == 0) {
-        plan.action = SegmentFilterAction::KEEP;
-        plan.keep_row_ranges.reset();
-    } else if (plan.kept_rows == 0) {
-        plan.action = SegmentFilterAction::DROP;
-        plan.keep_row_ranges.reset();
-    } else {
-        plan.action = SegmentFilterAction::REWRITE;
-    }
+    RETURN_IF_ERROR(finalize_segment_plan(matching_rows, _filter.mode, &plan));
     return plan;
 }
 

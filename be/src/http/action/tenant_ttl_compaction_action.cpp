@@ -245,6 +245,12 @@ std::string TenantTtlCompactionAction::serialize_result(const TenantTtlCompactio
     writer.Int64(result.kept_rows);
     writer.Key("deleted_rows");
     writer.Int64(result.deleted_rows);
+    writer.Key("tenant_rows_read");
+    writer.Int64(result.tenant_rows_read);
+    writer.Key("rows_pruned_by_segment_zonemap");
+    writer.Int64(result.rows_pruned_by_segment_zonemap);
+    writer.Key("rows_pruned_by_page_zonemap");
+    writer.Int64(result.rows_pruned_by_page_zonemap);
     writer.Key("linked_bytes");
     writer.Int64(result.linked_bytes);
     writer.Key("rewritten_bytes");

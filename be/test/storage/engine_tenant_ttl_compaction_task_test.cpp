@@ -404,6 +404,19 @@ TEST_F(EngineTenantTtlCompactionTaskTest, EmptyDeleteListNoopsAfterCoverageValid
     EXPECT_EQ(before, snapshot_active_rowsets());
 }
 
+TEST_F(EngineTenantTtlCompactionTaskTest, ReportsLogicalRowsSeparatelyFromZoneMapTenantReads) {
+    ASSERT_NE(nullptr, create_tablet(false));
+    ASSERT_NE(nullptr, add_rowset(Version(2, 2), {{{1, "a", 10}, {2, "b", 20}, {3, "c", 30}}}));
+
+    const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"missing"}));
+
+    EXPECT_EQ(TenantTtlTaskCode::NOOP_VERIFIED, result.code);
+    EXPECT_EQ(3, result.scanned_rows);
+    EXPECT_EQ(0, result.tenant_rows_read);
+    EXPECT_EQ(3, result.rows_pruned_by_segment_zonemap);
+    EXPECT_EQ(0, result.rows_pruned_by_page_zonemap);
+}
+
 TEST_F(EngineTenantTtlCompactionTaskTest, ReaderReferencesProtectSegmentsFromCloseDuringRewrite) {
     ASSERT_NE(nullptr, create_tablet());
     auto source = add_rowset(Version(2, 2), {{{1, "delete", 10}, {2, "keep", 20}, {3, "keep", 30}}});
