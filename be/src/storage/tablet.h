@@ -480,7 +480,7 @@ private:
 
     TenantTtlState _tenant_ttl_state = TenantTtlState::IDLE;
     std::optional<TenantTtlOwner> _tenant_ttl_owner;
-    uint64_t _tenant_ttl_generation = 0;
+    uint64_t _tenant_ttl_generation = kInvalidTenantTtlGeneration;
 
     // if this tablet is broken, set to true. default is false
     // timestamp of last cumu compaction failure

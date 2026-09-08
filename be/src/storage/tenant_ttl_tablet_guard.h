@@ -46,7 +46,7 @@ private:
     std::shared_lock<std::shared_mutex> _migration_lock;
     std::unique_lock<std::shared_mutex> _base_lock;
     std::unique_lock<std::shared_mutex> _cumulative_lock;
-    uint64_t _generation{0};
+    uint64_t _generation{kInvalidTenantTtlGeneration};
     bool _owns_admission{false};
 };
 

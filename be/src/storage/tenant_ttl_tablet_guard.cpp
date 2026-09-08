@@ -98,6 +98,7 @@ void TenantTtlTabletGuard::release() {
     if (_owns_admission) {
         _tablet->finish_tenant_ttl(_generation);
         _owns_admission = false;
+        _generation = kInvalidTenantTtlGeneration;
     }
 }
 

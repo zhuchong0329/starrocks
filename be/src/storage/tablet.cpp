@@ -435,9 +435,9 @@ TenantTtlAdmissionResult Tablet::try_begin_tenant_ttl(int64_t task_id,
         return {.code = TenantTtlTaskCode::TABLET_BUSY};
     }
 
-    // Zero is reserved as the invalid generation. Wraparound is practically
-    // unreachable, but skipping zero keeps the fencing rule explicit.
-    if (++_tenant_ttl_generation == 0) {
+    // The invalid generation is reserved. Wraparound is practically
+    // unreachable, but skipping it keeps the fencing rule explicit.
+    if (++_tenant_ttl_generation == kInvalidTenantTtlGeneration) {
         ++_tenant_ttl_generation;
     }
     _tenant_ttl_state = TenantTtlState::PENDING;
