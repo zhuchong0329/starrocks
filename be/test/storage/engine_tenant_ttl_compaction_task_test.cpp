@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <mutex>
 #include <set>
 
 #include "fs/fs.h"
@@ -462,6 +463,109 @@ TEST_F(EngineTenantTtlCompactionTaskTest, OverlappingOutputWithOneSegmentIsNorma
     ASSERT_EQ(2, rows.size());
     EXPECT_EQ(3, rows[0].event_id);
     EXPECT_EQ(4, rows[1].event_id);
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, DeletePredicateRowsetIsPreservedWhileDeleteListFiltersPhysicalRows) {
+    ASSERT_NE(nullptr, create_tablet());
+    const auto data = add_rowset(Version(2, 2), {{{1, "delete", 10}, {2, "predicate-target", 20}}});
+    const auto predicate = add_delete_predicate_rowset(Version(3, 3));
+    ASSERT_NE(nullptr, data);
+    ASSERT_NE(nullptr, predicate);
+    const RowsetId predicate_id = predicate->rowset_id();
+    const std::string predicate_bytes = predicate->rowset_meta()->delete_predicate().SerializeAsString();
+
+    const auto first = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}));
+    ASSERT_EQ(TenantTtlTaskCode::SUCCESS, first.code);
+    ASSERT_EQ(3, first.rowsets.size());
+    EXPECT_EQ(TenantTtlRowsetAction::VERIFIED_NO_CHANGE, first.rowsets.back().action);
+    EXPECT_FALSE(first.rowsets.back().output_rowset_id.has_value());
+
+    const auto current_predicate = active_rowset(Version(3, 3));
+    ASSERT_NE(nullptr, current_predicate);
+    EXPECT_EQ(predicate_id, current_predicate->rowset_id());
+    EXPECT_TRUE(current_predicate->rowset_meta()->has_delete_predicate());
+    EXPECT_EQ(predicate_bytes, current_predicate->rowset_meta()->delete_predicate().SerializeAsString());
+    const auto rows = read_tablet_rows();
+    ASSERT_EQ(1, rows.size());
+    EXPECT_EQ(2, rows[0].event_id);
+    ASSERT_TRUE(rows[0].tenant.has_value());
+    EXPECT_EQ("predicate-target", rows[0].tenant.value());
+
+    const auto after_first = snapshot_active_rowsets();
+    const auto second = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}, 1002));
+    EXPECT_EQ(TenantTtlTaskCode::NOOP_VERIFIED, second.code);
+    EXPECT_EQ(after_first, snapshot_active_rowsets());
+    EXPECT_EQ(predicate_id, active_rowset(Version(3, 3))->rowset_id());
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, DeletePredicateRowsetIsPreservedWhileKeepListFiltersPhysicalRows) {
+    ASSERT_NE(nullptr, create_tablet());
+    const auto data = add_rowset(Version(2, 2), {{{1, "delete", 10}, {2, "predicate-target", 20}}});
+    const auto predicate = add_delete_predicate_rowset(Version(3, 3));
+    ASSERT_NE(nullptr, data);
+    ASSERT_NE(nullptr, predicate);
+    const RowsetId predicate_id = predicate->rowset_id();
+
+    const auto result = execute(request(TenantFilterMode::KEEP_LIST, {"predicate-target"}));
+    ASSERT_EQ(TenantTtlTaskCode::SUCCESS, result.code);
+    ASSERT_EQ(3, result.rowsets.size());
+    EXPECT_EQ(TenantTtlRowsetAction::VERIFIED_NO_CHANGE, result.rowsets.back().action);
+    EXPECT_EQ(predicate_id, active_rowset(Version(3, 3))->rowset_id());
+    const auto rows = read_tablet_rows();
+    ASSERT_EQ(1, rows.size());
+    EXPECT_EQ(2, rows[0].event_id);
+    ASSERT_TRUE(rows[0].tenant.has_value());
+    EXPECT_EQ("predicate-target", rows[0].tenant.value());
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, DataBearingDeletePredicateRowsetFailsBeforeOutputStaging) {
+    ASSERT_NE(nullptr, create_tablet());
+    const auto malformed =
+            add_delete_predicate_rowset(Version(2, 2), {{{1, "delete", 10}, {2, "keep", 20}}});
+    ASSERT_NE(nullptr, malformed);
+    const auto sources = active_rowsets();
+    const auto before_rowsets = snapshot_active_rowsets();
+    const auto before_files = tablet_files();
+    int staged_outputs = 0;
+    SyncPoint::GetInstance()->SetCallBack("EngineTenantTtlCompactionTask::output_staged",
+                                          [&](void*) { ++staged_outputs; });
+    SyncPoint::GetInstance()->EnableProcessing();
+
+    const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}));
+
+    EXPECT_EQ(TenantTtlTaskCode::DATA_INVARIANT_VIOLATION, result.code);
+    EXPECT_FALSE(result.retryable);
+    EXPECT_EQ(0, staged_outputs);
+    EXPECT_EQ(before_rowsets, snapshot_active_rowsets());
+    EXPECT_EQ(before_files, tablet_files());
+    expect_all_guards_released(sources);
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, DeletePredicateRowsetParticipatesInCoverageCas) {
+    ASSERT_NE(nullptr, create_tablet());
+    const auto data = add_rowset(Version(2, 2), {{{1, "delete", 10}, {2, "keep", 20}}});
+    const auto predicate = add_delete_predicate_rowset(Version(3, 3));
+    const auto competing_predicate = build_delete_predicate_rowset(Version(3, 3));
+    ASSERT_NE(nullptr, data);
+    ASSERT_NE(nullptr, predicate);
+    ASSERT_NE(nullptr, competing_predicate);
+    const auto sources = active_rowsets();
+    int predicate_replacements = 0;
+    SyncPoint::GetInstance()->SetCallBack("EngineTenantTtlCompactionTask::before_commit", [&](void*) {
+        std::unique_lock meta_lock(_tablet->get_header_lock());
+        _tablet->modify_rowsets_without_lock({competing_predicate}, {predicate}, nullptr);
+        ++predicate_replacements;
+    });
+    SyncPoint::GetInstance()->EnableProcessing();
+
+    const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}));
+
+    EXPECT_EQ(1, predicate_replacements);
+    EXPECT_EQ(TenantTtlTaskCode::STALE_ROWSET, result.code);
+    EXPECT_TRUE(result.retryable);
+    EXPECT_EQ(data->rowset_id(), active_rowset(Version(2, 2))->rowset_id());
+    EXPECT_EQ(competing_predicate->rowset_id(), active_rowset(Version(3, 3))->rowset_id());
+    expect_all_guards_released(sources);
 }
 
 TEST_F(EngineTenantTtlCompactionTaskTest, LaterOutputFailureCleansStagingAndDoesNotPartiallyCommit) {
