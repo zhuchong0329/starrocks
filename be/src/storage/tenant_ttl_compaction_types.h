@@ -151,6 +151,9 @@ struct TenantTtlCompactionResult {
     int64_t scanned_rows{0};
     int64_t kept_rows{0};
     int64_t deleted_rows{0};
+    int64_t tenant_rows_read{0};
+    int64_t rows_pruned_by_segment_zonemap{0};
+    int64_t rows_pruned_by_page_zonemap{0};
     int64_t linked_bytes{0};
     int64_t rewritten_bytes{0};
 };

@@ -146,12 +146,18 @@ TEST(TenantTtlCompactionActionContractTest, SerializesStableResultAndRowsetField
                                      .scanned_rows = 3,
                                      .kept_rows = 2,
                                      .deleted_rows = 1,
+                                     .tenant_rows_read = 2,
+                                     .rows_pruned_by_segment_zonemap = 4,
+                                     .rows_pruned_by_page_zonemap = 5,
                                      .rewritten_bytes = 99};
     rapidjson::Document json;
     json.Parse(TenantTtlCompactionAction::serialize_result(result).c_str());
     ASSERT_FALSE(json.HasParseError());
     EXPECT_STREQ("SUCCESS", json["code"].GetString());
     EXPECT_EQ(7, json["processed_through_version"].GetInt64());
+    EXPECT_EQ(2, json["tenant_rows_read"].GetInt64());
+    EXPECT_EQ(4, json["rows_pruned_by_segment_zonemap"].GetInt64());
+    EXPECT_EQ(5, json["rows_pruned_by_page_zonemap"].GetInt64());
     ASSERT_EQ(1, json["rowsets"].Size());
     EXPECT_STREQ("REWRITE", json["rowsets"][0]["action"].GetString());
     EXPECT_STREQ("11", json["rowsets"][0]["source_rowset_id"].GetString());

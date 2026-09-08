@@ -21,15 +21,21 @@
 #include "common/statusor.h"
 #include "storage/rowset/segment.h"
 #include "storage/tenant_ttl_compaction_types.h"
-#include "util/slice.h"
 
 namespace starrocks {
 
 class MemTracker;
 
-// Scans exactly one VARCHAR tenant column in physical row-id order and builds
-// the rows that must be retained. It deliberately does not use predicates,
-// zonemaps, short keys, generated columns, or recordTimestamp.
+struct TenantTtlRowFilterStats {
+    int64_t tenant_rows_read{0};
+    int64_t rows_pruned_by_segment_zonemap{0};
+    int64_t rows_pruned_by_page_zonemap{0};
+};
+
+// Pushes an exact predicate on the business VARCHAR tenant column into the
+// Segment iterator, then converts matching physical rowids into retained
+// ranges. Existing Segment/Page ZoneMaps may reduce reads; no tenant_id,
+// short-key, sorting-key, or recordTimestamp assumption is involved.
 class TenantTtlRowFilter {
 public:
     TenantTtlRowFilter(TabletSchemaCSPtr tablet_schema, int32_t tenant_column_unique_id, TenantFilter filter,
@@ -38,11 +44,10 @@ public:
 
     Status validate() const;
     StatusOr<SegmentFilterPlan> plan_segment(const SegmentSharedPtr& segment, uint32_t src_segment_id) const;
+    const TenantTtlRowFilterStats& stats() const { return _stats; }
 
 private:
     Status _check_resource_state() const;
-    bool _is_listed(const Slice& tenant) const;
-    bool _should_keep(const Slice& tenant) const;
 
     TabletSchemaCSPtr _tablet_schema;
     int32_t _tenant_column_unique_id;
@@ -51,6 +56,7 @@ private:
     size_t _chunk_size;
     MemTracker* _mem_tracker;
     const std::atomic<bool>* _is_cancelled;
+    mutable TenantTtlRowFilterStats _stats;
 };
 
 } // namespace starrocks

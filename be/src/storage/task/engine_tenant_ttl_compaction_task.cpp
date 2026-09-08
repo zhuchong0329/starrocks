@@ -55,6 +55,11 @@ public:
                                   &requests_failed);
         registry->register_metric("tenant_ttl_compaction_rows_scanned_total", &rows_scanned);
         registry->register_metric("tenant_ttl_compaction_rows_deleted_total", &rows_deleted);
+        registry->register_metric("tenant_ttl_compaction_tenant_rows_read_total", &tenant_rows_read);
+        registry->register_metric("tenant_ttl_compaction_rows_pruned_by_segment_zonemap_total",
+                                  &rows_pruned_by_segment_zonemap);
+        registry->register_metric("tenant_ttl_compaction_rows_pruned_by_page_zonemap_total",
+                                  &rows_pruned_by_page_zonemap);
         registry->register_metric("tenant_ttl_compaction_rowsets_total", MetricLabels().add("action", "keep"),
                                   &rowsets_keep);
         registry->register_metric("tenant_ttl_compaction_rowsets_total", MetricLabels().add("action", "drop"),
@@ -80,6 +85,9 @@ public:
     IntCounter requests_failed{MetricUnit::REQUESTS};
     IntCounter rows_scanned{MetricUnit::ROWS};
     IntCounter rows_deleted{MetricUnit::ROWS};
+    IntCounter tenant_rows_read{MetricUnit::ROWS};
+    IntCounter rows_pruned_by_segment_zonemap{MetricUnit::ROWS};
+    IntCounter rows_pruned_by_page_zonemap{MetricUnit::ROWS};
     IntCounter rowsets_keep{MetricUnit::ROWSETS};
     IntCounter rowsets_drop{MetricUnit::ROWSETS};
     IntCounter rowsets_rewrite{MetricUnit::ROWSETS};
@@ -104,6 +112,9 @@ void record_tenant_ttl_result(const TenantTtlCompactionRequest& request, const T
     metrics.duration_us.increment(duration_us);
     metrics.rows_scanned.increment(result.scanned_rows);
     metrics.rows_deleted.increment(result.deleted_rows);
+    metrics.tenant_rows_read.increment(result.tenant_rows_read);
+    metrics.rows_pruned_by_segment_zonemap.increment(result.rows_pruned_by_segment_zonemap);
+    metrics.rows_pruned_by_page_zonemap.increment(result.rows_pruned_by_page_zonemap);
     metrics.linked_bytes.increment(result.linked_bytes);
     metrics.rewritten_bytes.increment(result.rewritten_bytes);
 
@@ -159,6 +170,9 @@ void record_tenant_ttl_result(const TenantTtlCompactionRequest& request, const T
 
     TRACE_COUNTER_INCREMENT("tenant_ttl_rows_scanned", result.scanned_rows);
     TRACE_COUNTER_INCREMENT("tenant_ttl_rows_deleted", result.deleted_rows);
+    TRACE_COUNTER_INCREMENT("tenant_ttl_tenant_rows_read", result.tenant_rows_read);
+    TRACE_COUNTER_INCREMENT("tenant_ttl_rows_pruned_by_segment_zonemap", result.rows_pruned_by_segment_zonemap);
+    TRACE_COUNTER_INCREMENT("tenant_ttl_rows_pruned_by_page_zonemap", result.rows_pruned_by_page_zonemap);
     TRACE_COUNTER_INCREMENT("tenant_ttl_rowsets_keep", rowsets_keep);
     TRACE_COUNTER_INCREMENT("tenant_ttl_rowsets_drop", rowsets_drop);
     TRACE_COUNTER_INCREMENT("tenant_ttl_rowsets_rewrite", rowsets_rewrite);
@@ -182,7 +196,10 @@ void record_tenant_ttl_result(const TenantTtlCompactionRequest& request, const T
               << " rowsets_rewrite=" << rowsets_rewrite << " segments_keep=" << segments_keep
               << " segments_drop=" << segments_drop << " segments_rewrite=" << segments_rewrite
               << " scanned_rows=" << result.scanned_rows << " kept_rows=" << result.kept_rows
-              << " deleted_rows=" << result.deleted_rows << " linked_bytes=" << result.linked_bytes
+              << " deleted_rows=" << result.deleted_rows << " tenant_rows_read=" << result.tenant_rows_read
+              << " rows_pruned_by_segment_zonemap=" << result.rows_pruned_by_segment_zonemap
+              << " rows_pruned_by_page_zonemap=" << result.rows_pruned_by_page_zonemap
+              << " linked_bytes=" << result.linked_bytes
               << " rewritten_bytes=" << result.rewritten_bytes << " duration_us=" << duration_us
               << " code=" << tenant_ttl_task_code_to_string(result.code) << " detail_status=" << result.detail_status;
 }
@@ -389,6 +406,11 @@ Status EngineTenantTtlCompactionTask::execute() {
 
     TenantTtlRowFilter filter(coverage.schema_identity.captured_schema, _request.tenant_column_unique_id,
                               _request.filter, 4096, _mem_tracker.get(), _is_cancelled);
+    DeferOp export_filter_stats([&]() {
+        _result.tenant_rows_read = filter.stats().tenant_rows_read;
+        _result.rows_pruned_by_segment_zonemap = filter.stats().rows_pruned_by_segment_zonemap;
+        _result.rows_pruned_by_page_zonemap = filter.stats().rows_pruned_by_page_zonemap;
+    });
     status = filter.validate();
     if (!status.ok()) {
         return _finish(status.is_invalid_argument() ? TenantTtlTaskCode::DATA_INVARIANT_VIOLATION
