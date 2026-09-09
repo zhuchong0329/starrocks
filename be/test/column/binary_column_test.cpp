@@ -282,6 +282,24 @@ PARALLEL_TEST(BinaryColumnTest, test_append_binary) {
 }
 
 // NOLINTNEXTLINE
+PARALLEL_TEST(BinaryColumnTest, test_append_empty_binary_values) {
+    BinaryColumn::Ptr source = BinaryColumn::create();
+    source->append_default(2);
+    ASSERT_EQ(2u, source->size());
+
+    BinaryColumn::Ptr destination = BinaryColumn::create();
+    destination->append(Slice("first"));
+    destination->append(*source, 0, source->size());
+    ASSERT_EQ(3u, destination->size());
+    EXPECT_EQ("first", destination->get_slice(0));
+    EXPECT_TRUE(destination->get_slice(1).empty());
+    EXPECT_TRUE(destination->get_slice(2).empty());
+
+    destination->append(*source, source->size(), 0);
+    EXPECT_EQ(3u, destination->size());
+}
+
+// NOLINTNEXTLINE
 PARALLEL_TEST(BinaryColumnTest, test_filter_range) {
     BinaryColumn::Ptr column = BinaryColumn::create();
 
