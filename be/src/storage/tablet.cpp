@@ -39,6 +39,7 @@
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/stringbuffer.h>
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <utility>
@@ -63,6 +64,7 @@
 #include "storage/tablet_meta_manager.h"
 #include "storage/tablet_updates.h"
 #include "storage/update_manager.h"
+#include "testutil/sync_point.h"
 #include "util/defer_op.h"
 #include "util/failpoint/fail_point.h"
 #include "util/ratelimit.h"
@@ -518,15 +520,16 @@ TenantTtlTaskCode Tablet::capture_tenant_ttl_coverage(const TenantTtlCompactionR
         return TenantTtlTaskCode::DATA_INVARIANT_VIOLATION;
     }
 
-    int64_t expected_start_version = 0;
+    int64_t previous_end_version = -1;
     std::string digest;
     coverage->entries.reserve(active_rowsets.size());
     for (const auto& rowset : active_rowsets) {
         const Version version = rowset->version();
-        if (version.first != expected_start_version || version.second < version.first) {
-            *detail_status = Status::Corruption(fmt::format(
-                    "tenant ttl active version path is not continuous at expected version {}, actual [{}-{}]",
-                    expected_start_version, version.first, version.second));
+        if (previous_end_version == std::numeric_limits<int64_t>::max() || version.first != previous_end_version + 1 ||
+            version.second < version.first) {
+            *detail_status = Status::Corruption(
+                    fmt::format("tenant ttl active version path is not continuous after version {}, actual [{}-{}]",
+                                previous_end_version, version.first, version.second));
             return TenantTtlTaskCode::DATA_INVARIANT_VIOLATION;
         }
         if (rowset->rowset_meta()->rowset_state() != VISIBLE) {
@@ -565,10 +568,10 @@ TenantTtlTaskCode Tablet::capture_tenant_ttl_coverage(const TenantTtlCompactionR
         coverage->entries.emplace_back(TenantTtlCoverageEntry{
                 .version = version, .expected_rowset_id = rowset->rowset_id(), .source = rowset});
         digest.append(fmt::format("{}-{}@{};", version.first, version.second, rowset->rowset_id().to_string()));
-        expected_start_version = version.second + 1;
+        previous_end_version = version.second;
     }
 
-    coverage->snapshot_end_version = expected_start_version - 1;
+    coverage->snapshot_end_version = previous_end_version;
     if (request.fe_observed_max_version.has_value() &&
         coverage->snapshot_end_version < request.fe_observed_max_version.value()) {
         *detail_status = Status::ResourceBusy(
@@ -600,6 +603,10 @@ void Tablet::release_tenant_ttl_coverage(const TenantTtlCoverage& coverage) {
 TenantTtlTaskCode Tablet::_validate_tenant_ttl_coverage_unlocked(const TenantTtlCoverage& coverage,
                                                                  Status* detail_status) const {
     DCHECK(detail_status != nullptr);
+    if (coverage.entries.empty() || coverage.snapshot_end_version < 0) {
+        *detail_status = Status::InvalidArgument("tenant ttl coverage is empty or has an invalid version boundary");
+        return TenantTtlTaskCode::INVALID_ARGUMENT;
+    }
     if (tablet_state() != TABLET_RUNNING) {
         *detail_status = Status::NotSupported("tenant ttl tablet is no longer running");
         return TenantTtlTaskCode::NOT_SUPPORTED;
@@ -610,13 +617,25 @@ TenantTtlTaskCode Tablet::_validate_tenant_ttl_coverage_unlocked(const TenantTtl
         *detail_status = Status::Aborted("tenant ttl tablet schema changed after coverage capture");
         return TenantTtlTaskCode::SCHEMA_CHANGED;
     }
+    int64_t previous_end_version = -1;
     for (const auto& entry : coverage.entries) {
+        if (entry.source == nullptr || previous_end_version == std::numeric_limits<int64_t>::max() ||
+            entry.version.first != previous_end_version + 1 || entry.version.second < entry.version.first ||
+            entry.source->version() != entry.version || entry.source->rowset_id() != entry.expected_rowset_id) {
+            *detail_status = Status::InvalidArgument("tenant ttl coverage identity or version path is invalid");
+            return TenantTtlTaskCode::INVALID_ARGUMENT;
+        }
         const auto current = get_rowset_by_version(entry.version);
         if (current == nullptr || current->rowset_id() != entry.expected_rowset_id) {
             *detail_status = Status::Aborted(fmt::format("tenant ttl source rowset changed at version [{}-{}]",
                                                          entry.version.first, entry.version.second));
             return TenantTtlTaskCode::STALE_ROWSET;
         }
+        previous_end_version = entry.version.second;
+    }
+    if (previous_end_version != coverage.snapshot_end_version) {
+        *detail_status = Status::InvalidArgument("tenant ttl coverage does not reach its snapshot version boundary");
+        return TenantTtlTaskCode::INVALID_ARGUMENT;
     }
     *detail_status = Status::OK();
     return TenantTtlTaskCode::SUCCESS;
@@ -642,6 +661,10 @@ TenantTtlTaskCode Tablet::commit_tenant_ttl_rowsets(const TenantTtlCoverage& cov
         return TenantTtlTaskCode::INVALID_ARGUMENT;
     }
     replaced_stale_rowsets->clear();
+    if (replacements.empty()) {
+        *detail_status = Status::InvalidArgument("tenant ttl commit requires at least one replacement");
+        return TenantTtlTaskCode::INVALID_ARGUMENT;
+    }
 
     std::set<Version> replacement_versions;
     for (const auto& replacement : replacements) {
@@ -661,6 +684,16 @@ TenantTtlTaskCode Tablet::commit_tenant_ttl_rowsets(const TenantTtlCoverage& cov
                 });
         if (coverage_entry == coverage.entries.end()) {
             *detail_status = Status::InvalidArgument("tenant ttl replacement is outside the captured coverage");
+            return TenantTtlTaskCode::INVALID_ARGUMENT;
+        }
+        const auto& output_meta = replacement.output->rowset_meta();
+        if (replacement.output->schema().get() != coverage.schema_identity.captured_schema.get() ||
+            output_meta->tablet_id() != tablet_id() || output_meta->partition_id() != partition_id() ||
+            output_meta->tablet_uid() != tablet_uid() || output_meta->tablet_schema_hash() != schema_hash() ||
+            output_meta->rowset_state() != VISIBLE || output_meta->segments_overlap() != NONOVERLAPPING ||
+            output_meta->gtid() != coverage_entry->source->rowset_meta()->gtid() ||
+            replacement.output->num_rows() > coverage_entry->source->num_rows()) {
+            *detail_status = Status::InvalidArgument("tenant ttl replacement metadata does not match its source");
             return TenantTtlTaskCode::INVALID_ARGUMENT;
         }
         Status load_status = replacement.output->load();
@@ -696,6 +729,7 @@ TenantTtlTaskCode Tablet::commit_tenant_ttl_rowsets(const TenantTtlCoverage& cov
     }
 
     modify_rowsets_without_lock(outputs, changed_sources, replaced_stale_rowsets);
+    TEST_SYNC_POINT("Tablet::commit_tenant_ttl_rowsets:before_save_meta");
     save_meta(config::skip_schema_in_rowset_meta);
     Rowset::close_rowsets(changed_sources);
     *detail_status = Status::OK();
