@@ -67,6 +67,7 @@ import com.starrocks.sql.parser.ParsingException;
 import com.starrocks.sql.plan.ExecPlan;
 import com.starrocks.system.Backend;
 import com.starrocks.system.ComputeNode;
+import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshotManager;
 import com.starrocks.thrift.TNetworkAddress;
 import com.starrocks.thrift.TStatusCode;
 import com.starrocks.thrift.TUniqueId;
@@ -256,8 +257,11 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
             // reset dictionary state if just clear the dictionary cache
             getDictionaryByName(dictionaryName).resetState();
         } else {
-            GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager()
-                    .onDictionaryDropped(dictionary.getDictionaryId());
+            TenantTtlPolicySnapshotManager snapshotManager =
+                    GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager();
+            if (snapshotManager != null) {
+                snapshotManager.onDictionaryDropped(dictionary.getDictionaryId());
+            }
         }
         clearDictionaryCache(dictionary, false);
     }
@@ -776,7 +780,8 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
 
         private void finish(long dictionaryId) {
             GlobalStateMgr.getCurrentState().getDictionaryMgr().unresigerRunningAndUnfinised(dictionaryId);
-            if (!error) {
+            boolean success = !error;
+            if (success) {
                 GlobalStateMgr.getCurrentState().getDictionaryMgr().updateLastSuccessTxnId(dictionaryId, txnId);
                 dictionary.setFinished();
                 dictionary.setErrorMsg(""); // reset error msg
@@ -792,6 +797,11 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
             List<Dictionary> syncDictionary = Lists.newArrayList();
             syncDictionary.add(dictionary);
             GlobalStateMgr.getCurrentState().getDictionaryMgr().syncDictionaryMeta(syncDictionary);
+            TenantTtlPolicySnapshotManager snapshotManager =
+                    GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager();
+            if (snapshotManager != null) {
+                snapshotManager.onDictionaryRefreshFinished(dictionaryId, txnId, success, beNodes);
+            }
         }
 
         @Override

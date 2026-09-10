@@ -70,6 +70,7 @@ import com.starrocks.catalog.FunctionSet;
 import com.starrocks.catalog.GlobalFunctionMgr;
 import com.starrocks.catalog.MaterializedView;
 import com.starrocks.catalog.MetaReplayState;
+import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.PrimitiveType;
 import com.starrocks.catalog.RefreshDictionaryCacheTaskDaemon;
 import com.starrocks.catalog.ResourceGroupMgr;
@@ -1396,12 +1397,44 @@ public class GlobalStateMgr {
     }
 
     private void triggerOnTransferToLeader() {
+        rebuildTenantTtlPolicySnapshotReferences();
         try {
             // trigger to load mv's plan cache async
             CachingMvPlanContextBuilder.getInstance().triggerPendingMVPlanCacheLoads();
         } catch (Throwable t) {
             LOG.warn("Failed to trigger loading mv's plan cache", t);
         }
+    }
+
+    private void rebuildTenantTtlPolicySnapshotReferences() {
+        List<TenantTtlPolicySnapshotManager.RecoveredReference> recoveredReferences = new ArrayList<>();
+        Locker locker = new Locker();
+        for (Long dbId : localMetastore.getDbIds()) {
+            Database db = localMetastore.getDb(dbId);
+            if (db == null) {
+                continue;
+            }
+            locker.lockDatabase(dbId, LockType.READ);
+            try {
+                for (Table table : db.getTables()) {
+                    if (!(table instanceof OlapTable)) {
+                        continue;
+                    }
+                    OlapTable olapTable = (OlapTable) table;
+                    if (olapTable.getTableProperty() == null ||
+                            olapTable.getTableProperty().getTenantTtlDictionaryBinding() == null) {
+                        continue;
+                    }
+                    recoveredReferences.add(new TenantTtlPolicySnapshotManager.RecoveredReference(
+                            olapTable.getTableProperty().getTenantTtlDictionaryBinding().getDictionaryId(),
+                            dbId, table.getId()));
+                }
+            } finally {
+                locker.unLockDatabase(dbId, LockType.READ);
+            }
+        }
+        tenantTtlPolicySnapshotManager.onLeaderActivated(recoveredReferences);
+        LOG.info("Rebuilt {} Tenant-TTL Dictionary references after becoming Leader", recoveredReferences.size());
     }
 
     public void setFrontendNodeType(FrontendNodeType newType) {
