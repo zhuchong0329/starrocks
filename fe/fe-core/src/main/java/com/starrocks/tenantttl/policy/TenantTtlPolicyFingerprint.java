@@ -41,6 +41,11 @@ final class TenantTtlPolicyFingerprint {
         digest.update((byte) value);
     }
 
+    void putLong(long value) {
+        putInt((int) (value >>> 32));
+        putInt((int) value);
+    }
+
     void putBytes(byte[] value) {
         putInt(value.length);
         digest.update(value);

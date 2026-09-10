@@ -3879,6 +3879,12 @@ public class Config extends ConfigBase {
     @ConfField(mutable = true)
     public static long tenant_ttl_policy_snapshot_builder_max_memory_bytes = 128L * 1024 * 1024;
 
+    @ConfField(mutable = true)
+    public static long tenant_ttl_filter_max_tenants = 10000;
+
+    @ConfField(mutable = true)
+    public static long tenant_ttl_filter_max_serialized_bytes = 8L * 1024 * 1024;
+
     /*
      * Replication config
      */
