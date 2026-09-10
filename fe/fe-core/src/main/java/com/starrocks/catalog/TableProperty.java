@@ -205,6 +205,16 @@ public class TableProperty implements Writable, GsonPostProcessable {
     // it's a SQL expression, and the partition will be deleted if the condition is not true.
     private String partitionRetentionCondition = null;
 
+    private String compactionRetentionCondition = null;
+
+    private String compactionRetentionTimeZone = null;
+
+    @SerializedName(value = "tenantTtlDictionaryBinding")
+    private TenantTtlDictionaryBinding tenantTtlDictionaryBinding;
+
+    @SerializedName(value = "tenantTtlTableBinding")
+    private TenantTtlTableBinding tenantTtlTableBinding;
+
     private String timeDriftConstraintSpec = null;
 
     // This property only applies to materialized views
@@ -356,6 +366,13 @@ public class TableProperty implements Writable, GsonPostProcessable {
             newTableProperty.storageInfo =
                     new StorageInfo(this.storageInfo.getFilePathInfo(), this.storageInfo.getCacheInfo());
         }
+        if (this.tenantTtlDictionaryBinding != null) {
+            newTableProperty.tenantTtlDictionaryBinding =
+                    new TenantTtlDictionaryBinding(this.tenantTtlDictionaryBinding);
+        }
+        if (this.tenantTtlTableBinding != null) {
+            newTableProperty.tenantTtlTableBinding = new TenantTtlTableBinding(this.tenantTtlTableBinding);
+        }
         return newTableProperty;
     }
 
@@ -419,6 +436,7 @@ public class TableProperty implements Writable, GsonPostProcessable {
                 buildPartitionTTL();
                 buildPartitionLiveNumber();
                 buildPartitionRetentionCondition();
+                buildCompactionRetentionProperties();
                 buildTimeDriftConstraint();
                 buildDataCachePartitionDuration();
                 buildLocation();
@@ -450,6 +468,36 @@ public class TableProperty implements Writable, GsonPostProcessable {
         buildMVQueryRewriteSwitch();
         buildMVTransparentRewriteMode();
         return this;
+    }
+
+    public TableProperty buildCompactionRetentionProperties() {
+        compactionRetentionCondition = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
+        compactionRetentionTimeZone = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
+        return this;
+    }
+
+    public String getCompactionRetentionCondition() {
+        return compactionRetentionCondition;
+    }
+
+    public String getCompactionRetentionTimeZone() {
+        return compactionRetentionTimeZone;
+    }
+
+    public TenantTtlDictionaryBinding getTenantTtlDictionaryBinding() {
+        return tenantTtlDictionaryBinding;
+    }
+
+    public void setTenantTtlDictionaryBinding(TenantTtlDictionaryBinding tenantTtlDictionaryBinding) {
+        this.tenantTtlDictionaryBinding = tenantTtlDictionaryBinding;
+    }
+
+    public TenantTtlTableBinding getTenantTtlTableBinding() {
+        return tenantTtlTableBinding;
+    }
+
+    public void setTenantTtlTableBinding(TenantTtlTableBinding tenantTtlTableBinding) {
+        this.tenantTtlTableBinding = tenantTtlTableBinding;
     }
 
     public TableProperty buildBinlogConfig() {
@@ -1288,6 +1336,7 @@ public class TableProperty implements Writable, GsonPostProcessable {
         buildWriteQuorum();
         buildPartitionLiveNumber();
         buildPartitionRetentionCondition();
+        buildCompactionRetentionProperties();
         buildTimeDriftConstraint();
         buildReplicatedStorage();
         buildBucketSize();
