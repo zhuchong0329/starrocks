@@ -38,6 +38,9 @@
 - CREATE/ALTER 绑定时的静态校验、报错、等待和按分区跳过语义。
 - 表绑定和策略命中的可观测性。
 - FE 可枚举策略快照的按需启用、提交后导出、对象模型、发布和追平语义。
+- 单轮表级评估上下文、策略切换、Replica 任务身份以及与 BE `policy_watermark` 的一致性。
+- 基于有效默认策略的 `DELETE_LIST`/`KEEP_LIST` 选择、补集完整性、NULL tenant 和超限名单语义。
+- 分区策略到期事件、迟到写入补偿、语义策略指纹和持久化执行进度。
 
 ## 2. 已确定的 FE/BE 边界
 
@@ -76,10 +79,10 @@
 4. BE 将业务 `VARCHAR` tenant 的精确谓词下推到 Segment iterator：先复用现有 Segment/Page ZoneMap 做无假阴性的候选范围裁剪，再对未裁剪数据做 tenant 精确字节匹配。最终匹配不做大小写、空格、Unicode 或数字形式归一化；ZoneMap 不可用或被关闭时回退为精确 tenant 扫描，不影响正确性。
 5. `DELETE_LIST + empty` 在 BE 中可验证为 NOOP，但 FE 不应下发这类无效任务。
 6. `KEEP_LIST + empty` 被 BE 视为非法请求。
-7. NULL tenant 在 `DELETE_LIST` 和 `KEEP_LIST` 中都保守保留。
+7. NULL tenant 在 BE `DELETE_LIST` 和 `KEEP_LIST` Rowset Rewrite 中都保留；当 FE 已证明当前分区的全部有效策略均过期时，可以按 FE-PLAN-001～003 走 Catalog 整分区删除并同时删除 NULL。
 8. BE 在 Tablet 内自行固定完整连续 coverage，对多 Rowset 作单次原子替换，不接受 FE 指定的 Rowset 或 Segment 列表。
 9. BE 当前目标是 shared-nothing 本地 OLAP 的非 Primary Key `DUP_KEYS` 表；FE 不得向不受支持的表类型下发 Tenant-TTL 任务。
-10. BE 支持 nullable 和 non-nullable `VARCHAR` tenant 列，但 nullable 列中的 NULL 按上述契约始终保留。
+10. BE 支持 nullable 和 non-nullable `VARCHAR` tenant 列；BE 部分 Rewrite 不删除 NULL，NULL 的表级有效保留时间和整分区删除资格由 FE 按 FE-PLAN-001～003 判定。
 11. BE 已有边界支持 `NONOVERLAPPING`、`OVERLAPPING`、`OVERLAP_UNKNOWN` Rowset 及标准零行 delete-predicate Rowset；FE 不应增加与当前 BE 能力冲突的额外限制。
 
 ## 3. 业务表结构
@@ -110,7 +113,18 @@
 1. 字符串 `default` 是 TTL 策略保留值，业务 tenant 禁止使用该值。
 2. 对既有表执行启用 Tenant-TTL 的 ALTER DDL 时，FE 不扫描历史数据，因此不证明历史数据中从未出现 `tenant = 'default'`。
 3. 保留值禁用属于建表和写入侧业务约束，Tenant-TTL 启用 DDL 不通过全表扫描强制验证。
-4. NULL tenant 不是 `default` 策略行；按既有 BE 边界，NULL tenant 始终保留。
+4. NULL tenant 不是 `default` 策略行。其有效保留天数定义为当前 `table_key` 的 `max(effectiveDefaultDays, all valid overrides)`；BE 部分 Rewrite 保留 NULL，当全部有效策略都已证明过期时，nullable tenant 不阻止整分区删除。
+
+### FE-TABLE-004：首期禁止 Rollup 和同步物化索引
+
+状态：已确认
+
+1. 首期 Tenant-TTL 只处理业务表的 Base Index，不支持任何查询可见的非 Base Rollup Index 或同步物化索引。
+2. 已存在 Rollup/同步物化索引的表配置 `compaction_retention_condition` 时，CREATE/ALTER 必须拒绝，不能只清理 Base Index 后跳过其他查询可见 Index。
+3. 已启用 Tenant-TTL 的表执行 `ADD ROLLUP` 或创建同步物化索引时必须拒绝；不能让新 Index 绕过初始绑定准入后进入查询可见状态。
+4. 正在创建、转换或删除 Rollup/同步物化索引的表不处于稳定绑定状态，不能启用或改绑 Tenant-TTL。
+5. 因此首期分区计划只展开 Base Index 下的 Tablet 和 Replica；任务中的 `index_id` 固定为当轮复核后的 `baseIndexId`。
+6. 本限制不通过扫描、重写或删除既有 Rollup 数据来自动修复，用户需要先删除 Rollup/同步物化索引后再启用 Tenant-TTL。
 
 ### FE-TIME-001：业务 tenant 和时间列绑定
 
@@ -814,6 +828,7 @@ Dictionary 对象存在且结构合法，但暂无成功快照时，允许 DDL �
 4. Dictionary drop/recreate 后通过相同表达式显式重新绑定。
 5. 同一 ALTER 修改多个相关属性时，FE 必须先合并成候选表属性，然后对修改后的完整配置只做一次校验和一次原子提交。
 6. 未配置 `compaction_retention_condition` 的普通 CREATE TABLE 不执行 Tenant-TTL 专属准入校验，不因当前表结构不支持 Tenant-TTL 而阻止建表。
+7. 已启用 Tenant-TTL 的表执行 `ADD ROLLUP` 或创建同步物化索引时，相关 DDL 必须检查 Tenant-TTL 属性并按 FE-TABLE-004 拒绝。
 
 #### 表属性和函数参数错误
 
@@ -832,6 +847,7 @@ Dictionary 对象存在且结构合法，但暂无成功快照时，允许 DDL �
 6. 表未分区，分区类型不是受支持的 Range/List，或表级分区表达式超出 FE-TIME-002/003 的首期范围。
 7. Range 使用多列、多时间分量、任意嵌套函数或不支持的时间函数。
 8. List 没有受支持的时间分量、包含多个时间分量、使用非精确 `from_unixtime(recordTimestamp, '%Y%m%d')` 的时间函数，或其他分量不是普通列引用。
+9. 表存在查询可见的非 Base Rollup Index 或同步物化索引，或者正处于其创建、转换或删除过程。
 
 #### 时区错误
 
@@ -869,7 +885,7 @@ Dictionary 对象存在且结构合法，但暂无成功快照时，允许 DDL �
 
 1. 当前表还没有分区，或所有现有分区都因 `MAXVALUE`、`DEFAULT`、NULL 或其他 FE-TIME-005 边界而暂时无法证明。
 2. `recordTimestamp` 可空；仅可能容纳 NULL 时间值的对应分区按 FE-TIME-005 跳过。
-3. `tenant` 可空；NULL tenant 按 BE 契约始终保留。
+3. `tenant` 可空；NULL tenant 按 FE-PLAN-001 的最长有效策略计算保留时间，不影响绑定 DDL 准入。
 4. 不扫描或验证历史数据中是否存在业务 `tenant = 'default'`。
 5. 不验证历史或后续写入实际使用的时区，不因写入时区与声明值不同而拒绝写入或绑定。
 6. 不存在 `tenant_id` 生成列，tenant 不在排序键/Short Key/分桶键中，不存在 tenant bucket，bucket 数不是 64，或 tenant 列 ZoneMap 不可用。这些均不是正确性准入条件。
@@ -998,13 +1014,314 @@ FOR TENANT 'tenant_a';
 4. 最近一次候选构建失败的原因复用 `ErrorMessage`；`LastSnapshotAttemptTxnId` 和 `LastSnapshotAttemptTime` 用于定位该错误对应的尝试。
 5. FE 重启后上述运行时水位按既有重建语义恢复：重建完成前进入相应等待状态，成功发布新 FE 快照后恢复正常展示。
 
-## 8. 已确认结论清单
+## 8. 单轮评估、任务输入与策略水位
+
+### FE-EVAL-001：表级不可变评估上下文
+
+状态：已确认
+
+1. “一轮评估”定义为 Leader 对一张业务表进行的一次 Tenant-TTL 扫描和任务规划；不同业务表不共享同一个全局评估轮次。
+2. 每轮只读取一次 Leader 当前的 Unix epoch 秒，固定为 `evaluation_time_epoch_seconds`。它不受会话时区影响，也不是 Dictionary 快照发布时间、任务发送时间、BE 开始时间或 Rowset 提交时间。
+3. 本轮所有 tenant、Physical Partition、Tablet 和 Replica 的 cutoff 判断都使用同一个 `evaluation_time_epoch_seconds`；本轮内部及同一物理任务重试时不得重新读取当前时间，下一轮评估才取得新的时间。
+4. 本轮从同一个不可变 `TenantTtlPolicySnapshot` 对象中同时取得策略内容、`dictionary_id` 和 `SnapshotTxnId`，并在评估及其任务物化期间持有该对象的强引用。不得分别读取当前策略对象和当前事务 ID，以免跨快照拼接。
+5. 表级不可变 `TenantTtlEvaluationContext` 至少固定：`db_id/table_id`、表绑定指纹、`dictionary_id`、`SnapshotTxnId`、`evaluation_time_epoch_seconds`、`table_key`、`default_days`、策略快照引用、tenant 列身份、时间分区绑定和声明式时区。
+6. Partition/Tablet 遍历过程中不得再次访问 Manager 的“当前快照”来替换本轮策略，也不得为不同 tenant 单独读取时间。
+
+### FE-EVAL-002：上下文创建与策略切换
+
+状态：已确认
+
+1. 创建上下文时，FE 先在表元数据读锁下捕获 Dictionary 绑定、tenant/时间列身份、分区表达式、时区及表绑定指纹，再按绑定的 `dictionary_id` 取得不可变 FE 策略快照，随后读取一次评估时间。
+2. 在发布评估计划前再次校验表绑定指纹；期间发生 ALTER、禁用、Dictionary 改绑、列身份或分区表达式变化时，放弃本次候选上下文并重新评估，不下发由新旧元数据拼接的任务。
+3. 当前轮固定为快照 `N` 后，即使 Manager 发布 `N + 1`，已经物化的任务仍保持 `N` 和原评估时间，不能原地替换名单、水位或时间后继续复用任务身份。
+4. 发现新快照后，尚未下发的旧轮任务可以停止继续生成，由下一轮使用新快照重新规划；已经发送到 BE 或执行结果未知的任务仍按原始不可变请求收敛。
+5. 新快照发布只影响后续评估，不撤销已按旧成功快照提交的数据变更。Tenant-TTL 不承诺策略切换对整张表或所有副本形成同步、可回滚的数据切换点。
+
+### FE-EVAL-003：`policy_watermark` 与实际决策来源严格对应
+
+状态：已确认
+
+FE 下发到 BE 的水位必须逐字段来自同一个 `TenantTtlEvaluationContext`：
+
+```text
+request.policy_watermark.dictionary_id
+    = context.dictionaryId
+    = 表持久化绑定的 dictionary_id
+
+request.policy_watermark.dictionary_txn_id
+    = context.snapshotTxnId
+    = 实际生成 tenant 名单的 FE 策略快照事务
+
+request.policy_watermark.evaluation_time_epoch_seconds
+    = context.evaluationTimeEpochSeconds
+    = 实际用于计算 cutoff 的固定评估时间
+```
+
+1. `dictionary_txn_id` 必须使用 Tenant-TTL 实际持有的 `SnapshotTxnId`，不得使用可能领先的 `DictionaryLastSuccessTxnId`。
+2. `policy_watermark` 表示 tenant 过滤结果的策略来源和审计水位，不是完整任务身份；同一个 watermark 可以用于同轮多个分区、Tablet 和 Replica，但它们仍是不同物理任务。
+3. BE 只校验 watermark 字段合法性，并把它与 `task_id`、process-local generation 一起用于当前 Tablet owner 一致性检查。BE 不访问 Dictionary、不判断事务是否最新、不持久化已执行 watermark，也不以该字段实现跨请求的新旧策略排序。
+4. FE 负责避免旧任务结果覆盖新轮状态。迟到结果至少按 `task_id`、目标 Replica、`partition_id`、`policy_watermark` 和 FE 内部轮次/绑定指纹归属；旧水位成功不得计入新水位的完成状态。
+
+### FE-EVAL-004：分区计划、Replica 物理任务与幂等身份
+
+状态：已确认
+
+任务层级为：
+
+```text
+Table
+└── Physical Partition
+    └── Base Index（首期唯一支持的 Materialized Index）
+        └── Tablet
+            └── Replica on a specific BE
+```
+
+1. FE 先按 Physical Partition 生成策略计划，并只展开当轮复核后的 Base Index。同一分区内各 Tablet/Replica 共享该分区的规范化 `filter.mode + tenants` 和本轮 `policy_watermark`；不同分区因时间上界不同可以产生不同过滤名单。
+2. 一个 Replica 物理任务表示“在指定 `backend_id` 上执行该 BE 本地 `tablet_id` 的一次 Tenant-TTL Compaction”，其目标身份为 `(backend_id, tablet_id)`，不是整张表或整个分区。
+3. 每个 Replica 物理任务分配独立、全局唯一的正 `long` Agent Task signature，并将其作为 BE 请求的 `task_id`。即使多个副本共享相同分区计划，也不共享 task ID。
+4. FE 任务状态至少记录 `db_id/table_id/physical_partition_id/index_id/tablet_id/backend_id`；请求正文继续按 BE 既有协议携带 `tablet_id`、`partition_id` 和 `task_id`，`backend_id` 由 Agent Task 发送目标确定。
+5. 同一物理任务因网络超时、`TABLET_BUSY`、`TTL_ALREADY_RUNNING` 等原因重试时，必须复用原 `task_id`，并保持 `protocol_version`、Tablet/Partition、tenant Column Unique ID、已排序去重的 filter、`policy_watermark`、expected schema 和 `fe_observed_max_version` 等完整请求不变。
+6. `evaluation_time`、`SnapshotTxnId`、filter、schema、Column Unique ID、`fe_observed_max_version` 或任一其他请求字段发生变化时，不再是重试；FE 必须重新规划并分配新 task ID。
+7. 首期不恢复早期方案中的 `request_digest/predicate_digest`，也不要求 BE 持久化 task ID 或 tenant 谓词历史。同一谓词重复执行的数据幂等依赖 BE 的精确重扫和 `NOOP_VERIFIED` 零重写收敛，不等于重复请求零扫描。
+8. Agent Task 持久化、Leader 切换后是否恢复原 task ID、Replica 完成水位和未知结果的收敛机制，继续在多 Partition/Tablet/Replica 任务编排专项中澄清；这些细节不得改变本节“同一 task ID 对应唯一不可变请求”的契约。
+
+首期 Rollup/同步物化索引限制按 FE-TABLE-004 执行，不进入多 Index 任务展开和完成水位语义。
+
+## 9. 分区策略解析与过滤模式选择
+
+### FE-PLAN-001：有效默认策略、显式集合和 NULL 保留时间
+
+状态：已确认
+
+对固定 `TenantTtlEvaluationContext` 和一个具有可信有限上界的 Physical Partition，定义：
+
+```text
+T = evaluation_time_epoch_seconds
+U = partition_upper_epoch_seconds
+
+effectiveDefaultDays =
+    TablePolicy.tableDefaultDays
+    ?? TenantTtlDictionaryBinding.defaultDays
+
+expired(days) =
+    U <= T - days * 86400
+```
+
+1. `TablePolicy` 不存在或其中不存在当前 `table_key` 时，显式策略集合为空，`effectiveDefaultDays` 直接使用绑定属性的 `default_days`。
+2. `TablePolicy.tenantOverrides` 只包含当前 `table_key` 的正 `INT` 有效显式策略，不包含保留键 `default`，也不包含已过滤的 `retention_days = 0` 行。
+3. FE 将显式策略按同一 `T/U` 分成：
+
+   ```text
+   expiredOverrides =
+       { tenant | expired(tenantOverrides[tenant]) }
+
+   retainedOverrides =
+       { tenant | !expired(tenantOverrides[tenant]) }
+   ```
+
+4. NULL tenant 不作为 Dictionary 键查询。其有效保留天数固定定义为：
+
+   ```text
+   nullRetentionDays =
+       max(effectiveDefaultDays, all valid tenantOverrides retentionDays)
+   ```
+
+   只计算当前 `table_key` 的实际有效策略；其他逻辑表的策略、零值过滤行以及被 Dictionary 表级 default 遮蔽的属性 default 不参与最大值。
+5. 即使某个显式 tenant 当前没有业务数据，它的有效 retention days 仍参加上述最大值；这会保守延长 NULL 的保留时间，不会导致提前删除。
+6. cutoff、乘法和减法继续使用 `long + Math.*Exact`；表达式或边界算术失败时按既有 fail-closed 规则跳过该物理分区。
+
+### FE-PLAN-002：过滤模式由默认策略是否过期决定
+
+状态：已确认
+
+首期不扫描业务表枚举 `SELECT DISTINCT tenant`，也不假定 FE 已知业务分区中出现过的完整 tenant 集合。模式选择不能以“哪一个显式名单更短”为依据，而由未显式配置 tenant 所使用的有效默认策略决定：
+
+| 条件 | 分区级计划 |
+| --- | --- |
+| `expired(effectiveDefaultDays) = false` 且 `expiredOverrides` 为空 | `NOOP`，不下发 BE 任务 |
+| `expired(effectiveDefaultDays) = false` 且 `expiredOverrides` 非空 | `DELETE_LIST(expiredOverrides)` |
+| `expired(effectiveDefaultDays) = true` 且 `retainedOverrides` 非空 | `KEEP_LIST(retainedOverrides)` |
+| `expired(effectiveDefaultDays) = true` 且 `retainedOverrides` 为空 | Catalog 整分区删除候选 |
+
+1. 默认策略尚未过期时，任意未显式配置的非 NULL tenant 都必须保留；`DELETE_LIST(expiredOverrides)` 精确删除已过期显式 tenant。此时不得改用 `KEEP_LIST(retainedOverrides)`，否则会误删使用默认策略且尚未过期的未知 tenant。
+2. 默认策略已经过期时，任意未显式配置的非 NULL tenant 都应删除；`KEEP_LIST(retainedOverrides)` 完整列出唯一需要保留的显式 tenant。此时不得改用 `DELETE_LIST(expiredOverrides)`，否则会漏删使用默认策略且已经过期的未知 tenant。
+3. `expired(effectiveDefaultDays) = true` 且 `retainedOverrides` 为空，等价于默认策略和所有有效显式策略均已过期，因此 `nullRetentionDays` 也已过期。nullable 和 non-nullable tenant 都可以成为整分区删除候选，不向 BE 下发空 `KEEP_LIST`。
+4. 当使用非空 `DELETE_LIST` 或 `KEEP_LIST` 做部分 Rowset Rewrite 时，NULL 由既有 BE 精确谓词路径保留；这与 NULL 使用最长有效策略一致，因为只要分区尚不能整体删除，至少一个参与最大值的有效策略尚未过期。
+5. `default` 只参与 `effectiveDefaultDays` 解析，不作为普通业务 tenant 加入 `expiredOverrides` 或 `retainedOverrides`，也不作为填充空名单的哨兵值。
+6. tenant 集合按业务 `VARCHAR` 的原始字节精确匹配、排序和去重，不做大小写、空格、Unicode 或数字形式归一化。
+
+上述证明依赖：候选快照是固定 Dictionary 事务的完整全量导出；Builder 已验证三列结构、键唯一性和所有有效行；`TablePolicy` 包含当前 `table_key` 的全部有效显式策略；不在显式集合中的任意 tenant 都确定使用同一个 `effectiveDefaultDays`。
+
+### FE-PLAN-003：空名单、超限名单与下一轮 DELETE 分片
+
+状态：已确认
+
+1. `DELETE_LIST` 为空时，FE 将分区计划判为 `NOOP`，不下发 BE 空名单任务；BE 对空 `DELETE_LIST` 的既有可验证 NOOP 能力仅作为防御边界。
+2. `KEEP_LIST` 为空时，FE 按 FE-PLAN-002 生成 Catalog 整分区删除候选，绝不向 BE 下发其已明确拒绝的空 `KEEP_LIST`。
+3. 首期所需非空名单超过请求协议、配置行数、序列化字节数或 FE/BE 资源上限时，不截断、不遗漏、不切换为补集不完整的相反模式，也不发布部分完成结果；该物理分区本轮 fail-closed，并记录稳定的名单超限原因。
+4. 名单超限不使 Dictionary 策略快照失效，不阻止同表其他可以生成完整计划的分区继续评估。
+5. 下一轮必须解决超限 `DELETE_LIST`，采用无损分片多次执行：
+
+   ```text
+   D = D1 ∪ D2 ∪ ... ∪ Dn
+   ```
+
+   每个分片使用相同 `policy_watermark`、独立 task ID，在同一 Replica 上按确定顺序执行；同一分片重试仍保持完整请求不变，全部分片成功后才能把原分区/Replica 计划标记完成。
+6. 下一轮强制分片优化只支持 `DELETE_LIST`。`KEEP_LIST` 超限继续 fail-closed，不直接把保留集合拆成多个独立 `KEEP_LIST` 执行，因为连续执行的结果趋向各分片交集而不是所需并集，可能误删其他分片应保留的 tenant。
+7. 首期及下一轮都不为 `KEEP_LIST` 超限引入 tenant 哈希/字节值域作用域、跨 RPC 名单组装 Session 或其他 BE 协议扩展；若未来需要解决，必须重新专项澄清。
+8. 下一轮仍需对齐 `DELETE_LIST` 单片行数/字节上限、分片 ID、部分成功恢复、完成水位和 Leader 切换恢复；这些实现细节不能改变本节已确认的集合并集语义。
+
+## 10. 到期事件驱动与分区执行进度
+
+### FE-SCHED-001：以“已到期且未应用”事件触发分区计划
+
+状态：已确认
+
+对固定评估上下文和具有可信有限上界 `U` 的 Physical Partition，定义：
+
+```text
+expireAt(U, days) =
+    Math.addExact(U, Math.multiplyExact((long) days, 86400L))
+
+due(expireAt) =
+    expireAt <= evaluation_time_epoch_seconds
+    && expireAt > completedExpiryCursorEpochSeconds
+```
+
+1. 每个不同的有效保留天数构成一个 `ExpiryCohort`；使用该天数的默认策略和多个显式 tenant 共享同一个 `expireAt`，不为每个 tenant 创建独立调度事件。
+2. 稳定运行时的到期触发条件是“阈值已跨过且该事件尚未成功应用”，不是严格的 `partitionAgeDays == retentionDays`。调度延迟、FE 重启、Leader 切换或失败重试后，已过阈值的未完成事件仍必须追赶，不能因错过“恰好到期”的时间窗口而永久漏删。
+3. 同一物理分区一次评估中存在多个已到期且未应用的 cohort 时，FE 将它们合并为一次分区计划，不按历史日期逐个回放 Compaction。
+4. 到期事件只决定“现在是否需要评估并执行”；实际下发的 tenant 名单必须按当前固定的完整策略快照和评估时间重新生成 FE-PLAN-001～003 的完整当前计划，不得只下发“本次新到期”的 cohort。
+5. 例如默认 TTL 为 180 天、`tenant_a = 30`、`tenant_c = 60`时，分区跨过 30 天阈值后首次计划包含 `tenant_a`；在没有新数据、策略变化或失败待恢复的前提下，第 31 天不重复下发。跨过 60 天阈值时，新计划使用当前完整 `DELETE_LIST`，可同时包含已过期的 `tenant_a` 和刚过期的 `tenant_c`。
+6. 默认策略过期时仍按 FE-PLAN-002 生成当前完整 `KEEP_LIST`；当全部有效策略均已过期时，生成 Catalog 整分区删除候选。
+
+### FE-SCHED-002：迟到写入、策略变化与语义指纹补偿
+
+状态：已确认
+
+Tenant-TTL 不限制向旧分区写入，因此不能只依赖一次性到期事件。FE 对每个物理分区使用以下附加触发原因：
+
+| 触发原因 | 行为 |
+| --- | --- |
+| `EXPIRY_EVENT_DUE` | 存在已到期且未成功应用的 cohort |
+| `INITIAL_CATCH_UP` | 首次绑定、新增物理分区，或 FE 重启/Leader 切换恢复后发现持久化进度缺失或存在已到期未完成事件时，立即追平 |
+| `POLICY_CHANGED` | 当前表键的有效策略语义发生变化，绕过旧到期游标重新计划 |
+| `DATA_VERSION_ADVANCED` | 分区可见版本领先已成功处理版本，且当前完整计划非 `NOOP` |
+| `RETRY_PENDING` | 已到期计划执行失败或结果未知，完成进度尚未推进 |
+| `MANUAL_REPAIR` | 后续运维接口显式发起的修复性评估；首期是可选扩展，不影响自动追平正确性 |
+
+1. `DATA_VERSION_ADVANCED` 使用 Catalog 中当前 `partitionVisibleVersion > processedThroughVersion` 判定。它触发当前完整计划，使上一次成功后迟到写入的已过期 tenant 仍能被删除。
+2. 只改变 Rowset 布局而未推进逻辑可见版本的普通 Compaction 不触发 Tenant-TTL；真正发布新数据并推进分区可见版本时才触发数据版本补偿。
+3. `tablePolicyFingerprint` 是当前表键有效策略的稳定语义指纹，至少对以下规范化内容作 SHA-256：
+
+   ```text
+   table_key
+   effectiveDefaultDays
+   sorted(raw tenant bytes, retentionDays) for all valid overrides
+   ```
+
+   规范化编码必须使用显式长度和固定整数字节序，不得依赖 locale、字符串拼接歧义或 Map 迭代顺序。
+4. `tablePolicyFingerprint` 不包含 `SnapshotTxnId`、快照时间或导出时间。Dictionary 发布了新事务但当前 `table_key` 的有效内容未变时，不因事务号变化重复调度 Compaction；以后由其他原因触发的新轮仍使用当时最新的有效快照和 `SnapshotTxnId`。
+5. 语义指纹变化时，FE 必须使用当前策略做一次调和评估，不按旧策略补做历史任务。放宽 TTL 时已由旧策略删除的数据不可恢复，FE 不承诺回滚或重建。
+6. 在没有新到期事件、数据版本推进、策略变化、待重试失败或初始追平的情况下，FE 不向该物理分区下发重复 Tenant-TTL 任务。
+
+### FE-SCHED-003：专用分区进度、Leader 队列与推进时点
+
+状态：已确认
+
+1. FE 新增独立的 `TenantTtlPartitionProgressManager`，在表属性之外持久化管理每个 Physical Partition 的 Tenant-TTL 执行进度。不将高频调度水位写入 `TableProperty`。
+2. 持久化记录的逻辑模型至少包含：
+
+   ```text
+   TenantTtlPartitionProgress {
+       dbId
+       tableId
+       physicalPartitionId
+       tableBindingFingerprint
+       tablePolicyFingerprint
+       partitionBoundaryFingerprint
+       completedExpiryCursorEpochSeconds
+       processedThroughVersion
+       lastSuccessSnapshotTxnId
+       lastSuccessEvaluationTime
+   }
+   ```
+
+3. `completedExpiryCursorEpochSeconds` 表示已由成功当前计划覆盖的最大到期阈值；`processedThroughVersion` 表示已证明按该计划处理的分区逻辑可见版本，并使用 BE 成功结果中的 `processed_through_version` 作为证据。多副本完成前只能保守地使用所有必需 Replica 均已覆盖的公共水位。
+4. 仅在该分区所需的 Catalog 删除或 Replica 物理任务达到后续编排章节确定的成功标准后，才能原子推进到期游标、处理版本和成功水位。任务创建、入队或发送成功都不表示策略已应用，不得推进持久化进度。
+5. 同一分区计划展开的所有 Replica 任务必须使用相同的规范化 filter 和 `policy_watermark`，任一必需 Replica 失败或结果未知时不得将分区标记为完成。同一不可变请求的重试继续遵守 FE-EVAL-004 的 task ID 和幂等契约。
+6. `tableBindingFingerprint`、`tablePolicyFingerprint` 或 `partitionBoundaryFingerprint` 变化时，旧进度不得直接证明新输入已应用；FE 必须将分区标记为 dirty，并按当前不可变上下文重新调和。物理分区被删除后及时回收其进度记录。
+7. 只有 Leader 运行到期调度器。运行时使用以下一个未完成 `expireAt` 为键的 Leader-local 优先队列，并结合策略和数据版本 dirty 信号触发评估。FE 重启或 Leader 切换后，由持久化分区进度、当前表绑定和当前有效策略快照重建队列，不依赖旧 Leader 内存状态。
+8. 优先队列的扫描周期和单轮批处理量作为运维参数后续落实；首期的全局串行执行和“所有必需 Replica”完成标准按 FE-SCHED-006/007 执行。
+
+### FE-SCHED-004：`NOOP` / Catalog 删除 / Rowset Rewrite 三路分流
+
+状态：已确认
+
+对每个固定 `TenantTtlEvaluationContext` 的分区级评估结果，FE 只能生成以下四类互斥计划之一：
+
+```text
+FE_NOOP
+DROP_LOGICAL_PARTITION
+ROWSET_REWRITE
+FAIL_CLOSED
+```
+
+1. `FE_NOOP` 表示 FE 已证明当前分区不需删除任何 tenant。它不调用 Catalog 删除、不下发 BE 任务，只更新 FE 调度状态、策略指纹和下一个 `expireAt`；不伪造 BE `processed_through_version`。`FE_NOOP` 与 BE 对非空过滤计划扫描后返回的 `NOOP_VERIFIED` 是不同结果。
+2. `DROP_LOGICAL_PARTITION` 只在默认策略和全部有效 override 均已过期时生成。FE 虽然按 Physical Partition 评估，但 Catalog 删除单元是逻辑 `Partition`；只有一个逻辑分区包含的全部 Physical Partition 都满足整分区删除条件时，才能删除该逻辑分区。
+3. 首期不对临时分区执行 Tenant-TTL；临时分区被替换或转为正式分区后，按当前新的 Catalog 分区身份重新评估。
+4. 执行 Catalog 删除前，FE 必须在表写锁下重新校验 `dbId/tableId`、逻辑分区 ID 和名称、全部 Physical Partition ID、分区边界指纹、表绑定指纹、策略语义指纹及表 `NORMAL` 状态。任一项变化都必须放弃旧候选并重新评估，不得仅凭旧分区名执行删除。
+5. Catalog 删除沿用现有自动分区 TTL 的正式、非临时分区 `FORCE` 删除语义，并使用现有 `LocalMetastore.dropPartition()` 和 EditLog 重放路径。Catalog 成功后立即视为逻辑分区删除完成并回收进度，不等待 BE 异步 Tablet 文件清理。
+6. 如果同一逻辑分区存在任何旧 `ROWSET_REWRITE` 任务在途，FE 直接跳过本轮 `DROP_LOGICAL_PARTITION` 执行，不发送取消、不等待 drain、不并发删除；下一轮重新检查和评估。
+7. Catalog 删除失败时保留原分区并记录失败，后续重新检查；不将整分区删除降级为高成本 Rowset Rewrite。
+8. `ROWSET_REWRITE` 只用于非空且未超限的 `DELETE_LIST`/`KEEP_LIST`，只展开 Base Index 的 Tablet 和 Replica。同一逻辑分区在同一时刻不得同时进入 Catalog 删除和 BE Rewrite 路径。
+9. `FAIL_CLOSED` 适用于 Dictionary/FE 策略快照不可用、分区边界无法证明、名单超限或其他不能生成完整安全计划的情况。它不下发任务、不推进完成水位，且不阻塞其他可安全评估的分区。
+
+### FE-SCHED-005：正式 Agent Task 适配层与无取消边界
+
+状态：已确认
+
+1. 正式 FE→BE 链路新增独立 `TTaskType.TENANT_TTL_COMPACTION`、`TTenantTtlCompactionReq`、`TTenantTtlCompactionResult` 和 FE `TenantTtlCompactionTask extends AgentTask`；`TFinishTaskRequest` 增加可选的 Tenant-TTL 结果。
+2. 新协议只是对已完成 BE `TenantTtlCompactionRequest/Result` 的一对一传输适配。BE worker 必须直接调用现有 `EngineTenantTtlCompactionTask`，不改变过滤、coverage、Tablet 准入与锁、Rowset 原子提交或结果码语义。
+3. 不复用普通 `COMPACTION` Agent Task，因为其完成回报不携带 Tenant-TTL 所需的精确结果码、`processed_through_version` 和 coverage 结果。不调用仅供手工测试、发布构建默认不存在的同步 HTTP 入口。
+4. 每个 `(backendId, tabletId)` 仍按 FE-EVAL-004 生成独立正 `long` task ID 和不可变请求。BE 返回 `SUCCESS` 或 `NOOP_VERIFIED` 时，FE 只有在回报的 `task_id/tablet_id/partition_id` 全部匹配且 `processed_through_version >= fe_observed_max_version` 时，才把该 Replica 记为成功。
+5. 首期不实现 `CANCEL_TENANT_TTL_COMPACTION` 或任何等价取消协议，不向 BE 已完成执行器增加产品化取消链路。已下发任务自然运行到终态；禁用、改绑、策略/拓扑变化或 Leader 切换只停止旧计划的新任务继续生成。
+6. 任务返回时必须以 task ID、分区/Replica 身份、`policy_watermark`、表绑定指纹、策略指纹和拓扑指纹做结果 fencing。迟到的旧计划结果可以记录供诊断，但不得推进当前新计划的分区进度；已发生的数据删除不可回滚。
+
+### FE-SCHED-006：全部 Replica 完成与首期全局串行
+
+状态：已确认
+
+1. 物理分区计划物化时固定 Base Index 的 `ReplicaTopologyFingerprint`，至少对排序后的 `(physicalPartitionId, baseIndexId, tabletId, replicaId, backendId)` 规范化编码计算稳定指纹。
+2. 每个 Base Index Tablet 当前存在于 Catalog 的全部 Replica 都是必需 Replica，分区完成不采用 quorum。Tenant-TTL 是同 version Rowset 替换，普通 Replica version 不能证明该副本已执行 TTL；跳过某个副本可能使其以后重新参与查询时暴露已过期数据。
+3. Replica 暂时不可用时，该分区进入 `WAITING_REPLICA` 并安排后续重试，不跳过副本、不长时间占用全局执行位，也不阻塞其他分区。Replica 从 Catalog 移除或新增 Replica 时，拓扑指纹变化并使旧计划失效，FE 按当前 Replica 集合重新计划。
+4. 首期 Tenant-TTL 全局串行执行，不引入全局/每 BE/每表多层并发令牌和调优参数。当前 Leader 任一时刻最多只有一个 Tenant-TTL 破坏性执行单元在途：一次 Catalog 分区删除或一个 Replica Agent Task。`FE_NOOP`、候选枚举和 fail-closed 状态记录不计为在途破坏性执行。
+5. 同一物理分区的 Tablet/Replica 任务按稳定的 `(tabletId, backendId)` 顺序串行下发。BE 已明确返回本次未进入执行或已终止的可重试结果时，该分区可进入不占用全局执行位的退避等待，调度器继续处理下一个可执行单元。响应丢失或 `TTL_ALREADY_RUNNING` 等仍可能有同 task ID 在 BE 执行的未知状态必须保留全局执行位，只允许该不可变请求继续收敛。
+6. 同一 Leader 生命周期内可在内存中保留已成功 Replica 结果，只重试失败或未知 Replica。所有必需 Replica 都成功后，再次校验表绑定、策略、分区边界和 Replica 拓扑指纹；仅在全部未变时推进分区进度。
+7. 分区成功的 `processedThroughVersion` 取全部必需 Replica 成功结果的最小 `processed_through_version`。它只证明该公共版本之前的数据已在全部必需 Replica 上应用本计划；之后发布的新版本继续由 FE-SCHED-002 触发补偿。
+8. 不同 Replica 的执行无法形成跨副本原子切换，执行期间允许短时间结果差异；首期完成标准是最终全部必需 Replica 收敛，与 FE-EVAL-002 的“不提供整表同步策略切换点”一致。
+
+### FE-SCHED-007：错误收敛、超时与 Leader 切换
+
+状态：已确认
+
+1. Replica 任务退避统一使用 `10 s` 起步、`10 min` 封顶、`±20%` jitter，不设固定最大重试次数。BE 明确返回 `TABLET_BUSY`、`REPLICA_NOT_CAUGHT_UP`、`STALE_ROWSET` 或已终止的 `CANCELLED` 时，当前 task 已不在 BE 执行，退避期间不占用全局串行执行位；其他到期分区可继续处理。
+2. `TABLET_BUSY`、`REPLICA_NOT_CAUGHT_UP`、`STALE_ROWSET` 和非 FE 主动产生的 `CANCELLED` 在计划仍有效时，使用原 task ID 和原完整不可变请求重试。网络超时、响应丢失、结果未知和 `TTL_ALREADY_RUNNING` 同样使用原请求重试，但必须假定原 task 仍可能在 BE 执行，收敛期间不得下发其他破坏性执行单元。
+3. `SCHEMA_CHANGED` 不使用旧请求继续重试。FE 必须重新读取 Schema 和表绑定，通过静态准入复核后创建新计划和新 task ID。`TABLET_NOT_FOUND` 必须先重新读取 Catalog Replica 拓扑，不得盲目重发旧任务。
+4. `INVALID_ARGUMENT`、`NOT_SUPPORTED`、`DATA_INVARIANT_VIOLATION` 和 `INTERNAL_ERROR` 对当前计划是非紧密重试终态；FE 将分区置为 `BLOCKED`、保留错误并不推进水位，等待元数据/节点状态变化、新策略或人工修复后生成新计划。
+5. Replica Agent Task 的首期软超时默认为 `3600 s`。超时只表示 FE 未获得可确认结果，不表示 BE 任务已停止或回滚；FE 将其按结果未知处理，保留全局执行位，退避后仅以原不可变请求收敛。
+6. 旧 Leader 一旦失去领导权立即停止新任务生成。首期不持久化在途 Agent Task 和部分 Replica 成功集，新 Leader 不恢复旧 task ID，而是从持久化分区进度和当前不可变上下文重新计划并分配新 task ID。
+7. Leader 切换后旧任务可能在 BE 自然结束，因此切换窗口内可能短时超出“当前 Leader 最多一个任务”的调度限制。同一 Tablet 上由 BE 已有 admission 和 `TTL_ALREADY_RUNNING` 防止并发修改；不同 Tablet 上的短时重叠不改变正确性。
+8. 旧任务已提交但结果丢失时，新计划重新精确扫描并以 `NOOP_VERIFIED` 收敛。新 Leader 收到不识别的旧 task ID 完成回报时，记录诊断信息后向 BE 确认接收，不推进当前进度，也不让 BE 无限重报。
+
+## 11. 已确认结论清单
 
 | 编号 | 结论 | 状态 |
 | --- | --- | --- |
 | FE-TABLE-001 | 业务表不新增或物化 `retentionDays` | 已确认 |
 | FE-TABLE-002 | 首期不强制 64 tenant bucket × 日分区，tenant bucket 只是性能优化 | 已确认 |
 | FE-TABLE-003 | `default` 为 TTL 策略保留 tenant，启用 DDL 不扫描历史数据验证 | 已确认 |
+| FE-TABLE-004 | 首期只处理 Base Index，存在或新增 Rollup/同步物化索引时拒绝 Tenant-TTL 相关 DDL | 已确认 |
 | FE-TIME-001 | 业务列固定为 `tenant VARCHAR` 和 Unix 秒 `recordTimestamp BIGINT`，绑定列 ID/Unique ID 使用 | 已确认 |
 | FE-TIME-002 | Range 支持直接 Unix 秒和 `from_unixtime(recordTimestamp)`，任意有限粒度均按 Catalog 半开区间证明 | 已确认 |
 | FE-TIME-003 | List 支持直接 Unix 秒及单/多表达式 `from_unixtime(recordTimestamp, '%Y%m%d')`，以所有值的最大上界证明整体过期 | 已确认 |
@@ -1034,16 +1351,34 @@ FOR TENANT 'tenant_a';
 | FE-OBS-002 | 提供表级 Tenant-TTL 状态，明确策略命中类型并区分 Dictionary、FE 快照等待状态 | 已确认 |
 | FE-OBS-003 | 支持按 tenant 查看 `EffectiveRetentionDays` 和 `ResolutionType` | 已确认 |
 | FE-OBS-004 | 同时展示 Dictionary 最新成功水位、Tenant-TTL 当前快照水位和最近候选构建水位 | 已确认 |
+| FE-EVAL-001 | 一张表的一轮评估固定不可变策略快照、`SnapshotTxnId` 和一个 Unix 秒评估时间 | 已确认 |
+| FE-EVAL-002 | 创建上下文时复核表绑定；快照切换不修改已物化任务，未下发部分由新轮重新规划 | 已确认 |
+| FE-EVAL-003 | BE `policy_watermark` 精确对应实际 FE 快照和评估时间，由 FE 负责新旧轮次与迟到结果隔离 | 已确认 |
+| FE-EVAL-004 | 分区计划展开为每个 `(backend_id, tablet_id)` 独立 Replica 任务；同一 task ID 的完整请求不可变 | 已确认 |
+| FE-PLAN-001 | 有效默认策略和显式 override 使用同一分区上界评估；NULL 使用当前表键全部有效策略的最长保留天数 | 已确认 |
+| FE-PLAN-002 | 默认未过期时使用 `DELETE_LIST`，默认已过期时使用 `KEEP_LIST`；全部策略过期时 nullable 也可整分区删除 | 已确认 |
+| FE-PLAN-003 | 空名单不下发；超限名单首期 fail-closed，下一轮仅强制支持 `DELETE_LIST` 无损分片多次执行 | 已确认 |
+| FE-SCHED-001 | 稳定路径以“到期阈值已跨过且未应用”触发，合并到期 cohort 并下发当前完整计划 | 已确认 |
+| FE-SCHED-002 | 数据版本推进时补做当前计划；只有有效策略语义指纹变化才因策略刷新触发 | 已确认 |
+| FE-SCHED-003 | 使用独立持久化分区进度和 Leader-local 到期队列，只有计划成功应用后才推进水位 | 已确认 |
+| FE-SCHED-004 | `FE_NOOP`、Catalog 整分区删除、BE Rowset Rewrite 和 fail-closed 四路互斥；旧 Rewrite 在途时跳过本轮整分区删除 | 已确认 |
+| FE-SCHED-005 | 正式链路使用 Tenant-TTL 专用 Agent Task 适配已有 BE 执行契约；首期不实现取消协议 | 已确认 |
+| FE-SCHED-006 | 物理分区必须在全部 Catalog Replica 上收敛，首期当前 Leader 全局串行执行 | 已确认 |
+| FE-SCHED-007 | 按结果码区分不变请求重试、重新计划和阻塞；Leader 切换后以新 task ID 重新收敛 | 已确认 |
 
-## 9. 待后续澄清项
+## 12. 待后续轮次优化项
+
+以下能力已明确不进入首期，不应与尚未完成契约对齐的当前澄清项混在一起。其中 `DELETE_LIST` 无损分片是已确认的下一轮必做项，其他能力按实际运行需求再决定是否实现：
+
+1. `DELETE_LIST` 超限后的无损分片多次执行。后续实现必须保持 FE-PLAN-003 已确认的集合并集语义，并继续对齐单片行数/字节上限、分片身份、执行顺序、部分成功恢复、完成水位和 Leader 切换恢复。`KEEP_LIST` 超限继续 fail-closed，不在该优化中引入错误的分片交集语义。
+2. 在全局串行的首期实现稳定后，可根据实测评估是否增加全局/每 BE/每表分层并发令牌和公平调度。未专项对齐和验证前不能改变 FE-SCHED-006 的全部 Replica 完成标准。
+3. 若后续运维确有需要，可增加 Agent Task 协作式取消链路。未实现前继续使用 FE-SCHED-004/005 的“旧 Rewrite 在途则跳过删分区、已下发任务自然结束、迟到结果指纹隔离”语义。
+
+## 13. 待后续澄清项
 
 以下内容尚未完成讨论，不属于已确认实施契约。顺序按当前实现依赖和正确性风险从高到低排列：
 
-1. 单轮评估如何固定 `evaluation_time` 和 `SnapshotTxnId`，策略切换期间如何固定任务输入，以及 FE 任务幂等键与 BE `policy_watermark` 的一致性。
-2. FE 如何基于 `TablePolicy`、属性默认值和分区时间边界选择 `DELETE_LIST` / `KEEP_LIST`，并证明所选模式的 tenant 补集完整、NULL tenant 保守保留且不会漏删或误删。
-3. 整分区删除、部分 tenant Rowset Rewrite 和全保留 NOOP 的调度分流，包括 Catalog 分区删除与 BE Tenant-TTL 任务之间的边界。
-4. 多 Partition、Tablet、Replica 的任务编排、并发限制、重试、取消、Leader 切换和失败收敛。
-5. 禁用 `compaction_retention_condition` 的具体 DDL 清空语法，以及禁用或更新绑定时在途评估和已下发任务的取消、完成或结果拒绝语义。持久化绑定和运行时引用索引的切换语义已由 FE-DICT-013 确认。
-6. 新增或重启 BE/CN 时的 Dictionary Cache 补齐方式，以及它与 FE 策略快照水位的关系。
-7. `SHOW TENANT TTL STATUS` 的权限模型、输出列类型、NULL/零值忽略计数展示、时间分区绑定与可证明分区计数、错误码和完整语法细节。
-8. Tenant-TTL 评估历史、最近调度、最近 Compaction 结果和分区级执行进度的查看接口。
+1. 禁用 `compaction_retention_condition` 的具体 DDL 清空语法，以及禁用或更新绑定时对当前调度计划的停止新任务、在途任务自然收敛和迟到结果 fencing 细节。首期不实现取消协议，持久化绑定和运行时引用索引的切换语义已由 FE-DICT-013 确认。
+2. 新增或重启 BE/CN 时的 Dictionary Cache 补齐方式，以及它与 FE 策略快照水位的关系。
+3. `SHOW TENANT TTL STATUS` 的权限模型、输出列类型、NULL/零值忽略计数展示、时间分区绑定与可证明分区计数、错误码和完整语法细节。
+4. Tenant-TTL 评估历史、最近调度、最近 Compaction 结果和分区级执行进度的查看接口。
