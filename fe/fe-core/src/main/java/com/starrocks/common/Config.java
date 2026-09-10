@@ -3867,6 +3867,18 @@ public class Config extends ConfigBase {
     @ConfField(mutable = true)
     public static int tenant_ttl_policy_snapshot_export_rpc_timeout_ms = 60000;
 
+    @ConfField(mutable = true)
+    public static long tenant_ttl_policy_snapshot_export_max_rows = 100000;
+
+    @ConfField(mutable = true)
+    public static long tenant_ttl_policy_snapshot_export_max_uncompressed_bytes = 64L * 1024 * 1024;
+
+    @ConfField(mutable = true)
+    public static long tenant_ttl_policy_snapshot_export_max_response_bytes = 64L * 1024 * 1024;
+
+    @ConfField(mutable = true)
+    public static long tenant_ttl_policy_snapshot_builder_max_memory_bytes = 128L * 1024 * 1024;
+
     /*
      * Replication config
      */
