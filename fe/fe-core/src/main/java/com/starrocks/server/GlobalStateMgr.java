@@ -243,6 +243,7 @@ import com.starrocks.system.PortConnectivityChecker;
 import com.starrocks.system.SystemInfoService;
 import com.starrocks.task.LeaderTaskExecutor;
 import com.starrocks.task.PriorityLeaderTaskExecutor;
+import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshotManager;
 import com.starrocks.thrift.TNetworkAddress;
 import com.starrocks.thrift.TNodeInfo;
 import com.starrocks.thrift.TNodesInfo;
@@ -511,6 +512,8 @@ public class GlobalStateMgr {
     private final GlobalLoadJobListenerBus operationListenerBus = new GlobalLoadJobListenerBus();
 
     private final DictionaryMgr dictionaryMgr = new DictionaryMgr();
+    private final TenantTtlPolicySnapshotManager tenantTtlPolicySnapshotManager =
+            new TenantTtlPolicySnapshotManager();
     private final RefreshDictionaryCacheTaskDaemon refreshDictionaryCacheTaskDaemon;
 
     private MemoryUsageTracker memoryUsageTracker;
@@ -2853,6 +2856,10 @@ public class GlobalStateMgr {
 
     public DictionaryMgr getDictionaryMgr() {
         return dictionaryMgr;
+    }
+
+    public TenantTtlPolicySnapshotManager getTenantTtlPolicySnapshotManager() {
+        return tenantTtlPolicySnapshotManager;
     }
 
     public boolean isInTransferringToLeader() {

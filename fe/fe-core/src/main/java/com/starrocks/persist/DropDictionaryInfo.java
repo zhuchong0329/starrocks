@@ -20,15 +20,26 @@ import com.starrocks.common.io.Writable;
 public class DropDictionaryInfo implements Writable {
     @SerializedName(value = "dictionaryName")
     String dictionaryName;
+    @SerializedName(value = "dictionaryId")
+    Long dictionaryId;
 
     public DropDictionaryInfo(String dictionaryName) {
         this.dictionaryName = dictionaryName;
     }
 
+    public DropDictionaryInfo(String dictionaryName, long dictionaryId) {
+        this.dictionaryName = dictionaryName;
+        this.dictionaryId = dictionaryId;
+    }
+
     public DropDictionaryInfo() {}
 
-    String getDictionaryName() {
+    public String getDictionaryName() {
         return dictionaryName;
+    }
+
+    public Long getDictionaryId() {
+        return dictionaryId;
     }
 
 }

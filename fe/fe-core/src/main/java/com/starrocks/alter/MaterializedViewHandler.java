@@ -194,6 +194,8 @@ public class MaterializedViewHandler extends AlterHandler {
     public void processCreateMaterializedView(CreateMaterializedViewStmt addMVClause, Database db, OlapTable olapTable)
             throws DdlException, AnalysisException {
 
+        rejectTenantTtlTable(olapTable);
+
         if (olapTable.existTempPartitions()) {
             throw new DdlException("Can not alter table when there are temp partitions in table");
         }
@@ -242,6 +244,7 @@ public class MaterializedViewHandler extends AlterHandler {
      */
     public void processBatchAddRollup(List<AlterClause> alterClauses, Database db, OlapTable olapTable)
             throws DdlException, AnalysisException {
+        rejectTenantTtlTable(olapTable);
         Map<String, AlterJobV2> rollupNameJobMap = new LinkedHashMap<>();
         // save job id for log
         Set<Long> logJobIdSet = new HashSet<>();
@@ -307,6 +310,13 @@ public class MaterializedViewHandler extends AlterHandler {
         BatchAlterJobPersistInfo batchAlterJobV2 = new BatchAlterJobPersistInfo(rollupJobV2List);
         GlobalStateMgr.getCurrentState().getEditLog().logBatchAlterJob(batchAlterJobV2);
         LOG.info("finished to create materialized view job: {}", logJobIdSet);
+    }
+
+    private static void rejectTenantTtlTable(OlapTable olapTable) throws DdlException {
+        if (olapTable.getTableProperty() != null &&
+                olapTable.getTableProperty().getTenantTtlDictionaryBinding() != null) {
+            throw new DdlException("Tenant-TTL enabled tables do not support Rollup or synchronous materialized views");
+        }
     }
 
     /**

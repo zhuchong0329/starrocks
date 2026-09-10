@@ -98,6 +98,8 @@ import com.starrocks.catalog.TableProperty;
 import com.starrocks.catalog.Tablet;
 import com.starrocks.catalog.TabletInvertedIndex;
 import com.starrocks.catalog.TabletMeta;
+import com.starrocks.catalog.TenantTtlBindingAnalyzer;
+import com.starrocks.catalog.TenantTtlDictionaryBinding;
 import com.starrocks.catalog.View;
 import com.starrocks.catalog.system.information.InfoSchemaDb;
 import com.starrocks.catalog.system.sys.SysDb;
@@ -613,6 +615,7 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                     taskManager.createTask(task, false);
                 }
             }
+            registerTenantTtlReferences(db);
 
             // log
             RecoverInfo recoverInfo = new RecoverInfo(db.getId(), -1L, -1L);
@@ -648,6 +651,7 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
             Table recoverTable = getTable(db.getFullName(), tableName);
             if (recoverTable instanceof OlapTable) {
                 DynamicPartitionUtil.registerOrRemovePartitionScheduleInfo(db.getId(), (OlapTable) recoverTable);
+                registerTenantTtlReference(db.getId(), recoverTable);
             }
 
         } finally {
@@ -702,6 +706,7 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
 
         // add db to globalStateMgr
         replayCreateDb(db);
+        registerTenantTtlReferences(db);
 
         LOG.info("replay recover db[{}], name: {}", dbId, db.getOriginName());
     }
@@ -2151,6 +2156,13 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                 temporaryTableMgr.addTemporaryTable(sessionId, db.getId(), table.getName(), table.getId());
             }
             table.onReload();
+            if (table instanceof OlapTable) {
+                TableProperty tableProperty = ((OlapTable) table).getTableProperty();
+                if (tableProperty != null && tableProperty.getTenantTtlDictionaryBinding() != null) {
+                    GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager().updateBinding(
+                            db.getId(), table.getId(), null, tableProperty.getTenantTtlDictionaryBinding());
+                }
+            }
         } catch (Throwable e) {
             LOG.error("replay create table failed: {}", table, e);
             // Rethrow, we should not eat the exception when replaying editlog.
@@ -2494,8 +2506,26 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
         locker.lockDatabase(db.getId(), LockType.WRITE);
         try {
             recycleBin.replayRecoverTable(db, info.getTableId());
+            registerTenantTtlReference(dbId, db.getTable(info.getTableId()));
         } finally {
             locker.unLockDatabase(db.getId(), LockType.WRITE);
+        }
+    }
+
+    private void registerTenantTtlReferences(Database db) {
+        for (Table table : db.getTables()) {
+            registerTenantTtlReference(db.getId(), table);
+        }
+    }
+
+    private void registerTenantTtlReference(long dbId, Table table) {
+        if (!(table instanceof OlapTable)) {
+            return;
+        }
+        TableProperty tableProperty = ((OlapTable) table).getTableProperty();
+        if (tableProperty != null && tableProperty.getTenantTtlDictionaryBinding() != null) {
+            GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager().updateBinding(
+                    dbId, table.getId(), null, tableProperty.getTenantTtlDictionaryBinding());
         }
     }
 
@@ -3816,6 +3846,26 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
         Map<String, Object> results = validateToBeModifiedProps(properties, db, table);
 
         TableProperty tableProperty = table.getTableProperty();
+        if (results.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION)) {
+            TenantTtlDictionaryBinding oldBinding = tableProperty.getTenantTtlDictionaryBinding();
+            TenantTtlBindingAnalyzer.BindingResult binding = (TenantTtlBindingAnalyzer.BindingResult)
+                    results.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
+            if (propertiesToPersist.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE)) {
+                propertiesToPersist.put(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE,
+                        binding.getNormalizedPropertyTimeZone());
+            }
+            tableProperty.modifyTableProperties(propertiesToPersist);
+            tableProperty.buildCompactionRetentionProperties();
+            tableProperty.setTenantTtlDictionaryBinding(binding.getDictionaryBinding());
+            tableProperty.setTenantTtlTableBinding(binding.getTableBinding());
+            ModifyTablePropertyOperationLog info = new ModifyTablePropertyOperationLog(
+                    db.getId(), table.getId(), propertiesToPersist,
+                    binding.getDictionaryBinding(), binding.getTableBinding());
+            GlobalStateMgr.getCurrentState().getEditLog().logAlterTableProperties(info);
+            GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager().updateBinding(
+                    db.getId(), table.getId(), oldBinding, binding.getDictionaryBinding());
+            return;
+        }
         for (String key : results.keySet()) {
             if (propertiesToPersist.containsKey(PropertyAnalyzer.PROPERTIES_PARTITION_LIVE_NUMBER)) {
                 int partitionLiveNumber = (int) results.get(key);
@@ -3929,6 +3979,29 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
     private Map<String, Object> validateToBeModifiedProps(Map<String, String> properties,
                                                           Database db, OlapTable table) throws DdlException {
         Map<String, Object> results = Maps.newHashMap();
+        if (properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION) ||
+                properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE)) {
+            TableProperty current = table.getTableProperty();
+            String condition = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
+            if (condition == null && current != null) {
+                condition = current.getCompactionRetentionCondition();
+            }
+            if (condition == null) {
+                throw new DdlException("compaction_retention_time_zone requires compaction_retention_condition");
+            }
+            String timeZone = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
+            if (timeZone == null && current != null) {
+                timeZone = current.getCompactionRetentionTimeZone();
+            }
+            Map<String, String> candidateProperties = current == null ? new HashMap<>() :
+                    new HashMap<>(current.getProperties());
+            candidateProperties.putAll(properties);
+            TenantTtlBindingAnalyzer.BindingResult binding = TenantTtlBindingAnalyzer.analyze(
+                    db, table, condition, timeZone, candidateProperties);
+            results.put(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION, binding);
+            properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
+            properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
+        }
         if (properties.containsKey(PropertyAnalyzer.PROPERTIES_PARTITION_LIVE_NUMBER)) {
             if (!table.getPartitionInfo().isRangePartition()) {
                 throw new DdlException("Table[" + table.getName() + "] is not range partitioned. "
@@ -4480,12 +4553,21 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                 olapTable.setHasDelete();
             } else {
                 TableProperty tableProperty = olapTable.getTableProperty();
+                TenantTtlDictionaryBinding oldTenantTtlBinding = tableProperty == null ? null :
+                        tableProperty.getTenantTtlDictionaryBinding();
                 if (tableProperty == null) {
                     tableProperty = new TableProperty(properties);
                     olapTable.setTableProperty(tableProperty.buildProperty(opCode));
                 } else {
                     tableProperty.modifyTableProperties(properties);
                     tableProperty.buildProperty(opCode);
+                }
+                if (opCode == OperationType.OP_ALTER_TABLE_PROPERTIES &&
+                        info.getTenantTtlDictionaryBinding() != null && info.getTenantTtlTableBinding() != null) {
+                    tableProperty.setTenantTtlDictionaryBinding(info.getTenantTtlDictionaryBinding());
+                    tableProperty.setTenantTtlTableBinding(info.getTenantTtlTableBinding());
+                    GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager().updateBinding(
+                            dbId, tableId, oldTenantTtlBinding, info.getTenantTtlDictionaryBinding());
                 }
 
                 if (StringUtils.isNotEmpty(comment)) {

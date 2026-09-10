@@ -1179,7 +1179,7 @@ public class EditLog {
                 }
                 case OperationType.OP_DROP_DICTIONARY: {
                     DropDictionaryInfo dropInfo = (DropDictionaryInfo) journal.data();
-                    globalStateMgr.getDictionaryMgr().replayDropDictionary(dropInfo.getDictionaryName());
+                    globalStateMgr.getDictionaryMgr().replayDropDictionary(dropInfo);
                     break;
                 }
                 case OperationType.OP_MODIFY_DICTIONARY_MGR: {

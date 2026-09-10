@@ -18,6 +18,8 @@
 package com.starrocks.persist;
 
 import com.google.gson.annotations.SerializedName;
+import com.starrocks.catalog.TenantTtlDictionaryBinding;
+import com.starrocks.catalog.TenantTtlTableBinding;
 import com.starrocks.common.io.Writable;
 
 import java.util.HashMap;
@@ -33,6 +35,10 @@ public class ModifyTablePropertyOperationLog implements Writable {
     private Map<String, String> properties = new HashMap<>();
     @SerializedName(value = "comment")
     private String comment;
+    @SerializedName(value = "tenantTtlDictionaryBinding")
+    private TenantTtlDictionaryBinding tenantTtlDictionaryBinding;
+    @SerializedName(value = "tenantTtlTableBinding")
+    private TenantTtlTableBinding tenantTtlTableBinding;
 
     public ModifyTablePropertyOperationLog(long dbId, long tableId) {
         this.dbId = dbId;
@@ -43,6 +49,14 @@ public class ModifyTablePropertyOperationLog implements Writable {
         this.dbId = dbId;
         this.tableId = tableId;
         this.properties = properties;
+    }
+
+    public ModifyTablePropertyOperationLog(long dbId, long tableId, Map<String, String> properties,
+                                           TenantTtlDictionaryBinding tenantTtlDictionaryBinding,
+                                           TenantTtlTableBinding tenantTtlTableBinding) {
+        this(dbId, tableId, properties);
+        this.tenantTtlDictionaryBinding = tenantTtlDictionaryBinding;
+        this.tenantTtlTableBinding = tenantTtlTableBinding;
     }
 
     public long getDbId() {
@@ -59,6 +73,14 @@ public class ModifyTablePropertyOperationLog implements Writable {
 
     public String getComment() {
         return comment;
+    }
+
+    public TenantTtlDictionaryBinding getTenantTtlDictionaryBinding() {
+        return tenantTtlDictionaryBinding;
+    }
+
+    public TenantTtlTableBinding getTenantTtlTableBinding() {
+        return tenantTtlTableBinding;
     }
 
     public void setComment(String comment) {

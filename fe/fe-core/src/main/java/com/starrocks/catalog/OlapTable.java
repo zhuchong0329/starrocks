@@ -3377,6 +3377,10 @@ public class OlapTable extends Table {
         }
 
         DynamicPartitionUtil.registerOrRemovePartitionScheduleInfo(db.getId(), this);
+        if (tableProperty != null && tableProperty.getTenantTtlDictionaryBinding() != null) {
+            GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager().updateBinding(
+                    db.getId(), getId(), null, tableProperty.getTenantTtlDictionaryBinding());
+        }
 
         if (Config.dynamic_partition_enable && getTableProperty().getDynamicPartitionProperty().isEnabled()) {
             new Thread(() -> {
@@ -3496,6 +3500,11 @@ public class OlapTable extends Table {
         }
 
         updateBaseCompactionForbiddenTimeRanges(true);
+
+        if (tableProperty != null && tableProperty.getTenantTtlDictionaryBinding() != null) {
+            GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager().removeTable(
+                    db.getId(), getId(), tableProperty.getTenantTtlDictionaryBinding());
+        }
 
         // unregister constraints from global state manager
         GlobalConstraintManager globalConstraintManager = GlobalStateMgr.getCurrentState().getGlobalConstraintManager();

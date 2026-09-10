@@ -226,18 +226,24 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
 
     public void dropDictionary(String dictionaryName, boolean isCacheOnly, boolean isReplay)
             throws MetaNotFoundException {
-        if (!isReplay && !isCacheOnly) {
-            DropDictionaryInfo info = new DropDictionaryInfo(dictionaryName);
-            GlobalStateMgr.getCurrentState().getEditLog().logDropDictionary(info);
-        }
+        dropDictionary(dictionaryName, null, isCacheOnly, isReplay);
+    }
+
+    private void dropDictionary(String dictionaryName, Long expectedDictionaryId,
+                                boolean isCacheOnly, boolean isReplay) throws MetaNotFoundException {
         Dictionary dictionary = null;
         lock.lock();
         try {
-            dictionary = getDictionaryByName(dictionaryName);
-            if (dictionary == null) {
+            dictionary = expectedDictionaryId == null ? getDictionaryByName(dictionaryName) :
+                    dictionariesMapById.get(expectedDictionaryId);
+            if (dictionary == null || !dictionaryName.equals(dictionary.getDictionaryName())) {
                 throw new MetaNotFoundException("refreshed dictionary not found");
             }
 
+            if (!isReplay && !isCacheOnly) {
+                DropDictionaryInfo info = new DropDictionaryInfo(dictionaryName, dictionary.getDictionaryId());
+                GlobalStateMgr.getCurrentState().getEditLog().logDropDictionary(info);
+            }
             if (!isCacheOnly) {
                 dictionariesMapById.remove(dictionary.getDictionaryId());
                 dictionariesIdMapByName.remove(dictionary.getDictionaryName());
@@ -249,6 +255,9 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
         if (isCacheOnly) {
             // reset dictionary state if just clear the dictionary cache
             getDictionaryByName(dictionaryName).resetState();
+        } else {
+            GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager()
+                    .onDictionaryDropped(dictionary.getDictionaryId());
         }
         clearDictionaryCache(dictionary, false);
     }
@@ -334,6 +343,10 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
 
     public Dictionary getDictionaryByName(String dictionaryName) {
         return dictionariesMapById.get(dictionariesIdMapByName.get(dictionaryName));
+    }
+
+    public Dictionary getDictionaryById(long dictionaryId) {
+        return dictionariesMapById.get(dictionaryId);
     }
 
     private void resigerUnfinishedToRunningUnlocked(long dictionaryId) {
@@ -473,9 +486,9 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
         addDictionary(dictionary);
     }
 
-    public void replayDropDictionary(String dictionaryName) {
+    public void replayDropDictionary(DropDictionaryInfo info) {
         try {
-            dropDictionary(dictionaryName, false, true);
+            dropDictionary(info.getDictionaryName(), info.getDictionaryId(), false, true);
         } catch (MetaNotFoundException e) {
             /* nothing to do */
         }

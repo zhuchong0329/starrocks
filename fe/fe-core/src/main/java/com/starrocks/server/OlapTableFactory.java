@@ -40,6 +40,7 @@ import com.starrocks.catalog.RangePartitionInfo;
 import com.starrocks.catalog.SinglePartitionInfo;
 import com.starrocks.catalog.Table;
 import com.starrocks.catalog.TableIndexes;
+import com.starrocks.catalog.TenantTtlBindingAnalyzer;
 import com.starrocks.catalog.constraint.ForeignKeyConstraint;
 import com.starrocks.catalog.constraint.UniqueConstraint;
 import com.starrocks.common.AnalysisException;
@@ -676,6 +677,29 @@ public class OlapTableFactory implements AbstractTableFactory {
                 long rollupIndexId = metastore.getNextId();
                 table.setIndexMeta(rollupIndexId, addRollupClause.getRollupName(), rollupColumns, schemaVersion,
                         rollupSchemaHash, rollupShortKeyColumnCount, rollupIndexStorageType, keysType);
+            }
+
+            if (properties != null &&
+                    properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION)) {
+                String condition = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
+                String timeZone = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
+                TenantTtlBindingAnalyzer.BindingResult binding = TenantTtlBindingAnalyzer.analyze(
+                        db, table, condition, timeZone, properties);
+                table.getTableProperty().getProperties().put(
+                        PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION, condition);
+                if (binding.getNormalizedPropertyTimeZone() != null) {
+                    table.getTableProperty().getProperties().put(
+                            PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE,
+                            binding.getNormalizedPropertyTimeZone());
+                }
+                table.getTableProperty().buildCompactionRetentionProperties();
+                table.getTableProperty().setTenantTtlDictionaryBinding(binding.getDictionaryBinding());
+                table.getTableProperty().setTenantTtlTableBinding(binding.getTableBinding());
+                properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
+                properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
+            } else if (properties != null &&
+                    properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE)) {
+                throw new DdlException("compaction_retention_time_zone requires compaction_retention_condition");
             }
 
             // analyze version info
