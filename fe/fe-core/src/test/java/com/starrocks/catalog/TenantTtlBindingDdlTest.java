@@ -21,6 +21,7 @@ import com.starrocks.persist.ModifyTablePropertyOperationLog;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.server.GlobalStateMgr;
+import com.starrocks.tenantttl.TenantTtlPartitionBoundResolver;
 import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshotManager;
 import com.starrocks.utframe.StarRocksAssert;
 import com.starrocks.utframe.UtFrameUtils;
@@ -188,6 +189,25 @@ public class TenantTtlBindingDdlTest {
         manager.removeTable(1, 2, dictionaryBinding);
         Assertions.assertFalse(manager.isReferenced(55L));
         Assertions.assertEquals(1, manager.getGeneration(55L));
+    }
+
+    @Test
+    public void testRuntimePartitionBindingRevalidation() throws Exception {
+        starRocksAssert.withTable(fromUnixTimeTableSql("tenant_ttl_runtime_revalidation", "Asia/Shanghai"));
+        Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(DB_NAME);
+        OlapTable table = getTable("tenant_ttl_runtime_revalidation");
+        PhysicalPartition physicalPartition = table.getPhysicalPartitions().iterator().next();
+
+        TenantTtlPartitionBoundResolver.Resolution resolution =
+                TenantTtlPartitionBoundResolver.resolve(db, table, physicalPartition);
+        Assertions.assertTrue(resolution.isProvable());
+
+        table.getTableProperty().getProperties().put(DynamicPartitionProperty.TIME_ZONE, "UTC");
+        resolution = TenantTtlPartitionBoundResolver.resolve(db, table, physicalPartition);
+        Assertions.assertFalse(resolution.isProvable());
+        Assertions.assertEquals(TenantTtlPartitionBoundResolver.UnprovableReason.BINDING_MISMATCH,
+                resolution.getReason());
+        table.getTableProperty().getProperties().remove(DynamicPartitionProperty.TIME_ZONE);
     }
 
     private static String fromUnixTimeTableSql(String tableName, String timeZone) {

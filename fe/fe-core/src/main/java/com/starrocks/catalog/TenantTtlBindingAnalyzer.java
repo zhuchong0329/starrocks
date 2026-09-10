@@ -56,6 +56,22 @@ public final class TenantTtlBindingAnalyzer {
             throw new DdlException(e.getMessage());
         }
 
+        TableBindingResult tableLayout = analyzeTableBinding(db, table, timeZone, candidateProperties);
+
+        Dictionary dictionary = requireDictionary(parsed.getDictionaryName());
+        validateDictionarySchema(dictionary);
+        validateDictionarySource(dictionary);
+
+        TenantTtlDictionaryBinding dictionaryBinding = new TenantTtlDictionaryBinding(
+                dictionary.getDictionaryId(), dictionary.getDictionaryName(), parsed.getTableKey(),
+                parsed.getDefaultDays());
+        return new BindingResult(dictionaryBinding, tableLayout.getTableBinding(),
+                tableLayout.getNormalizedPropertyTimeZone());
+    }
+
+    /** Re-analyzes only the business table layout and does not access or validate a Dictionary. */
+    public static TableBindingResult analyzeTableBinding(Database db, OlapTable table, String timeZone,
+                                                         Map<String, String> candidateProperties) throws DdlException {
         validateBusinessTable(table);
         Column tenantColumn = requireColumn(table, TENANT_COLUMN_NAME);
         if (!tenantColumn.getType().isVarchar()) {
@@ -75,19 +91,12 @@ public final class TenantTtlBindingAnalyzer {
                 normalizedPropertyTimeZone,
                 candidateProperties == null ? Collections.emptyMap() : candidateProperties);
 
-        Dictionary dictionary = requireDictionary(parsed.getDictionaryName());
-        validateDictionarySchema(dictionary);
-        validateDictionarySource(dictionary);
-
-        TenantTtlDictionaryBinding dictionaryBinding = new TenantTtlDictionaryBinding(
-                dictionary.getDictionaryId(), dictionary.getDictionaryName(), parsed.getTableKey(),
-                parsed.getDefaultDays());
         TenantTtlTableBinding tableBinding = new TenantTtlTableBinding(
                 tenantColumn.getColumnId().getId(), tenantColumn.getUniqueId(),
                 timeColumn.getColumnId().getId(), timeColumn.getUniqueId(),
                 partitionBinding.expressionType, partitionBinding.listTimeComponentIndex,
                 normalizedTimeZone, partitionBinding.expressionFingerprint);
-        return new BindingResult(dictionaryBinding, tableBinding, normalizedPropertyTimeZone);
+        return new TableBindingResult(tableBinding, normalizedPropertyTimeZone);
     }
 
     private static void validateBusinessTable(OlapTable table) throws DdlException {
@@ -362,6 +371,24 @@ public final class TenantTtlBindingAnalyzer {
 
         public TenantTtlDictionaryBinding getDictionaryBinding() {
             return dictionaryBinding;
+        }
+
+        public TenantTtlTableBinding getTableBinding() {
+            return tableBinding;
+        }
+
+        public String getNormalizedPropertyTimeZone() {
+            return normalizedPropertyTimeZone;
+        }
+    }
+
+    public static final class TableBindingResult {
+        private final TenantTtlTableBinding tableBinding;
+        private final String normalizedPropertyTimeZone;
+
+        private TableBindingResult(TenantTtlTableBinding tableBinding, String normalizedPropertyTimeZone) {
+            this.tableBinding = tableBinding;
+            this.normalizedPropertyTimeZone = normalizedPropertyTimeZone;
         }
 
         public TenantTtlTableBinding getTableBinding() {
