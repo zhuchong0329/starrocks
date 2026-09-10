@@ -3864,6 +3864,9 @@ public class Config extends ConfigBase {
     @ConfField(mutable = true)
     public static int refresh_dictionary_cache_thread_num = 2;
 
+    @ConfField(mutable = true)
+    public static int tenant_ttl_policy_snapshot_export_rpc_timeout_ms = 60000;
+
     /*
      * Replication config
      */

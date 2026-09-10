@@ -14,7 +14,29 @@
 
 #include "storage/dictionary_cache_manager.h"
 
+#include <boost/algorithm/string/predicate.hpp>
+#include <google/protobuf/io/coded_stream.h>
+#include <snappy/snappy.h>
+
+#include <optional>
+
+#include "column/binary_column.h"
+#include "common/config.h"
 #include "exec/tablet_info.h"
+#include "testutil/sync_point.h"
+#include "util/crc32c.h"
+
+namespace {
+
+constexpr int32_t kTenantTtlExportProtocolVersion = 1;
+constexpr int64_t kTenantTtlExportBatchBytes = 1024 * 1024;
+constexpr size_t kTenantTtlDecodeBatchRows = 1024;
+
+int64_t effective_limit(bool has_request_limit, int64_t request_limit, int64_t local_limit) {
+    return has_request_limit ? std::min(request_limit, local_limit) : local_limit;
+}
+
+} // namespace
 
 namespace starrocks {
 
@@ -242,6 +264,216 @@ Status DictionaryCacheManager::commit(const PProcessDictionaryCacheRequest* requ
     _dict_cache_versions[dict_id] = txn_id;
 
     _mutable_dict_caches.erase(dict_id);
+    return Status::OK();
+}
+
+Status DictionaryCacheManager::export_cache(const PExportDictionaryCacheRequest* request,
+                                             PExportDictionaryCacheResult* response) {
+    auto initialize_response = [&](PDictionaryCacheExportOutcome outcome, std::optional<int64_t> actual_txn_id) {
+        response->Clear();
+        Status::OK().to_protobuf(response->mutable_status());
+        response->set_outcome(outcome);
+        response->set_protocol_version(kTenantTtlExportProtocolVersion);
+        response->set_dictionary_id(request->dictionary_id());
+        response->set_expected_txn_id(request->expected_txn_id());
+        if (actual_txn_id.has_value()) {
+            response->set_actual_txn_id(*actual_txn_id);
+        }
+        response->set_complete(false);
+    };
+
+    if (request->protocol_version() != kTenantTtlExportProtocolVersion || !request->has_dictionary_id() ||
+        !request->has_expected_txn_id()) {
+        initialize_response(PDictionaryCacheExportOutcome::EXPORT_INTERNAL_ERROR, std::nullopt);
+        return Status::InvalidArgument("invalid Tenant-TTL Dictionary export request");
+    }
+
+    int64_t max_rows = effective_limit(request->has_max_rows(), request->max_rows(),
+                                       config::tenant_ttl_policy_export_max_rows);
+    int64_t max_uncompressed_bytes = effective_limit(request->has_max_uncompressed_bytes(),
+                                                      request->max_uncompressed_bytes(),
+                                                      config::tenant_ttl_policy_export_max_uncompressed_bytes);
+    int64_t max_response_bytes = effective_limit(request->has_max_response_bytes(), request->max_response_bytes(),
+                                                  config::tenant_ttl_policy_export_max_response_bytes);
+    if (max_rows <= 0 || max_uncompressed_bytes <= 0 || max_response_bytes <= 0) {
+        initialize_response(PDictionaryCacheExportOutcome::EXPORT_INTERNAL_ERROR, std::nullopt);
+        return Status::InvalidArgument("Tenant-TTL Dictionary export limits must be positive");
+    }
+
+    DictionaryCachePtr cache;
+    SchemaPtr schema;
+    int64_t actual_txn_id = 0;
+    {
+        std::shared_lock cache_lock(_lock);
+        auto version_it = _dict_cache_versions.find(request->dictionary_id());
+        auto cache_it = _dict_cache.find(request->dictionary_id());
+        if (version_it == _dict_cache_versions.end() || cache_it == _dict_cache.end() || cache_it->second == nullptr) {
+            initialize_response(PDictionaryCacheExportOutcome::CACHE_NOT_FOUND, std::nullopt);
+            return Status::OK();
+        }
+        actual_txn_id = version_it->second;
+        if (actual_txn_id != request->expected_txn_id()) {
+            initialize_response(PDictionaryCacheExportOutcome::VERSION_MISMATCH, actual_txn_id);
+            return Status::OK();
+        }
+        cache = cache_it->second;
+
+        std::shared_lock schema_lock(_schema_lock);
+        auto schema_it = _dict_cache_schema.find(request->dictionary_id());
+        if (schema_it != _dict_cache_schema.end()) {
+            schema = schema_it->second;
+        }
+    }
+    TEST_SYNC_POINT("DictionaryCacheManager::export_cache:after_capture");
+
+    auto schema_matches = [&]() {
+        return schema != nullptr && schema->num_fields() == 3 &&
+               boost::iequals(schema->field(0)->name(), "tenant") &&
+               schema->field(0)->type()->type() == TYPE_VARCHAR &&
+               boost::iequals(schema->field(1)->name(), "table_name") &&
+               schema->field(1)->type()->type() == TYPE_VARCHAR &&
+               boost::iequals(schema->field(2)->name(), "retention_days") &&
+               schema->field(2)->type()->type() == TYPE_INT;
+    };
+    using TenantTtlCache = DictionaryCacheImpl<TYPE_VARCHAR, TYPE_INT>;
+    auto tenant_ttl_cache = std::dynamic_pointer_cast<TenantTtlCache>(cache);
+    if (!schema_matches() || tenant_ttl_cache == nullptr) {
+        initialize_response(PDictionaryCacheExportOutcome::SCHEMA_MISMATCH, actual_txn_id);
+        return Status::OK();
+    }
+
+    PExportDictionaryCacheResult candidate;
+    Status::OK().to_protobuf(candidate.mutable_status());
+    candidate.set_outcome(PDictionaryCacheExportOutcome::EXPORT_OK);
+    candidate.set_protocol_version(kTenantTtlExportProtocolVersion);
+    candidate.set_dictionary_id(request->dictionary_id());
+    candidate.set_expected_txn_id(request->expected_txn_id());
+    candidate.set_actual_txn_id(actual_txn_id);
+
+    int64_t total_rows = 0;
+    int64_t total_uncompressed_bytes = 0;
+    int64_t total_payload_bytes = 0;
+    uint32_t content_crc32c = 0;
+    PTenantTtlPolicyBatchPB policy_batch;
+    size_t policy_batch_bytes = 0;
+    bool limit_exceeded = false;
+
+    auto finalize_policy_batch = [&]() -> Status {
+        if (policy_batch.entries_size() == 0) {
+            return Status::OK();
+        }
+        std::string uncompressed;
+        if (!policy_batch.SerializeToString(&uncompressed)) {
+            return Status::InternalError("failed to serialize Tenant-TTL policy batch");
+        }
+        if (uncompressed.size() > kTenantTtlExportBatchBytes ||
+            total_uncompressed_bytes > max_uncompressed_bytes - static_cast<int64_t>(uncompressed.size())) {
+            limit_exceeded = true;
+            return Status::CapacityLimitExceed("Tenant-TTL Dictionary export exceeds uncompressed byte limit");
+        }
+
+        std::string compressed;
+        compressed.resize(snappy::MaxCompressedLength(uncompressed.size()));
+        size_t compressed_size = 0;
+        snappy::RawCompress(uncompressed.data(), uncompressed.size(), compressed.data(), &compressed_size);
+        compressed.resize(compressed_size);
+        bool use_snappy = compressed.size() * 11 < uncompressed.size() * 10;
+
+        auto* output_batch = candidate.add_batches();
+        output_batch->set_sequence(candidate.batches_size() - 1);
+        output_batch->set_row_count(policy_batch.entries_size());
+        output_batch->set_compression_type(use_snappy ? CompressionTypePB::SNAPPY
+                                                       : CompressionTypePB::NO_COMPRESSION);
+        output_batch->set_uncompressed_size(uncompressed.size());
+        output_batch->set_uncompressed_crc32c(crc32c::Value(uncompressed.data(), uncompressed.size()));
+        if (use_snappy) {
+            output_batch->set_payload(std::move(compressed));
+        } else {
+            output_batch->set_payload(uncompressed);
+        }
+        total_uncompressed_bytes += uncompressed.size();
+        total_payload_bytes += output_batch->payload().size();
+        content_crc32c = crc32c::Extend(content_crc32c, uncompressed.data(), uncompressed.size());
+        policy_batch.Clear();
+        policy_batch_bytes = 0;
+        return Status::OK();
+    };
+
+    std::vector<ColumnId> key_column_ids{0, 1};
+    Schema key_schema(schema.get(), key_column_ids);
+    auto encoded_keys = BinaryColumn::create();
+    std::vector<int32_t> retention_days;
+    retention_days.reserve(kTenantTtlDecodeBatchRows);
+
+    auto append_decoded_rows = [&]() -> Status {
+        if (encoded_keys->empty()) {
+            return Status::OK();
+        }
+        auto decoded_keys = ChunkHelper::new_chunk(key_schema, encoded_keys->size());
+        RETURN_IF_ERROR(DictionaryCacheUtil::decode_columns(key_schema, encoded_keys.get(), decoded_keys.get(), nullptr));
+        for (size_t i = 0; i < retention_days.size(); ++i) {
+            Slice tenant = decoded_keys->get_column_by_index(0)->get(i).get_slice();
+            Slice table_name = decoded_keys->get_column_by_index(1)->get(i).get_slice();
+            PTenantTtlPolicyEntryPB entry;
+            entry.set_tenant(tenant.data, tenant.size);
+            entry.set_table_name(table_name.data, table_name.size);
+            entry.set_retention_days(retention_days[i]);
+            size_t entry_size = entry.ByteSizeLong();
+            size_t framed_size = 1 + google::protobuf::io::CodedOutputStream::VarintSize32(entry_size) + entry_size;
+            if (framed_size > kTenantTtlExportBatchBytes) {
+                limit_exceeded = true;
+                return Status::CapacityLimitExceed("one Tenant-TTL policy entry exceeds the batch limit");
+            }
+            if (policy_batch_bytes + framed_size > kTenantTtlExportBatchBytes) {
+                RETURN_IF_ERROR(finalize_policy_batch());
+            }
+            policy_batch.add_entries()->Swap(&entry);
+            policy_batch_bytes += framed_size;
+        }
+        encoded_keys = BinaryColumn::create();
+        retention_days.clear();
+        return Status::OK();
+    };
+
+    Status visit_status = tenant_ttl_cache->visit_entries([&](const Slice& encoded_key, const int32_t& value) {
+        if (total_rows >= max_rows) {
+            limit_exceeded = true;
+            return Status::CapacityLimitExceed("Tenant-TTL Dictionary export exceeds row limit");
+        }
+        ++total_rows;
+        encoded_keys->append(encoded_key);
+        retention_days.emplace_back(value);
+        if (retention_days.size() >= kTenantTtlDecodeBatchRows) {
+            return append_decoded_rows();
+        }
+        return Status::OK();
+    });
+    if (visit_status.ok()) {
+        visit_status = append_decoded_rows();
+    }
+    if (visit_status.ok()) {
+        visit_status = finalize_policy_batch();
+    }
+    if (!visit_status.ok()) {
+        if (limit_exceeded) {
+            initialize_response(PDictionaryCacheExportOutcome::LIMIT_EXCEEDED, actual_txn_id);
+            return Status::OK();
+        }
+        initialize_response(PDictionaryCacheExportOutcome::EXPORT_INTERNAL_ERROR, actual_txn_id);
+        return visit_status;
+    }
+
+    candidate.set_total_row_count(total_rows);
+    candidate.set_batch_count(candidate.batches_size());
+    candidate.set_total_uncompressed_bytes(total_uncompressed_bytes);
+    candidate.set_total_payload_bytes(total_payload_bytes);
+    candidate.set_content_crc32c(content_crc32c);
+    candidate.set_complete(true);
+    if (candidate.ByteSizeLong() > max_response_bytes) {
+        initialize_response(PDictionaryCacheExportOutcome::LIMIT_EXCEEDED, actual_txn_id);
+        return Status::OK();
+    }
+    response->Swap(&candidate);
     return Status::OK();
 }
 

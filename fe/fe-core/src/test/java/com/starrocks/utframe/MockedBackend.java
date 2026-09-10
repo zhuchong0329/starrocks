@@ -48,6 +48,8 @@ import com.starrocks.proto.PCollectQueryStatisticsResult;
 import com.starrocks.proto.PExecBatchPlanFragmentsResult;
 import com.starrocks.proto.PExecPlanFragmentResult;
 import com.starrocks.proto.PExecShortCircuitResult;
+import com.starrocks.proto.PExportDictionaryCacheRequest;
+import com.starrocks.proto.PExportDictionaryCacheResult;
 import com.starrocks.proto.PFetchArrowSchemaRequest;
 import com.starrocks.proto.PFetchArrowSchemaResult;
 import com.starrocks.proto.PFetchDataResult;
@@ -608,6 +610,11 @@ public class MockedBackend {
         }
 
         public Future<PProcessDictionaryCacheResult> processDictionaryCache(PProcessDictionaryCacheRequest request) {
+            return null;
+        }
+
+        @Override
+        public Future<PExportDictionaryCacheResult> exportDictionaryCache(PExportDictionaryCacheRequest request) {
             return null;
         }
 

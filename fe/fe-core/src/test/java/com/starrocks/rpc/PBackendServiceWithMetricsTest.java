@@ -22,6 +22,8 @@ import com.starrocks.proto.PCollectQueryStatisticsResult;
 import com.starrocks.proto.PExecBatchPlanFragmentsResult;
 import com.starrocks.proto.PExecPlanFragmentResult;
 import com.starrocks.proto.PExecShortCircuitResult;
+import com.starrocks.proto.PExportDictionaryCacheRequest;
+import com.starrocks.proto.PExportDictionaryCacheResult;
 import com.starrocks.proto.PFetchArrowSchemaRequest;
 import com.starrocks.proto.PFetchArrowSchemaResult;
 import com.starrocks.proto.PFetchDataResult;
@@ -261,6 +263,20 @@ public class PBackendServiceWithMetricsTest {
 
         Future<PProcessDictionaryCacheResult> result =
                 pBackendServiceWithMetrics.processDictionaryCache(new PProcessDictionaryCacheRequest());
+        assertNotNull(result);
+    }
+
+    @Test
+    public void testExportDictionaryCache() throws Exception {
+        new Expectations() {
+            {
+                pBackendService.exportDictionaryCache((PExportDictionaryCacheRequest) any);
+                result = CompletableFuture.completedFuture(new PExportDictionaryCacheResult());
+            }
+        };
+
+        Future<PExportDictionaryCacheResult> result =
+                pBackendServiceWithMetrics.exportDictionaryCache(new PExportDictionaryCacheRequest());
         assertNotNull(result);
     }
 

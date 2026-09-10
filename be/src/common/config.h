@@ -1593,6 +1593,9 @@ CONF_mBool(allow_list_object_for_random_bucketing_on_cache_miss, "true");
 
 CONF_mInt32(dictionary_cache_refresh_timeout_ms, "60000"); // 1 min
 CONF_mInt32(dictionary_cache_refresh_threadpool_size, "8");
+CONF_mInt64(tenant_ttl_policy_export_max_rows, "100000");
+CONF_mInt64(tenant_ttl_policy_export_max_uncompressed_bytes, "67108864");
+CONF_mInt64(tenant_ttl_policy_export_max_response_bytes, "67108864");
 
 // ======================= FLAT JSON start ==============================================
 // json flat flag

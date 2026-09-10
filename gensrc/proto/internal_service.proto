@@ -736,6 +736,60 @@ message PProcessDictionaryCacheResult {
     optional int64 dictionary_memory_usage = 2;
 };
 
+enum PDictionaryCacheExportOutcome {
+    EXPORT_OK = 0;
+    VERSION_MISMATCH = 1;
+    CACHE_NOT_FOUND = 2;
+    SCHEMA_MISMATCH = 3;
+    LIMIT_EXCEEDED = 4;
+    EXPORT_INTERNAL_ERROR = 5;
+}
+
+message PExportDictionaryCacheRequest {
+    optional int32 protocol_version = 1 [default = 1];
+    optional PUniqueId request_id = 2;
+    optional int64 dictionary_id = 3;
+    optional int64 expected_txn_id = 4;
+    optional int64 max_rows = 5;
+    optional int64 max_uncompressed_bytes = 6;
+    optional int64 max_response_bytes = 7;
+}
+
+message PTenantTtlPolicyEntryPB {
+    optional bytes tenant = 1;
+    optional bytes table_name = 2;
+    optional int32 retention_days = 3;
+}
+
+message PTenantTtlPolicyBatchPB {
+    repeated PTenantTtlPolicyEntryPB entries = 1;
+}
+
+message PCompressedTenantTtlPolicyBatchPB {
+    optional int32 sequence = 1;
+    optional int64 row_count = 2;
+    optional CompressionTypePB compression_type = 3;
+    optional int64 uncompressed_size = 4;
+    optional fixed32 uncompressed_crc32c = 5;
+    optional bytes payload = 6;
+}
+
+message PExportDictionaryCacheResult {
+    optional StatusPB status = 1;
+    optional PDictionaryCacheExportOutcome outcome = 2;
+    optional int32 protocol_version = 3;
+    optional int64 dictionary_id = 4;
+    optional int64 expected_txn_id = 5;
+    optional int64 actual_txn_id = 6;
+    optional int64 total_row_count = 7;
+    optional int32 batch_count = 8;
+    optional int64 total_uncompressed_bytes = 9;
+    optional int64 total_payload_bytes = 10;
+    optional fixed32 content_crc32c = 11;
+    optional bool complete = 12;
+    repeated PCompressedTenantTtlPolicyBatchPB batches = 13;
+}
+
 message PFetchArrowSchemaRequest {
     optional PUniqueId finst_id = 1;
 };
@@ -811,6 +865,7 @@ service PInternalService {
     rpc exec_short_circuit(PExecShortCircuitRequest) returns (PExecShortCircuitResult);
 
     rpc process_dictionary_cache(starrocks.PProcessDictionaryCacheRequest) returns (starrocks.PProcessDictionaryCacheResult);
+    rpc export_dictionary_cache(starrocks.PExportDictionaryCacheRequest) returns (starrocks.PExportDictionaryCacheResult);
 
     rpc fetch_arrow_schema(PFetchArrowSchemaRequest) returns (PFetchArrowSchemaResult);
 

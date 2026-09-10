@@ -46,6 +46,8 @@ import com.starrocks.proto.PCancelPlanFragmentResult;
 import com.starrocks.proto.PCollectQueryStatisticsResult;
 import com.starrocks.proto.PExecBatchPlanFragmentsResult;
 import com.starrocks.proto.PExecPlanFragmentResult;
+import com.starrocks.proto.PExportDictionaryCacheRequest;
+import com.starrocks.proto.PExportDictionaryCacheResult;
 import com.starrocks.proto.PFetchDataResult;
 import com.starrocks.proto.PGetFileSchemaResult;
 import com.starrocks.proto.PListFailPointResponse;
@@ -377,6 +379,19 @@ public class BackendServiceClient {
             return service.processDictionaryCache(request);
         } catch (Throwable e) {
             LOG.warn("failed to execute processDictionaryCache, address={}:{}", address.getHostname(), address.getPort(), e);
+            throw new RpcException(address.hostname, e.getMessage());
+        }
+    }
+
+    public Future<PExportDictionaryCacheResult> exportDictionaryCache(
+            TNetworkAddress address, PExportDictionaryCacheRequest request) throws RpcException {
+        try {
+            final PBackendService service = BrpcProxy.getBackendService(address);
+            TalkTimeoutController.setTalkTimeout(Config.tenant_ttl_policy_snapshot_export_rpc_timeout_ms);
+            return service.exportDictionaryCache(request);
+        } catch (Throwable e) {
+            LOG.warn("failed to export Dictionary Cache, address={}:{}",
+                    address.getHostname(), address.getPort(), e);
             throw new RpcException(address.hostname, e.getMessage());
         }
     }

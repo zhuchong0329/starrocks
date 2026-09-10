@@ -22,6 +22,8 @@ import com.starrocks.proto.PCollectQueryStatisticsResult;
 import com.starrocks.proto.PExecBatchPlanFragmentsResult;
 import com.starrocks.proto.PExecPlanFragmentResult;
 import com.starrocks.proto.PExecShortCircuitResult;
+import com.starrocks.proto.PExportDictionaryCacheRequest;
+import com.starrocks.proto.PExportDictionaryCacheResult;
 import com.starrocks.proto.PFetchArrowSchemaRequest;
 import com.starrocks.proto.PFetchArrowSchemaResult;
 import com.starrocks.proto.PFetchDataResult;
@@ -142,6 +144,12 @@ public class PBackendServiceWithMetrics implements PBackendService {
     public Future<PProcessDictionaryCacheResult> processDictionaryCache(PProcessDictionaryCacheRequest request) {
         increaseMetrics();
         return pBackendService.processDictionaryCache(request);
+    }
+
+    @Override
+    public Future<PExportDictionaryCacheResult> exportDictionaryCache(PExportDictionaryCacheRequest request) {
+        increaseMetrics();
+        return pBackendService.exportDictionaryCache(request);
     }
 
     @Override

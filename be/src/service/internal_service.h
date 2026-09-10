@@ -188,6 +188,10 @@ public:
                                   const PProcessDictionaryCacheRequest* request,
                                   PProcessDictionaryCacheResult* response, google::protobuf::Closure* done) override;
 
+    void export_dictionary_cache(google::protobuf::RpcController* controller,
+                                 const PExportDictionaryCacheRequest* request,
+                                 PExportDictionaryCacheResult* response, google::protobuf::Closure* done) override;
+
     void fetch_arrow_schema(google::protobuf::RpcController* controller, const PFetchArrowSchemaRequest* request,
                             PFetchArrowSchemaResult* result, google::protobuf::Closure* done) override;
 

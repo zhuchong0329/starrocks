@@ -17,8 +17,11 @@
 #include <fmt/format.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <snappy/snappy.h>
 
 #include <fstream>
+#include <set>
+#include <tuple>
 
 #include "exec/tablet_info.h"
 #include "exprs/dictionary_get_expr.h"
@@ -29,6 +32,8 @@
 #include "testutil/assert.h"
 #include "testutil/column_test_helper.h"
 #include "testutil/exprs_test_helper.h"
+#include "testutil/sync_point.h"
+#include "util/crc32c.h"
 
 namespace starrocks {
 
@@ -243,6 +248,130 @@ public:
         return e;
     }
 
+    using TenantTtlEntry = std::tuple<std::string, std::string, int32_t>;
+
+    static void create_tenant_ttl_dictionary_cache(DictionaryCacheManager* manager, int64_t dict_id, int64_t txn_id,
+                                                   const std::vector<TenantTtlEntry>& entries,
+                                                   const std::string& table_name_column = "table_name") {
+        Fields fields{
+                std::make_shared<Field>(0, "tenant", TYPE_VARCHAR, false),
+                std::make_shared<Field>(1, table_name_column, TYPE_VARCHAR, false),
+                std::make_shared<Field>(2, "retention_days", TYPE_INT, false),
+        };
+        Schema chunk_schema(fields);
+        auto chunk = ChunkHelper::new_chunk(chunk_schema, entries.size());
+        chunk->reset_slot_id_to_index();
+        for (size_t i = 0; i < chunk->num_columns(); ++i) {
+            chunk->set_slot_id_to_index(i + 1, i);
+        }
+        for (const auto& [tenant, table_name, retention_days] : entries) {
+            down_cast<BinaryColumn*>(chunk->get_column_by_index(0).get())->append(Slice(tenant));
+            down_cast<BinaryColumn*>(chunk->get_column_by_index(1).get())->append(Slice(table_name));
+            down_cast<Int32Column*>(chunk->get_column_by_index(2).get())->append(retention_days);
+        }
+
+        auto pchunk = std::make_unique<ChunkPB>();
+        ASSERT_OK(DictionaryCacheWriter::ChunkUtil::compress_and_serialize_chunk(chunk.get(), pchunk.get()));
+
+        TDescriptorTableBuilder descriptor_builder;
+        TTupleDescriptorBuilder tuple_builder;
+        tuple_builder.add_slot(TSlotDescriptorBuilder()
+                                       .string_type(128)
+                                       .column_name("tenant")
+                                       .column_pos(1)
+                                       .id(1)
+                                       .build());
+        tuple_builder.add_slot(TSlotDescriptorBuilder()
+                                       .string_type(256)
+                                       .column_name(table_name_column)
+                                       .column_pos(2)
+                                       .id(2)
+                                       .build());
+        tuple_builder.add_slot(TSlotDescriptorBuilder()
+                                       .type(TYPE_INT)
+                                       .column_name("retention_days")
+                                       .column_pos(3)
+                                       .id(3)
+                                       .build());
+        tuple_builder.build(&descriptor_builder);
+
+        TOlapTableSchemaParam thrift_schema;
+        thrift_schema.db_id = 1;
+        thrift_schema.table_id = 1;
+        thrift_schema.version = 0;
+        auto descriptor_table = descriptor_builder.desc_tbl();
+        thrift_schema.slot_descs = descriptor_table.slotDescriptors;
+        thrift_schema.tuple_desc = descriptor_table.tupleDescriptors[0];
+        thrift_schema.indexes.resize(1);
+        thrift_schema.indexes[0].id = 1;
+        thrift_schema.indexes[0].columns = {"tenant", table_name_column, "retention_days"};
+
+        TColumn tenant_column;
+        tenant_column.column_name = "tenant";
+        tenant_column.__set_is_key(true);
+        tenant_column.column_type.type = TPrimitiveType::VARCHAR;
+        tenant_column.column_type.__set_len(128);
+        TColumn table_name_column_descriptor;
+        table_name_column_descriptor.column_name = table_name_column;
+        table_name_column_descriptor.__set_is_key(true);
+        table_name_column_descriptor.column_type.type = TPrimitiveType::VARCHAR;
+        table_name_column_descriptor.column_type.__set_len(256);
+        TColumn retention_days_column;
+        retention_days_column.column_name = "retention_days";
+        retention_days_column.__set_is_key(false);
+        retention_days_column.column_type.type = TPrimitiveType::INT;
+        TOlapTableColumnParam column_param;
+        column_param.columns = {tenant_column, table_name_column_descriptor, retention_days_column};
+        thrift_schema.indexes[0].__set_column_param(column_param);
+
+        OlapTableSchemaParam schema;
+        ASSERT_OK(schema.init(thrift_schema));
+        auto protobuf_schema = std::make_unique<POlapTableSchemaParam>();
+        schema.to_protobuf(protobuf_schema.get());
+
+        PProcessDictionaryCacheRequest request;
+        request.set_allocated_chunk(pchunk.get());
+        request.set_dict_id(dict_id);
+        request.set_txn_id(txn_id);
+        request.set_allocated_schema(protobuf_schema.get());
+        request.set_memory_limit(1024L * 1024 * 1024);
+        request.set_key_size(2);
+        request.set_type(PProcessDictionaryCacheRequestType::REFRESH);
+        ASSERT_OK(manager->begin(&request));
+        ASSERT_OK(manager->refresh(&request));
+        ASSERT_OK(manager->commit(&request));
+        request.release_chunk();
+        request.release_schema();
+    }
+
+    static std::vector<TenantTtlEntry> decode_export(const PExportDictionaryCacheResult& response) {
+        std::vector<TenantTtlEntry> entries;
+        uint32_t content_crc = 0;
+        for (int i = 0; i < response.batches_size(); ++i) {
+            const auto& compressed_batch = response.batches(i);
+            EXPECT_EQ(i, compressed_batch.sequence());
+            std::string uncompressed;
+            if (compressed_batch.compression_type() == CompressionTypePB::SNAPPY) {
+                uncompressed.resize(compressed_batch.uncompressed_size());
+                EXPECT_TRUE(snappy::RawUncompress(compressed_batch.payload().data(), compressed_batch.payload().size(),
+                                                  uncompressed.data()));
+            } else {
+                uncompressed = compressed_batch.payload();
+            }
+            EXPECT_EQ(compressed_batch.uncompressed_size(), uncompressed.size());
+            EXPECT_EQ(compressed_batch.uncompressed_crc32c(), crc32c::Value(uncompressed.data(), uncompressed.size()));
+            content_crc = crc32c::Extend(content_crc, uncompressed.data(), uncompressed.size());
+            PTenantTtlPolicyBatchPB batch;
+            EXPECT_TRUE(batch.ParseFromString(uncompressed));
+            EXPECT_EQ(compressed_batch.row_count(), batch.entries_size());
+            for (const auto& entry : batch.entries()) {
+                entries.emplace_back(entry.tenant(), entry.table_name(), entry.retention_days());
+            }
+        }
+        EXPECT_EQ(response.content_crc32c(), content_crc);
+        return entries;
+    }
+
     starrocks::DictionaryCacheManager* dictionary_cache_manager = StorageEngine::instance()->dictionary_cache_manager();
     TabletSharedPtr test_tablet = nullptr;
 };
@@ -335,6 +464,102 @@ TEST_F(DictionaryCacheManagerTest, dictionary_get_expr_test) {
     ASSERT_TRUE(res_column->size() == 1);
     auto struct_column = down_cast<StructColumn*>(down_cast<NullableColumn*>(res_column.get())->data_column().get());
     ASSERT_TRUE(struct_column->fields_column().size() == 2);
+}
+
+// NOLINTNEXTLINE
+TEST_F(DictionaryCacheManagerTest, tenant_ttl_export_exact_snapshot_and_limits) {
+    DictionaryCacheManager manager;
+    std::vector<TenantTtlEntry> original{{std::string("a\0b", 3), "business.http_log", 30},
+                                         {"租户", "业务.日志", 180}};
+    create_tenant_ttl_dictionary_cache(&manager, 500, 501, original);
+
+    PExportDictionaryCacheRequest request;
+    request.set_protocol_version(1);
+    request.set_dictionary_id(500);
+    request.set_expected_txn_id(501);
+    request.set_max_rows(100000);
+    request.set_max_uncompressed_bytes(64L * 1024 * 1024);
+    request.set_max_response_bytes(64L * 1024 * 1024);
+    PExportDictionaryCacheResult response;
+    ASSERT_OK(manager.export_cache(&request, &response));
+    ASSERT_EQ(PDictionaryCacheExportOutcome::EXPORT_OK, response.outcome());
+    ASSERT_TRUE(response.complete());
+    ASSERT_EQ(2, response.total_row_count());
+    ASSERT_EQ(response.batch_count(), response.batches_size());
+    auto decoded = decode_export(response);
+    std::set<TenantTtlEntry> expected(original.begin(), original.end());
+    ASSERT_EQ(expected, std::set<TenantTtlEntry>(decoded.begin(), decoded.end()));
+
+    request.set_expected_txn_id(500);
+    ASSERT_OK(manager.export_cache(&request, &response));
+    ASSERT_EQ(PDictionaryCacheExportOutcome::VERSION_MISMATCH, response.outcome());
+    ASSERT_EQ(501, response.actual_txn_id());
+    ASSERT_EQ(0, response.batches_size());
+
+    request.set_expected_txn_id(501);
+    request.set_max_rows(1);
+    ASSERT_OK(manager.export_cache(&request, &response));
+    ASSERT_EQ(PDictionaryCacheExportOutcome::LIMIT_EXCEEDED, response.outcome());
+    ASSERT_EQ(0, response.batches_size());
+
+    request.set_max_rows(100000);
+    request.set_max_uncompressed_bytes(1);
+    ASSERT_OK(manager.export_cache(&request, &response));
+    ASSERT_EQ(PDictionaryCacheExportOutcome::LIMIT_EXCEEDED, response.outcome());
+    ASSERT_EQ(0, response.batches_size());
+
+    request.set_max_uncompressed_bytes(64L * 1024 * 1024);
+    request.set_max_response_bytes(1);
+    ASSERT_OK(manager.export_cache(&request, &response));
+    ASSERT_EQ(PDictionaryCacheExportOutcome::LIMIT_EXCEEDED, response.outcome());
+    ASSERT_EQ(0, response.batches_size());
+
+    request.set_max_response_bytes(64L * 1024 * 1024);
+    request.set_dictionary_id(999);
+    ASSERT_OK(manager.export_cache(&request, &response));
+    ASSERT_EQ(PDictionaryCacheExportOutcome::CACHE_NOT_FOUND, response.outcome());
+
+    create_tenant_ttl_dictionary_cache(&manager, 550, 551, {});
+    request.set_dictionary_id(550);
+    request.set_expected_txn_id(551);
+    ASSERT_OK(manager.export_cache(&request, &response));
+    ASSERT_EQ(PDictionaryCacheExportOutcome::EXPORT_OK, response.outcome());
+    ASSERT_TRUE(response.complete());
+    ASSERT_EQ(0, response.total_row_count());
+    ASSERT_EQ(0, response.batches_size());
+
+    create_tenant_ttl_dictionary_cache(&manager, 600, 601, original, "wrong_table_name");
+    request.set_dictionary_id(600);
+    request.set_expected_txn_id(601);
+    request.set_max_rows(100000);
+    ASSERT_OK(manager.export_cache(&request, &response));
+    ASSERT_EQ(PDictionaryCacheExportOutcome::SCHEMA_MISMATCH, response.outcome());
+}
+
+// NOLINTNEXTLINE
+TEST_F(DictionaryCacheManagerTest, tenant_ttl_export_holds_captured_cache) {
+    DictionaryCacheManager manager;
+    std::vector<TenantTtlEntry> old_entries{{"old", "business.http_log", 30}};
+    std::vector<TenantTtlEntry> new_entries{{"new", "business.http_log", 90}};
+    create_tenant_ttl_dictionary_cache(&manager, 700, 701, old_entries);
+
+    SyncPoint::GetInstance()->EnableProcessing();
+    SyncPoint::GetInstance()->SetCallBack("DictionaryCacheManager::export_cache:after_capture", [&](void*) {
+        create_tenant_ttl_dictionary_cache(&manager, 700, 702, new_entries);
+    });
+    PExportDictionaryCacheRequest request;
+    request.set_dictionary_id(700);
+    request.set_expected_txn_id(701);
+    PExportDictionaryCacheResult response;
+    Status export_status = manager.export_cache(&request, &response);
+    SyncPoint::GetInstance()->DisableProcessing();
+    SyncPoint::GetInstance()->ClearAllCallBacks();
+
+    ASSERT_OK(export_status);
+    ASSERT_EQ(PDictionaryCacheExportOutcome::EXPORT_OK, response.outcome());
+    ASSERT_EQ(701, response.actual_txn_id());
+    ASSERT_EQ(old_entries, decode_export(response));
+    ASSERT_TRUE(manager.get_dictionary_by_version(700, 702).ok());
 }
 
 } // namespace starrocks

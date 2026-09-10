@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <unordered_map>
@@ -311,6 +312,13 @@ public:
 
     virtual std::mutex& lock() override { return _lock; }
 
+    Status visit_entries(const std::function<Status(const KeyCppType&, const ValueCppType&)>& visitor) const {
+        for (const auto& [key, value] : _dictionary) {
+            RETURN_IF_ERROR(visitor(key, value));
+        }
+        return Status::OK();
+    }
+
 private:
     // Avoid creating Datum
     inline void _append_value(Column* dest, const ValueCppType& v) { down_cast<ValueColumnType*>(dest)->append(v); }
@@ -586,6 +594,8 @@ public:
     Status refresh(const PProcessDictionaryCacheRequest* request);
 
     Status commit(const PProcessDictionaryCacheRequest* request);
+
+    Status export_cache(const PExportDictionaryCacheRequest* request, PExportDictionaryCacheResult* response);
 
     void clear(DictionaryId dict_id, bool is_cancel = false /* trigger cancel */);
 

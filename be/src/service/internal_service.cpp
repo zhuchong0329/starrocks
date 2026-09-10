@@ -1092,6 +1092,22 @@ void PInternalServiceImplBase<T>::process_dictionary_cache(google::protobuf::Rpc
 }
 
 template <typename T>
+void PInternalServiceImplBase<T>::export_dictionary_cache(google::protobuf::RpcController* controller,
+                                                          const PExportDictionaryCacheRequest* request,
+                                                          PExportDictionaryCacheResult* response,
+                                                          google::protobuf::Closure* done) {
+    ClosureGuard closure_guard(done);
+    auto status = StorageEngine::instance()->dictionary_cache_manager()->export_cache(request, response);
+    if (!status.ok()) {
+        LOG(WARNING) << "failed to export Dictionary Cache for Tenant-TTL: " << status;
+        response->set_outcome(PDictionaryCacheExportOutcome::EXPORT_INTERNAL_ERROR);
+        response->set_complete(false);
+        response->clear_batches();
+        status.to_protobuf(response->mutable_status());
+    }
+}
+
+template <typename T>
 void PInternalServiceImplBase<T>::fetch_arrow_schema(google::protobuf::RpcController* controller,
                                                      const PFetchArrowSchemaRequest* request,
                                                      PFetchArrowSchemaResult* result, google::protobuf::Closure* done) {
