@@ -81,6 +81,8 @@ public class TenantTtlBindingDdlTest {
         Assertions.assertEquals(TenantTtlBindingAnalyzer.NOT_APPLICABLE_TIME_ZONE,
                 tableBinding.getNormalizedTimeZone());
         Assertions.assertEquals(table.getColumn("tenant").getUniqueId(), tableBinding.getTenantColumnUniqueId());
+        Assertions.assertEquals("dictionary_ttl('" + DICTIONARY_NAME + "', 'business.http_log', 180)",
+                table.getProperties().get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION));
         Assertions.assertTrue(GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager()
                 .getReferencedTables(91001L)
                 .contains(new TenantTtlPolicySnapshotManager.TableRef(
@@ -113,6 +115,8 @@ public class TenantTtlBindingDdlTest {
         Assertions.assertEquals("Asia/Shanghai",
                 table.getTableProperty().getProperties().get(
                         PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE));
+        Assertions.assertEquals("Asia/Shanghai",
+                table.getProperties().get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE));
         Assertions.assertEquals("Asia/Shanghai",
                 table.getTableProperty().getTenantTtlTableBinding().getNormalizedTimeZone());
         Assertions.assertEquals(TenantTtlBindingAnalyzer.RANGE_FROM_UNIXTIME,
