@@ -3505,6 +3505,13 @@ public class OlapTable extends Table {
             GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager().removeTable(
                     db.getId(), getId(), tableProperty.getTenantTtlDictionaryBinding());
         }
+        if (replay) {
+            GlobalStateMgr.getCurrentState().getTenantTtlPartitionProgressManager()
+                    .replayRemoveTable(db.getId(), getId());
+        } else {
+            GlobalStateMgr.getCurrentState().getTenantTtlPartitionProgressManager()
+                    .removeTable(db.getId(), getId());
+        }
 
         // unregister constraints from global state manager
         GlobalConstraintManager globalConstraintManager = GlobalStateMgr.getCurrentState().getGlobalConstraintManager();

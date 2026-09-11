@@ -278,6 +278,10 @@ public class EditLogDeserializer {
             .put(OperationType.OP_UPDATE_TABLET_RESHARD_JOB_LOG, TabletReshardJob.class)
             .put(OperationType.OP_REMOVE_TABLET_RESHARD_JOB_LOG, RemoveTabletReshardJobLog.class)
             .put(OperationType.OP_SAVE_NEXTID_V2, NextIdLog.class)
+            .put(OperationType.OP_UPSERT_TENANT_TTL_PARTITION_PROGRESS,
+                    TenantTtlPartitionProgressBatchLog.class)
+            .put(OperationType.OP_REMOVE_TENANT_TTL_PARTITION_PROGRESS,
+                    TenantTtlPartitionProgressRemoveLog.class)
             .build();
 
     public static Writable deserialize(Short opCode, DataInput in) throws IOException {

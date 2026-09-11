@@ -663,6 +663,12 @@ public class OperationType {
     public static final short OP_SAVE_NEXTID_V2 = 13552;
 
     @IgnorableOnReplayFailed
+    public static final short OP_UPSERT_TENANT_TTL_PARTITION_PROGRESS = 13553;
+
+    @IgnorableOnReplayFailed
+    public static final short OP_REMOVE_TENANT_TTL_PARTITION_PROGRESS = 13554;
+
+    @IgnorableOnReplayFailed
     public static final short OP_ALTER_RESOURCE = 13557;
 
     /**

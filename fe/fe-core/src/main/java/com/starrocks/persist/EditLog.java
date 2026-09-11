@@ -1327,6 +1327,18 @@ public class EditLog {
                     globalStateMgr.getTabletReshardJobMgr().replayRemoveTabletReshardJob(log.getJobId());
                     break;
                 }
+                case OperationType.OP_UPSERT_TENANT_TTL_PARTITION_PROGRESS: {
+                    TenantTtlPartitionProgressBatchLog log =
+                            (TenantTtlPartitionProgressBatchLog) journal.data();
+                    globalStateMgr.getTenantTtlPartitionProgressManager().replayUpsert(log);
+                    break;
+                }
+                case OperationType.OP_REMOVE_TENANT_TTL_PARTITION_PROGRESS: {
+                    TenantTtlPartitionProgressRemoveLog log =
+                            (TenantTtlPartitionProgressRemoveLog) journal.data();
+                    globalStateMgr.getTenantTtlPartitionProgressManager().replayRemove(log);
+                    break;
+                }
                 default: {
                     if (Config.metadata_ignore_unknown_operation_type) {
                         LOG.warn("UNKNOWN Operation Type {}", opCode);
@@ -2274,5 +2286,13 @@ public class EditLog {
 
     public void logRemoveTabletReshardJob(long jobId) {
         logJsonObject(OperationType.OP_REMOVE_TABLET_RESHARD_JOB_LOG, new RemoveTabletReshardJobLog(jobId));
+    }
+
+    public void logUpsertTenantTtlPartitionProgress(TenantTtlPartitionProgressBatchLog log) {
+        logJsonObject(OperationType.OP_UPSERT_TENANT_TTL_PARTITION_PROGRESS, log);
+    }
+
+    public void logRemoveTenantTtlPartitionProgress(TenantTtlPartitionProgressRemoveLog log) {
+        logJsonObject(OperationType.OP_REMOVE_TENANT_TTL_PARTITION_PROGRESS, log);
     }
 }

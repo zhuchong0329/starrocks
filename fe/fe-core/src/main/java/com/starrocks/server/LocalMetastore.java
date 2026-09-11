@@ -1545,6 +1545,9 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                     if (partitionInfo instanceof RangePartitionInfo) {
                         partitionRange = ((RangePartitionInfo) partitionInfo).getRange(partition.getId());
                     }
+                    GlobalStateMgr.getCurrentState().getTenantTtlPartitionProgressManager()
+                            .removePhysicalPartitions(dbId, tableId, partition.getSubPartitions().stream()
+                                    .map(PhysicalPartition::getId).collect(Collectors.toList()));
                 }
 
                 olapTable.dropPartition(db.getId(), partitionName, clause.isForceDrop());
@@ -4898,9 +4901,11 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                                        boolean isEntireTable, boolean isReplay) {
         // use new partitions to replace the old ones.
         Set<Tablet> oldTablets = Sets.newHashSet();
+        List<Long> oldPhysicalPartitionIds = new ArrayList<>();
         for (Partition newPartition : newPartitions) {
             Partition oldPartition = olapTable.replacePartition(dbId, newPartition);
             for (PhysicalPartition physicalPartition : oldPartition.getSubPartitions()) {
+                oldPhysicalPartitionIds.add(physicalPartition.getId());
                 // save old tablets to be removed
                 for (MaterializedIndex index : physicalPartition.getMaterializedIndices(MaterializedIndex.IndexExtState.ALL)) {
                     // let HashSet do the deduplicate work
@@ -4912,6 +4917,11 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
         if (isEntireTable) {
             // drop all temp partitions
             olapTable.dropAllTempPartitions();
+        }
+
+        if (!isReplay) {
+            GlobalStateMgr.getCurrentState().getTenantTtlPartitionProgressManager()
+                    .removePhysicalPartitions(dbId, olapTable.getId(), oldPhysicalPartitionIds);
         }
 
         // remove the tablets in old partitions
@@ -5095,7 +5105,16 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
 
             partitionNames.stream().forEach(e ->
                     GlobalStateMgr.getCurrentState().getAnalyzeMgr().recordDropPartition(olapTable.getPartition(e).getId()));
+            List<Long> replacedPhysicalPartitionIds = partitionNames.stream()
+                    .map(olapTable::getPartition)
+                    .filter(Objects::nonNull)
+                    .flatMap(partition -> partition.getSubPartitions().stream())
+                    .map(PhysicalPartition::getId)
+                    .collect(Collectors.toList());
             olapTable.replaceTempPartitions(db.getId(), partitionNames, tempPartitionNames, isStrictRange, useTempPartitionName);
+
+            GlobalStateMgr.getCurrentState().getTenantTtlPartitionProgressManager()
+                    .removePhysicalPartitions(db.getId(), olapTable.getId(), replacedPhysicalPartitionIds);
 
             // write log
             ReplacePartitionOperationLog info = new ReplacePartitionOperationLog(db.getId(), olapTable.getId(),

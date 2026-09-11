@@ -245,6 +245,7 @@ import com.starrocks.system.SystemInfoService;
 import com.starrocks.task.LeaderTaskExecutor;
 import com.starrocks.task.PriorityLeaderTaskExecutor;
 import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshotManager;
+import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgressManager;
 import com.starrocks.thrift.TNetworkAddress;
 import com.starrocks.thrift.TNodeInfo;
 import com.starrocks.thrift.TNodesInfo;
@@ -515,6 +516,8 @@ public class GlobalStateMgr {
     private final DictionaryMgr dictionaryMgr = new DictionaryMgr();
     private final TenantTtlPolicySnapshotManager tenantTtlPolicySnapshotManager =
             new TenantTtlPolicySnapshotManager();
+    private final TenantTtlPartitionProgressManager tenantTtlPartitionProgressManager =
+            new TenantTtlPartitionProgressManager();
     private final RefreshDictionaryCacheTaskDaemon refreshDictionaryCacheTaskDaemon;
 
     private MemoryUsageTracker memoryUsageTracker;
@@ -1695,6 +1698,8 @@ public class GlobalStateMgr {
                 .put(SRMetaBlockID.BLACKLIST_MGR, sqlBlackList::load)
                 .put(SRMetaBlockID.HISTORICAL_NODE_MGR, historicalNodeMgr::load)
                 .put(SRMetaBlockID.TABLET_RESHARD_JOB_MGR, tabletReshardJobMgr::load)
+                .put(SRMetaBlockID.TENANT_TTL_PARTITION_PROGRESS_MGR,
+                        tenantTtlPartitionProgressManager::load)
                 .build();
 
         Set<SRMetaBlockID> metaMgrMustExists = new HashSet<>(loadImages.keySet());
@@ -1930,6 +1935,7 @@ public class GlobalStateMgr {
                 clusterSnapshotMgr.save(imageWriter);
                 historicalNodeMgr.save(imageWriter);
                 tabletReshardJobMgr.save(imageWriter);
+                tenantTtlPartitionProgressManager.save(imageWriter);
             } catch (SRMetaBlockException e) {
                 LOG.error("Save meta block failed ", e);
                 throw new IOException("Save meta block failed ", e);
@@ -2893,6 +2899,10 @@ public class GlobalStateMgr {
 
     public TenantTtlPolicySnapshotManager getTenantTtlPolicySnapshotManager() {
         return tenantTtlPolicySnapshotManager;
+    }
+
+    public TenantTtlPartitionProgressManager getTenantTtlPartitionProgressManager() {
+        return tenantTtlPartitionProgressManager;
     }
 
     public boolean isInTransferringToLeader() {
