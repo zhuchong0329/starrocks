@@ -52,6 +52,7 @@ import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
 
 /** Leader-only planner and FE/Catalog execution half of Tenant-TTL scheduling. */
 public final class TenantTtlScheduler extends FrontendDaemon {
@@ -62,6 +63,7 @@ public final class TenantTtlScheduler extends FrontendDaemon {
     private final Map<TableRef, TableRuntimeStatus> tableStatuses = new ConcurrentHashMap<>();
     private final AtomicBoolean catalogDropRunning = new AtomicBoolean();
     private final TenantTtlRewriteCoordinator rewriteCoordinator;
+    private final LongSupplier evaluationTimeEpochSecondsSupplier;
     private volatile RewriteExecutionView rewriteExecutionView;
     private volatile List<PendingRewritePlan> pendingRewritePlans = Collections.emptyList();
     private volatile List<NextExpiry> nextExpiries = Collections.emptyList();
@@ -69,12 +71,19 @@ public final class TenantTtlScheduler extends FrontendDaemon {
     private int tableScanOffset;
 
     public TenantTtlScheduler() {
-        this(new TenantTtlRewriteCoordinator());
+        this(new TenantTtlRewriteCoordinator(), () -> System.currentTimeMillis() / 1000L);
     }
 
     TenantTtlScheduler(TenantTtlRewriteCoordinator rewriteCoordinator) {
+        this(rewriteCoordinator, () -> System.currentTimeMillis() / 1000L);
+    }
+
+    TenantTtlScheduler(TenantTtlRewriteCoordinator rewriteCoordinator,
+                       LongSupplier evaluationTimeEpochSecondsSupplier) {
         super("tenant-ttl-scheduler", configuredIntervalMs());
         this.rewriteCoordinator = Objects.requireNonNull(rewriteCoordinator, "rewrite coordinator is null");
+        this.evaluationTimeEpochSecondsSupplier = Objects.requireNonNull(
+                evaluationTimeEpochSecondsSupplier, "evaluation clock is null");
         this.rewriteExecutionView = rewriteCoordinator;
     }
 
@@ -116,8 +125,9 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         List<CatalogDropCandidate> drops = new ArrayList<>();
         PriorityQueue<NextExpiry> expiryQueue = new PriorityQueue<>(NextExpiry.ORDER);
         for (TableRef tableRef : tableRefs) {
-            TenantTtlEvaluationContext.CaptureResult capture =
-                    TenantTtlEvaluationContext.capture(state, tableRef.getDbId(), tableRef.getTableId());
+            TenantTtlEvaluationContext.CaptureResult capture = TenantTtlEvaluationContext.capture(
+                    state, tableRef.getDbId(), tableRef.getTableId(),
+                    evaluationTimeEpochSecondsSupplier, state::getNextId);
             if (!capture.isSuccess()) {
                 tableStatuses.put(tableRef, TableRuntimeStatus.captureFailure(capture));
                 continue;
