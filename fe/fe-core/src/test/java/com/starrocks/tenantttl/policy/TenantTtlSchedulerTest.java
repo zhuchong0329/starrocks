@@ -116,6 +116,7 @@ public class TenantTtlSchedulerTest {
         long rewritePhysicalId = table.getPartition("p_rewrite").getDefaultPhysicalPartition().getId();
         long dropPhysicalId = table.getPartition("p_drop").getDefaultPhysicalPartition().getId();
         TenantTtlScheduler scheduler = new TenantTtlScheduler();
+        scheduler.setRewriteExecutionView(TenantTtlScheduler.RewriteExecutionView.NONE);
 
         scheduler.scheduleOnce(state);
 

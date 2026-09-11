@@ -3891,6 +3891,9 @@ public class Config extends ConfigBase {
     @ConfField(mutable = true)
     public static int tenant_ttl_scheduler_max_tables_per_cycle = 1000;
 
+    @ConfField(mutable = true)
+    public static int tenant_ttl_agent_task_soft_timeout_seconds = 3600;
+
     /*
      * Replication config
      */

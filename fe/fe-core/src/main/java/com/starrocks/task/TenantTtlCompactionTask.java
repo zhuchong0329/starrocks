@@ -230,6 +230,15 @@ public final class TenantTtlCompactionTask extends AgentTask {
         return result == null ? Optional.empty() : Optional.of(new TTenantTtlCompactionResult(result));
     }
 
+    /** Reset only mutable delivery/result state; all request fields and the task ID remain immutable. */
+    public synchronized void prepareForRetry() {
+        result = null;
+        isFinished = false;
+        isFailed = false;
+        failedTimes = 0;
+        errorMsg = null;
+    }
+
     public long getReplicaId() {
         return replicaId;
     }

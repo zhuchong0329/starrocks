@@ -1507,6 +1507,7 @@ public class GlobalStateMgr {
         batchWriteMgr.start();
         // start dynamic partition task
         dynamicPartitionScheduler.start();
+        tenantTtlScheduler.onLeadershipGained();
         tenantTtlScheduler.start();
         // start daemon thread to update db used data quota for db txn manager periodically
         updateDbUsedDataQuotaDaemon.start();
@@ -1620,6 +1621,7 @@ public class GlobalStateMgr {
 
     private void transferToNonLeader(FrontendNodeType newType) {
         isReady.set(false);
+        tenantTtlScheduler.onLeadershipLost();
 
         if (feType == FrontendNodeType.OBSERVER || feType == FrontendNodeType.FOLLOWER) {
             Preconditions.checkState(newType == FrontendNodeType.UNKNOWN);

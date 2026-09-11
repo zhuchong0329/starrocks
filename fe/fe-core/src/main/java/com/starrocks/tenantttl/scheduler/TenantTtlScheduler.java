@@ -61,20 +61,29 @@ public final class TenantTtlScheduler extends FrontendDaemon {
     private final Map<ProgressKey, PartitionRuntimeStatus> partitionStatuses = new ConcurrentHashMap<>();
     private final Map<TableRef, TableRuntimeStatus> tableStatuses = new ConcurrentHashMap<>();
     private final AtomicBoolean catalogDropRunning = new AtomicBoolean();
-    private volatile RewriteExecutionView rewriteExecutionView = RewriteExecutionView.NONE;
+    private final TenantTtlRewriteCoordinator rewriteCoordinator;
+    private volatile RewriteExecutionView rewriteExecutionView;
     private volatile List<PendingRewritePlan> pendingRewritePlans = Collections.emptyList();
     private volatile List<NextExpiry> nextExpiries = Collections.emptyList();
+    private volatile boolean leadershipEnabled = true;
     private int tableScanOffset;
 
     public TenantTtlScheduler() {
+        this(new TenantTtlRewriteCoordinator());
+    }
+
+    TenantTtlScheduler(TenantTtlRewriteCoordinator rewriteCoordinator) {
         super("tenant-ttl-scheduler", configuredIntervalMs());
+        this.rewriteCoordinator = Objects.requireNonNull(rewriteCoordinator, "rewrite coordinator is null");
+        this.rewriteExecutionView = rewriteCoordinator;
     }
 
     @Override
     protected void runAfterCatalogReady() {
         setInterval(configuredIntervalMs());
         GlobalStateMgr state = GlobalStateMgr.getCurrentState();
-        if (!state.isLeader()) {
+        if (!leadershipEnabled || !state.isLeader()) {
+            rewriteCoordinator.resetForLeadershipLoss();
             return;
         }
         scheduleOnce(state);
@@ -82,7 +91,8 @@ public final class TenantTtlScheduler extends FrontendDaemon {
 
     public synchronized void scheduleOnce(GlobalStateMgr state) {
         Objects.requireNonNull(state, "global state is null");
-        if (!state.isLeader()) {
+        if (!leadershipEnabled || !state.isLeader()) {
+            rewriteCoordinator.resetForLeadershipLoss();
             return;
         }
         TenantTtlPolicySnapshotManager snapshotManager = state.getTenantTtlPolicySnapshotManager();
@@ -126,8 +136,51 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         nextExpiries = Collections.unmodifiableList(sortedExpiries);
 
         drops.sort(CatalogDropCandidate.ORDER);
+        boolean coordinatorEnabled = rewriteExecutionView == rewriteCoordinator;
+        if (coordinatorEnabled) {
+            rewriteCoordinator.reconcile(state, pendingRewritePlans);
+        }
         if (!drops.isEmpty()) {
             executeFirstCatalogDrop(state, drops.get(0));
+        } else if (coordinatorEnabled) {
+            rewriteCoordinator.dispatchNext(state);
+        }
+        if (coordinatorEnabled) {
+            applyCoordinatorStatuses(rewriteCoordinator.getExecutionStatuses());
+        }
+    }
+
+    private void applyCoordinatorStatuses(List<TenantTtlRewriteCoordinator.ExecutionStatus> statuses) {
+        for (TenantTtlRewriteCoordinator.ExecutionStatus status : statuses) {
+            PartitionRuntimeStatus previous = partitionStatuses.get(status.getKey());
+            PartitionState state;
+            switch (status.getState()) {
+                case RUNNING:
+                    state = PartitionState.REWRITE_RUNNING;
+                    break;
+                case WAITING_REPLICA:
+                    state = PartitionState.WAITING_REPLICA;
+                    break;
+                case RETRY_BACKOFF:
+                case UNKNOWN_RETRY:
+                    state = PartitionState.RETRY_PENDING;
+                    break;
+                case BLOCKED:
+                    state = PartitionState.BLOCKED;
+                    break;
+                case REPLAN_REQUIRED:
+                    state = PartitionState.REPLAN_REQUIRED;
+                    break;
+                default:
+                    state = PartitionState.WAITING_REWRITE;
+                    break;
+            }
+            partitionStatuses.put(status.getKey(), new PartitionRuntimeStatus(state,
+                    previous == null ? null : previous.getTriggerReason(),
+                    previous == null ? 0 : previous.getSnapshotTxnId(),
+                    previous == null ? 0 : previous.getEvaluationTimeEpochSeconds(),
+                    previous == null ? 0 : previous.getNextExpiryEpochSeconds(),
+                    status.getDetail(), System.currentTimeMillis()));
         }
     }
 
@@ -411,6 +464,21 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         this.rewriteExecutionView = rewriteExecutionView == null ? RewriteExecutionView.NONE : rewriteExecutionView;
     }
 
+    public TenantTtlRewriteCoordinator getRewriteCoordinator() {
+        return rewriteCoordinator;
+    }
+
+    /** Called synchronously from the FE role transition before this former Leader serves as a Follower. */
+    public synchronized void onLeadershipLost() {
+        leadershipEnabled = false;
+        rewriteCoordinator.resetForLeadershipLoss();
+    }
+
+    public synchronized void onLeadershipGained() {
+        rewriteCoordinator.resetForLeadershipLoss();
+        leadershipEnabled = true;
+    }
+
     public interface RewriteExecutionView {
         RewriteExecutionView NONE = new RewriteExecutionView() {
         };
@@ -432,10 +500,14 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         IDLE,
         FE_NOOP,
         WAITING_REWRITE,
+        REWRITE_RUNNING,
+        WAITING_REPLICA,
         WAITING_LOGICAL_PARTITION,
         WAITING_CATALOG_DROP,
         DROP_SKIPPED_REWRITE_IN_FLIGHT,
         RETRY_PENDING,
+        REPLAN_REQUIRED,
+        BLOCKED,
         FAIL_CLOSED
     }
 
@@ -551,9 +623,9 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         private final TenantTtlEvaluationContext.PartitionPlan partitionPlan;
         private final TenantTtlScheduleDecision.Decision decision;
 
-        private PendingRewritePlan(TenantTtlEvaluationContext context,
-                                   TenantTtlEvaluationContext.PartitionPlan partitionPlan,
-                                   TenantTtlScheduleDecision.Decision decision) {
+        public PendingRewritePlan(TenantTtlEvaluationContext context,
+                                  TenantTtlEvaluationContext.PartitionPlan partitionPlan,
+                                  TenantTtlScheduleDecision.Decision decision) {
             this.context = context;
             this.partitionPlan = partitionPlan;
             this.decision = decision;
