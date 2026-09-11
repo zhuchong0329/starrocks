@@ -18,6 +18,7 @@
 #include "gen_cpp/AgentService_types.h"
 #include "runtime/exec_env.h"
 #include "storage/olap_define.h"
+#include "storage/tenant_ttl_compaction_types.h"
 
 namespace starrocks {
 
@@ -33,6 +34,8 @@ void run_check_consistency_task(const std::shared_ptr<CheckConsistencyTaskReques
 void run_compaction_task(const std::shared_ptr<CompactionTaskRequest>& agent_task_req, ExecEnv* exec_env);
 void run_compaction_control_task(const std::shared_ptr<CompactionControlTaskRequest>& agent_task_req,
                                  ExecEnv* exec_env);
+void run_tenant_ttl_compaction_task(const std::shared_ptr<TenantTtlCompactionTaskRequest>& agent_task_req,
+                                    ExecEnv* exec_env);
 void run_update_schema_task(const std::shared_ptr<UpdateSchemaTaskRequest>& agent_task_req, ExecEnv* exec_env);
 void run_upload_task(const std::shared_ptr<UploadAgentTaskRequest>& agent_task_req, ExecEnv* exec_env);
 void run_download_task(const std::shared_ptr<DownloadAgentTaskRequest>& agent_task_req, ExecEnv* exec_env);
@@ -47,4 +50,10 @@ void run_drop_auto_increment_map_task(const std::shared_ptr<DropAutoIncrementMap
 void run_remote_snapshot_task(const std::shared_ptr<RemoteSnapshotAgentTaskRequest>& agent_task_req, ExecEnv* exec_env);
 void run_replicate_snapshot_task(const std::shared_ptr<ReplicateSnapshotAgentTaskRequest>& agent_task_req,
                                  ExecEnv* exec_env);
+
+Status tenant_ttl_compaction_request_from_thrift(const TTenantTtlCompactionReq& thrift_request,
+                                                 int64_t agent_signature,
+                                                 TenantTtlCompactionRequest* request);
+void tenant_ttl_compaction_result_to_thrift(const TenantTtlCompactionResult& result,
+                                            TTenantTtlCompactionResult* thrift_result);
 } // namespace starrocks

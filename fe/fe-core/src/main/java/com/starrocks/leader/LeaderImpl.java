@@ -109,6 +109,7 @@ import com.starrocks.task.RemoteSnapshotTask;
 import com.starrocks.task.ReplicateSnapshotTask;
 import com.starrocks.task.SnapshotTask;
 import com.starrocks.task.TabletMetadataUpdateAgentTask;
+import com.starrocks.task.TenantTtlCompactionTask;
 import com.starrocks.task.UploadTask;
 import com.starrocks.thrift.TAbortRemoteTxnRequest;
 import com.starrocks.thrift.TAbortRemoteTxnResponse;
@@ -225,6 +226,13 @@ public class LeaderImpl {
         long signature = request.getSignature();
         AgentTask task = AgentTaskQueue.getTask(backendId, taskType, signature);
         if (task == null) {
+            if (taskType == TTaskType.TENANT_TTL_COMPACTION) {
+                // A former Leader may have submitted this task. Acknowledge the terminal report so BE does not
+                // retry it forever, but never let an unknown task advance current-Leader progress.
+                LOG.info("ignore completion for unknown Tenant-TTL task. backendId: {}, signature: {}",
+                        backendId, signature);
+                return result;
+            }
             if (taskType != TTaskType.DROP && taskType != TTaskType.STORAGE_MEDIUM_MIGRATE
                     && taskType != TTaskType.RELEASE_SNAPSHOT && taskType != TTaskType.CLEAR_TRANSACTION_TASK) {
                 String errMsg = "cannot find task. type: " + taskType + ", backendId: " + backendId
@@ -252,7 +260,7 @@ public class LeaderImpl {
                         && taskType != TTaskType.DROP_AUTO_INCREMENT_MAP
                         && taskType != TTaskType.STORAGE_MEDIUM_MIGRATE
                         && taskType != TTaskType.REMOTE_SNAPSHOT && taskType != TTaskType.REPLICATE_SNAPSHOT
-                        && taskType != TTaskType.UPDATE_SCHEMA) {
+                        && taskType != TTaskType.UPDATE_SCHEMA && taskType != TTaskType.TENANT_TTL_COMPACTION) {
                     if (taskType == TTaskType.REALTIME_PUSH) {
                         PushTask pushTask = (PushTask) task;
                         if (pushTask.getPushType() == TPushType.DELETE) {
@@ -332,6 +340,9 @@ public class LeaderImpl {
                     break;
                 case COMPACTION_CONTROL:
                     finishCompactionControlTask(task, request);
+                    break;
+                case TENANT_TTL_COMPACTION:
+                    finishTenantTtlCompactionTask(task, request);
                     break;
                 case REMOTE_SNAPSHOT:
                     finishRemoteSnapshotTask(task, request);
@@ -448,6 +459,25 @@ public class LeaderImpl {
     }
 
     private void finishCompactionControlTask(AgentTask task, TFinishTaskRequest request) {
+        AgentTaskQueue.removeTask(task.getBackendId(), task.getTaskType(), task.getSignature());
+    }
+
+    private void finishTenantTtlCompactionTask(AgentTask task, TFinishTaskRequest request) {
+        if (!(task instanceof TenantTtlCompactionTask)) {
+            throw new IllegalArgumentException("Tenant-TTL completion matched the wrong FE task class");
+        }
+        if (request.getTask_status().getStatus_code() != TStatusCode.OK) {
+            throw new IllegalArgumentException("Tenant-TTL worker did not produce a business result");
+        }
+        if (!request.isSetTenant_ttl_compaction_result()) {
+            throw new IllegalArgumentException("Tenant-TTL completion is missing its business result");
+        }
+        TenantTtlCompactionTask tenantTtlTask = (TenantTtlCompactionTask) task;
+        TenantTtlCompactionTask.FinishResult finishResult =
+                tenantTtlTask.finish(request.getTenant_ttl_compaction_result());
+        if (finishResult != TenantTtlCompactionTask.FinishResult.ACCEPTED) {
+            throw new IllegalArgumentException("invalid Tenant-TTL business result: " + finishResult);
+        }
         AgentTaskQueue.removeTask(task.getBackendId(), task.getTaskType(), task.getSignature());
     }
 

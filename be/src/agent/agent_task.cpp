@@ -39,6 +39,7 @@
 #include "storage/task/engine_compaction_control_task.h"
 #include "storage/task/engine_manual_compaction_task.h"
 #include "storage/task/engine_storage_migration_task.h"
+#include "storage/task/engine_tenant_ttl_compaction_task.h"
 #include "storage/txn_manager.h"
 #include "storage/update_manager.h"
 #include "testutil/sync_point.h"
@@ -611,6 +612,186 @@ void run_compaction_control_task(const std::shared_ptr<CompactionControlTaskRequ
     finish_task_request.__set_task_type(agent_task_req->task_type);
     finish_task_request.__set_signature(agent_task_req->signature);
     finish_task_request.__set_task_status(task_status);
+
+    finish_task(finish_task_request);
+    remove_task_info(agent_task_req->task_type, agent_task_req->signature);
+}
+
+Status tenant_ttl_compaction_request_from_thrift(const TTenantTtlCompactionReq& thrift_request,
+                                                 int64_t agent_signature,
+                                                 TenantTtlCompactionRequest* request) {
+    if (request == nullptr) {
+        return Status::InvalidArgument("tenant ttl internal request must not be null");
+    }
+    if (thrift_request.protocol_version < 0) {
+        return Status::InvalidArgument("tenant ttl protocol version must not be negative");
+    }
+    request->protocol_version = static_cast<uint32_t>(thrift_request.protocol_version);
+    request->task_id = thrift_request.task_id;
+    request->tablet_id = thrift_request.tablet_id;
+    request->partition_id = thrift_request.partition_id;
+    request->tenant_column_unique_id = thrift_request.tenant_column_unique_id;
+    request->filter.tenants = thrift_request.filter.tenants;
+    switch (thrift_request.filter.mode) {
+    case TTenantTtlFilterMode::DELETE_LIST:
+        request->filter.mode = TenantFilterMode::DELETE_LIST;
+        break;
+    case TTenantTtlFilterMode::KEEP_LIST:
+        request->filter.mode = TenantFilterMode::KEEP_LIST;
+        break;
+    default:
+        return Status::InvalidArgument("unknown tenant ttl filter mode");
+    }
+    request->policy_watermark.dictionary_id = thrift_request.policy_watermark.dictionary_id;
+    request->policy_watermark.dictionary_txn_id = thrift_request.policy_watermark.dictionary_txn_id;
+    request->policy_watermark.evaluation_time_epoch_seconds =
+            thrift_request.policy_watermark.evaluation_time_epoch_seconds;
+    request->expected_schema.schema_id = thrift_request.expected_schema.schema_id;
+    request->expected_schema.schema_version = thrift_request.expected_schema.schema_version;
+    request->fe_observed_max_version = thrift_request.__isset.fe_observed_max_version
+                                               ? std::make_optional(thrift_request.fe_observed_max_version)
+                                               : std::nullopt;
+    if (agent_signature != request->task_id) {
+        return Status::InvalidArgument("tenant ttl task_id must equal the Agent task signature");
+    }
+    return Status::OK();
+}
+
+namespace {
+
+TTenantTtlTaskCode::type tenant_ttl_task_code_to_thrift(TenantTtlTaskCode code) {
+    switch (code) {
+    case TenantTtlTaskCode::SUCCESS:
+        return TTenantTtlTaskCode::SUCCESS;
+    case TenantTtlTaskCode::NOOP_VERIFIED:
+        return TTenantTtlTaskCode::NOOP_VERIFIED;
+    case TenantTtlTaskCode::INVALID_ARGUMENT:
+        return TTenantTtlTaskCode::INVALID_ARGUMENT;
+    case TenantTtlTaskCode::TABLET_NOT_FOUND:
+        return TTenantTtlTaskCode::TABLET_NOT_FOUND;
+    case TenantTtlTaskCode::NOT_SUPPORTED:
+        return TTenantTtlTaskCode::NOT_SUPPORTED;
+    case TenantTtlTaskCode::TABLET_BUSY:
+        return TTenantTtlTaskCode::TABLET_BUSY;
+    case TenantTtlTaskCode::TTL_ALREADY_RUNNING:
+        return TTenantTtlTaskCode::TTL_ALREADY_RUNNING;
+    case TenantTtlTaskCode::REPLICA_NOT_CAUGHT_UP:
+        return TTenantTtlTaskCode::REPLICA_NOT_CAUGHT_UP;
+    case TenantTtlTaskCode::DATA_INVARIANT_VIOLATION:
+        return TTenantTtlTaskCode::DATA_INVARIANT_VIOLATION;
+    case TenantTtlTaskCode::SCHEMA_CHANGED:
+        return TTenantTtlTaskCode::SCHEMA_CHANGED;
+    case TenantTtlTaskCode::STALE_ROWSET:
+        return TTenantTtlTaskCode::STALE_ROWSET;
+    case TenantTtlTaskCode::CANCELLED:
+        return TTenantTtlTaskCode::CANCELLED;
+    case TenantTtlTaskCode::INTERNAL_ERROR:
+        return TTenantTtlTaskCode::INTERNAL_ERROR;
+    }
+    return TTenantTtlTaskCode::INTERNAL_ERROR;
+}
+
+TTenantTtlRowsetAction::type tenant_ttl_rowset_action_to_thrift(TenantTtlRowsetAction action) {
+    switch (action) {
+    case TenantTtlRowsetAction::VERIFIED_NO_CHANGE:
+        return TTenantTtlRowsetAction::VERIFIED_NO_CHANGE;
+    case TenantTtlRowsetAction::DROP:
+        return TTenantTtlRowsetAction::DROP;
+    case TenantTtlRowsetAction::REWRITE:
+        return TTenantTtlRowsetAction::REWRITE;
+    }
+    return TTenantTtlRowsetAction::VERIFIED_NO_CHANGE;
+}
+
+TenantTtlCompactionResult invalid_tenant_ttl_result(const TTenantTtlCompactionReq& request, int64_t agent_signature,
+                                                    const Status& status) {
+    TenantTtlCompactionResult result;
+    result.code = TenantTtlTaskCode::INVALID_ARGUMENT;
+    result.detail_status = status;
+    result.retryable = false;
+    // The enclosing Agent signature is the authoritative transport identity. Using a malformed body task_id here
+    // would make FE reject the terminal INVALID_ARGUMENT result and cause an otherwise deterministic error to retry.
+    result.task_id = agent_signature;
+    result.tablet_id = request.tablet_id;
+    result.partition_id = request.partition_id;
+    return result;
+}
+
+} // namespace
+
+void tenant_ttl_compaction_result_to_thrift(const TenantTtlCompactionResult& result,
+                                            TTenantTtlCompactionResult* thrift_result) {
+    DCHECK(thrift_result != nullptr);
+    thrift_result->__set_code(tenant_ttl_task_code_to_thrift(result.code));
+    TStatus detail_status;
+    result.detail_status.to_thrift(&detail_status);
+    thrift_result->__set_detail_status(detail_status);
+    thrift_result->__set_retryable(result.retryable);
+    thrift_result->__set_task_id(result.task_id);
+    thrift_result->__set_tablet_id(result.tablet_id);
+    thrift_result->__set_partition_id(result.partition_id);
+    thrift_result->__set_snapshot_end_version(result.snapshot_end_version);
+    thrift_result->__set_processed_through_version(result.processed_through_version);
+    thrift_result->__set_coverage_digest(result.coverage_digest);
+    std::vector<TTenantTtlRowsetResult> thrift_rowsets;
+    thrift_rowsets.reserve(result.rowsets.size());
+    for (const auto& rowset : result.rowsets) {
+        TTenantTtlRowsetResult thrift_rowset;
+        thrift_rowset.__set_source_version_start(rowset.source_version.first);
+        thrift_rowset.__set_source_version_end(rowset.source_version.second);
+        thrift_rowset.__set_source_rowset_id(rowset.source_rowset_id.to_string());
+        if (rowset.output_rowset_id.has_value()) {
+            thrift_rowset.__set_output_rowset_id(rowset.output_rowset_id->to_string());
+        }
+        thrift_rowset.__set_action(tenant_ttl_rowset_action_to_thrift(rowset.action));
+        thrift_rowset.__set_source_rows(rowset.source_rows);
+        thrift_rowset.__set_kept_rows(rowset.kept_rows);
+        thrift_rowset.__set_deleted_rows(rowset.deleted_rows);
+        thrift_rowset.__set_source_segments(rowset.source_segments);
+        thrift_rowset.__set_linked_segments(rowset.linked_segments);
+        thrift_rowset.__set_dropped_segments(rowset.dropped_segments);
+        thrift_rowset.__set_rewritten_segments(rowset.rewritten_segments);
+        thrift_rowsets.emplace_back(std::move(thrift_rowset));
+    }
+    thrift_result->__set_rowsets(thrift_rowsets);
+    thrift_result->__set_scanned_rows(result.scanned_rows);
+    thrift_result->__set_kept_rows(result.kept_rows);
+    thrift_result->__set_deleted_rows(result.deleted_rows);
+    thrift_result->__set_tenant_rows_read(result.tenant_rows_read);
+    thrift_result->__set_rows_pruned_by_segment_zonemap(result.rows_pruned_by_segment_zonemap);
+    thrift_result->__set_rows_pruned_by_page_zonemap(result.rows_pruned_by_page_zonemap);
+    thrift_result->__set_linked_bytes(result.linked_bytes);
+    thrift_result->__set_rewritten_bytes(result.rewritten_bytes);
+}
+
+void run_tenant_ttl_compaction_task(const std::shared_ptr<TenantTtlCompactionTaskRequest>& agent_task_req,
+                                    ExecEnv* exec_env) {
+    const TTenantTtlCompactionReq& thrift_request = agent_task_req->task_req;
+    TenantTtlCompactionRequest request;
+    const Status conversion_status =
+            tenant_ttl_compaction_request_from_thrift(thrift_request, agent_task_req->signature, &request);
+    TenantTtlCompactionResult result;
+    if (!conversion_status.ok()) {
+        result = invalid_tenant_ttl_result(thrift_request, agent_task_req->signature, conversion_status);
+    } else {
+        EngineTenantTtlCompactionTask engine_task(std::move(request),
+                                                  GlobalEnv::GetInstance()->compaction_mem_tracker());
+        (void)StorageEngine::instance()->execute_task(&engine_task);
+        result = engine_task.result();
+    }
+
+    TTenantTtlCompactionResult thrift_result;
+    tenant_ttl_compaction_result_to_thrift(result, &thrift_result);
+    TStatus task_status;
+    task_status.__set_status_code(TStatusCode::OK);
+    task_status.__set_error_msgs({});
+
+    TFinishTaskRequest finish_task_request;
+    finish_task_request.__set_backend(BackendOptions::get_localBackend());
+    finish_task_request.__set_task_type(agent_task_req->task_type);
+    finish_task_request.__set_signature(agent_task_req->signature);
+    finish_task_request.__set_task_status(task_status);
+    finish_task_request.__set_tenant_ttl_compaction_result(thrift_result);
 
     finish_task(finish_task_request);
     remove_task_info(agent_task_req->task_type, agent_task_req->signature);

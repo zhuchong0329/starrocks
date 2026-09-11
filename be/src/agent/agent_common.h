@@ -100,6 +100,7 @@ using StorageMediumMigrateTaskRequest = AgentTaskRequestWithReqBody<TStorageMedi
 using CheckConsistencyTaskRequest = AgentTaskRequestWithReqBody<TCheckConsistencyReq>;
 using CompactionTaskRequest = AgentTaskRequestWithReqBody<TCompactionReq>;
 using CompactionControlTaskRequest = AgentTaskRequestWithReqBody<TCompactionControlReq>;
+using TenantTtlCompactionTaskRequest = AgentTaskRequestWithReqBody<TTenantTtlCompactionReq>;
 using UploadAgentTaskRequest = AgentTaskRequestWithReqBody<TUploadReq>;
 using DownloadAgentTaskRequest = AgentTaskRequestWithReqBody<TDownloadReq>;
 using SnapshotAgentTaskRequest = AgentTaskRequestWithReqBody<TSnapshotRequest>;

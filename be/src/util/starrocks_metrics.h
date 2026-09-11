@@ -422,6 +422,7 @@ public:
     METRICS_DEFINE_THREAD_POOL(storage_medium_migrate);
     METRICS_DEFINE_THREAD_POOL(check_consistency);
     METRICS_DEFINE_THREAD_POOL(manual_compaction);
+    METRICS_DEFINE_THREAD_POOL(tenant_ttl_compaction);
     METRICS_DEFINE_THREAD_POOL(compaction_control);
     METRICS_DEFINE_THREAD_POOL(update_schema);
     METRICS_DEFINE_THREAD_POOL(upload);

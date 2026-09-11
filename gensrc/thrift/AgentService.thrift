@@ -288,6 +288,99 @@ struct TCompactionControlReq {
     1: optional map<Types.TTableId, i64> table_to_disable_deadline
 }
 
+enum TTenantTtlFilterMode {
+    DELETE_LIST,
+    KEEP_LIST
+}
+
+struct TTenantTtlFilter {
+    1: required TTenantTtlFilterMode mode
+    // Tenant identity is an opaque VARCHAR byte sequence. Do not transcode it as UTF-8.
+    2: required list<binary> tenants
+}
+
+struct TTenantTtlPolicyWatermark {
+    1: required i64 dictionary_id
+    2: required i64 dictionary_txn_id
+    3: required i64 evaluation_time_epoch_seconds
+}
+
+struct TTenantTtlSchemaExpectation {
+    1: required i64 schema_id
+    2: required i32 schema_version
+}
+
+struct TTenantTtlCompactionReq {
+    1: required i32 protocol_version
+    // Must equal the enclosing TAgentTaskRequest.signature.
+    2: required i64 task_id
+    3: required Types.TTabletId tablet_id
+    4: required Types.TPartitionId partition_id
+    5: required i32 tenant_column_unique_id
+    6: required TTenantTtlFilter filter
+    7: required TTenantTtlPolicyWatermark policy_watermark
+    8: required TTenantTtlSchemaExpectation expected_schema
+    9: optional Types.TVersion fe_observed_max_version
+}
+
+enum TTenantTtlTaskCode {
+    SUCCESS,
+    NOOP_VERIFIED,
+    INVALID_ARGUMENT,
+    TABLET_NOT_FOUND,
+    NOT_SUPPORTED,
+    TABLET_BUSY,
+    TTL_ALREADY_RUNNING,
+    REPLICA_NOT_CAUGHT_UP,
+    DATA_INVARIANT_VIOLATION,
+    SCHEMA_CHANGED,
+    STALE_ROWSET,
+    CANCELLED,
+    INTERNAL_ERROR
+}
+
+enum TTenantTtlRowsetAction {
+    VERIFIED_NO_CHANGE,
+    DROP,
+    REWRITE
+}
+
+struct TTenantTtlRowsetResult {
+    1: required Types.TVersion source_version_start
+    2: required Types.TVersion source_version_end
+    3: required string source_rowset_id
+    4: optional string output_rowset_id
+    5: required TTenantTtlRowsetAction action
+    6: required i64 source_rows
+    7: required i64 kept_rows
+    8: required i64 deleted_rows
+    9: required i32 source_segments
+    10: required i32 linked_segments
+    11: required i32 dropped_segments
+    12: required i32 rewritten_segments
+}
+
+struct TTenantTtlCompactionResult {
+    1: required TTenantTtlTaskCode code
+    2: required Status.TStatus detail_status
+    3: required bool retryable
+    4: required i64 task_id
+    5: required Types.TTabletId tablet_id
+    6: required Types.TPartitionId partition_id
+    7: required Types.TVersion snapshot_end_version
+    8: required Types.TVersion processed_through_version
+    9: required string coverage_digest
+    10: required list<TTenantTtlRowsetResult> rowsets
+    11: required i64 scanned_rows
+    12: required i64 kept_rows
+    13: required i64 deleted_rows
+    14: required i64 tenant_rows_read
+    15: required i64 rows_pruned_by_segment_zonemap
+    16: required i64 rows_pruned_by_page_zonemap
+    17: required i64 linked_bytes
+    18: required i64 rewritten_bytes
+}
+
 struct TUpdateSchemaReq {
     1: optional i64 index_id
     2: optional i64 schema_id
@@ -528,6 +621,7 @@ struct TAgentTaskRequest {
     30: optional TReplicateSnapshotRequest replicate_snapshot_req
     31: optional TUpdateSchemaReq update_schema_req
     32: optional TCompactionControlReq compaction_control_req
+    33: optional TTenantTtlCompactionReq tenant_ttl_compaction_req
 }
 
 struct TAgentResult {
@@ -586,4 +680,3 @@ struct TDeleteEtlFilesRequest {
     3: required string db_name
     4: required string label
 }
-

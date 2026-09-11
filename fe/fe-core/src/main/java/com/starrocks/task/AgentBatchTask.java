@@ -63,6 +63,7 @@ import com.starrocks.thrift.TReplicateSnapshotRequest;
 import com.starrocks.thrift.TSnapshotRequest;
 import com.starrocks.thrift.TStorageMediumMigrateReq;
 import com.starrocks.thrift.TTaskType;
+import com.starrocks.thrift.TTenantTtlCompactionReq;
 import com.starrocks.thrift.TUpdateSchemaReq;
 import com.starrocks.thrift.TUpdateTabletMetaInfoReq;
 import com.starrocks.thrift.TUploadReq;
@@ -385,6 +386,12 @@ public class AgentBatchTask implements Runnable {
                 CompactionControlTask compactionControlTask = (CompactionControlTask) task;
                 TCompactionControlReq req = compactionControlTask.toThrift();
                 tAgentTaskRequest.setCompaction_control_req(req);
+                return tAgentTaskRequest;
+            }
+            case TENANT_TTL_COMPACTION: {
+                TenantTtlCompactionTask tenantTtlTask = (TenantTtlCompactionTask) task;
+                TTenantTtlCompactionReq req = tenantTtlTask.toThrift();
+                tAgentTaskRequest.setTenant_ttl_compaction_req(req);
                 return tAgentTaskRequest;
             }
             case REMOTE_SNAPSHOT: {

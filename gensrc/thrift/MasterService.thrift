@@ -94,6 +94,7 @@ struct TFinishTaskRequest {
     17: optional list<TTabletVersionPair> tablet_versions;
     18: optional list<TTabletVersionPair> tablet_publish_versions;
     19: optional Types.TSnapshotInfo snapshot_info
+    20: optional AgentService.TTenantTtlCompactionResult tenant_ttl_compaction_result
 }
 
 struct TTablet {

@@ -292,6 +292,216 @@ TEST_F(AgentTaskTest, update_clone_thread_pool_size_skips_missing_pool) {
     ASSERT_EQ(original_max_threads, thread_pool->max_threads());
 }
 
+TEST(TenantTtlAgentTaskAdapterTest, MapsRawRequestFieldsAndRejectsInvalidEnvelope) {
+    TTenantTtlCompactionReq thrift_request;
+    thrift_request.__set_protocol_version(1);
+    thrift_request.__set_task_id(101);
+    thrift_request.__set_tablet_id(102);
+    thrift_request.__set_partition_id(103);
+    thrift_request.__set_tenant_column_unique_id(7);
+    TTenantTtlFilter filter;
+    filter.__set_mode(TTenantTtlFilterMode::DELETE_LIST);
+    filter.__set_tenants({std::string("a\0b", 3), std::string("\xff\0", 2)});
+    thrift_request.__set_filter(filter);
+    TTenantTtlPolicyWatermark watermark;
+    watermark.__set_dictionary_id(201);
+    watermark.__set_dictionary_txn_id(202);
+    watermark.__set_evaluation_time_epoch_seconds(203);
+    thrift_request.__set_policy_watermark(watermark);
+    TTenantTtlSchemaExpectation schema;
+    schema.__set_schema_id(301);
+    schema.__set_schema_version(2);
+    thrift_request.__set_expected_schema(schema);
+    thrift_request.__set_fe_observed_max_version(401);
+
+    TenantTtlCompactionRequest request;
+    ASSERT_OK(tenant_ttl_compaction_request_from_thrift(thrift_request, 101, &request));
+    EXPECT_EQ(1, request.protocol_version);
+    EXPECT_EQ(101, request.task_id);
+    EXPECT_EQ(102, request.tablet_id);
+    EXPECT_EQ(103, request.partition_id);
+    EXPECT_EQ(7, request.tenant_column_unique_id);
+    EXPECT_EQ(TenantFilterMode::DELETE_LIST, request.filter.mode);
+    ASSERT_EQ(2, request.filter.tenants.size());
+    EXPECT_EQ(std::string("a\0b", 3), request.filter.tenants[0]);
+    EXPECT_EQ(std::string("\xff\0", 2), request.filter.tenants[1]);
+    EXPECT_EQ(201, request.policy_watermark.dictionary_id);
+    EXPECT_EQ(202, request.policy_watermark.dictionary_txn_id);
+    EXPECT_EQ(203, request.policy_watermark.evaluation_time_epoch_seconds);
+    EXPECT_EQ(301, request.expected_schema.schema_id);
+    EXPECT_EQ(2, request.expected_schema.schema_version);
+    ASSERT_TRUE(request.fe_observed_max_version.has_value());
+    EXPECT_EQ(401, request.fe_observed_max_version.value());
+
+    EXPECT_TRUE(tenant_ttl_compaction_request_from_thrift(thrift_request, 999, &request).is_invalid_argument());
+    thrift_request.filter.mode = static_cast<TTenantTtlFilterMode::type>(999);
+    EXPECT_TRUE(tenant_ttl_compaction_request_from_thrift(thrift_request, 101, &request).is_invalid_argument());
+}
+
+TEST(TenantTtlAgentTaskAdapterTest, MapsEveryBusinessCodeAndAllResultFields) {
+    const std::vector<std::pair<TenantTtlTaskCode, TTenantTtlTaskCode::type>> codes = {
+            {TenantTtlTaskCode::SUCCESS, TTenantTtlTaskCode::SUCCESS},
+            {TenantTtlTaskCode::NOOP_VERIFIED, TTenantTtlTaskCode::NOOP_VERIFIED},
+            {TenantTtlTaskCode::INVALID_ARGUMENT, TTenantTtlTaskCode::INVALID_ARGUMENT},
+            {TenantTtlTaskCode::TABLET_NOT_FOUND, TTenantTtlTaskCode::TABLET_NOT_FOUND},
+            {TenantTtlTaskCode::NOT_SUPPORTED, TTenantTtlTaskCode::NOT_SUPPORTED},
+            {TenantTtlTaskCode::TABLET_BUSY, TTenantTtlTaskCode::TABLET_BUSY},
+            {TenantTtlTaskCode::TTL_ALREADY_RUNNING, TTenantTtlTaskCode::TTL_ALREADY_RUNNING},
+            {TenantTtlTaskCode::REPLICA_NOT_CAUGHT_UP, TTenantTtlTaskCode::REPLICA_NOT_CAUGHT_UP},
+            {TenantTtlTaskCode::DATA_INVARIANT_VIOLATION, TTenantTtlTaskCode::DATA_INVARIANT_VIOLATION},
+            {TenantTtlTaskCode::SCHEMA_CHANGED, TTenantTtlTaskCode::SCHEMA_CHANGED},
+            {TenantTtlTaskCode::STALE_ROWSET, TTenantTtlTaskCode::STALE_ROWSET},
+            {TenantTtlTaskCode::CANCELLED, TTenantTtlTaskCode::CANCELLED},
+            {TenantTtlTaskCode::INTERNAL_ERROR, TTenantTtlTaskCode::INTERNAL_ERROR},
+    };
+    for (const auto& [internal_code, thrift_code] : codes) {
+        TenantTtlCompactionResult result;
+        result.code = internal_code;
+        result.detail_status = internal_code == TenantTtlTaskCode::SUCCESS ? Status::OK()
+                                                                           : Status::InternalError("detail");
+        result.retryable = tenant_ttl_task_code_is_retryable(internal_code);
+        result.task_id = 101;
+        result.tablet_id = 102;
+        result.partition_id = 103;
+        result.snapshot_end_version = 104;
+        result.processed_through_version = 105;
+        result.coverage_digest = "0-105@rowset;";
+        result.scanned_rows = 10;
+        result.kept_rows = 8;
+        result.deleted_rows = 2;
+        result.tenant_rows_read = 9;
+        result.rows_pruned_by_segment_zonemap = 1;
+        result.rows_pruned_by_page_zonemap = 2;
+        result.linked_bytes = 3;
+        result.rewritten_bytes = 4;
+        RowsetId source;
+        source.init(2, 11, 12, 13);
+        RowsetId output;
+        output.init(2, 14, 15, 16);
+        result.rowsets.emplace_back(TenantTtlRowsetResult{.source_version = Version(0, 105),
+                                                          .source_rowset_id = source,
+                                                          .output_rowset_id = output,
+                                                          .action = TenantTtlRowsetAction::REWRITE,
+                                                          .source_rows = 10,
+                                                          .kept_rows = 8,
+                                                          .deleted_rows = 2,
+                                                          .source_segments = 2,
+                                                          .linked_segments = 1,
+                                                          .dropped_segments = 0,
+                                                          .rewritten_segments = 1});
+
+        TTenantTtlCompactionResult thrift_result;
+        tenant_ttl_compaction_result_to_thrift(result, &thrift_result);
+        EXPECT_EQ(thrift_code, thrift_result.code);
+        EXPECT_EQ(result.retryable, thrift_result.retryable);
+        EXPECT_EQ(101, thrift_result.task_id);
+        EXPECT_EQ(102, thrift_result.tablet_id);
+        EXPECT_EQ(103, thrift_result.partition_id);
+        EXPECT_EQ(104, thrift_result.snapshot_end_version);
+        EXPECT_EQ(105, thrift_result.processed_through_version);
+        EXPECT_EQ("0-105@rowset;", thrift_result.coverage_digest);
+        EXPECT_EQ(10, thrift_result.scanned_rows);
+        EXPECT_EQ(8, thrift_result.kept_rows);
+        EXPECT_EQ(2, thrift_result.deleted_rows);
+        EXPECT_EQ(9, thrift_result.tenant_rows_read);
+        EXPECT_EQ(1, thrift_result.rows_pruned_by_segment_zonemap);
+        EXPECT_EQ(2, thrift_result.rows_pruned_by_page_zonemap);
+        EXPECT_EQ(3, thrift_result.linked_bytes);
+        EXPECT_EQ(4, thrift_result.rewritten_bytes);
+        ASSERT_EQ(1, thrift_result.rowsets.size());
+        EXPECT_EQ(0, thrift_result.rowsets[0].source_version_start);
+        EXPECT_EQ(105, thrift_result.rowsets[0].source_version_end);
+        EXPECT_EQ(source.to_string(), thrift_result.rowsets[0].source_rowset_id);
+        ASSERT_TRUE(thrift_result.rowsets[0].__isset.output_rowset_id);
+        EXPECT_EQ(output.to_string(), thrift_result.rowsets[0].output_rowset_id);
+        EXPECT_EQ(TTenantTtlRowsetAction::REWRITE, thrift_result.rowsets[0].action);
+        EXPECT_EQ(10, thrift_result.rowsets[0].source_rows);
+        EXPECT_EQ(8, thrift_result.rowsets[0].kept_rows);
+        EXPECT_EQ(2, thrift_result.rowsets[0].deleted_rows);
+    }
+}
+
+TEST(TenantTtlAgentTaskAdapterTest, UsesDedicatedSingleWorkerPool) {
+    auto* agent_server = ExecEnv::GetInstance()->agent_server();
+    auto* tenant_ttl_pool = agent_server->get_thread_pool(TTaskType::TENANT_TTL_COMPACTION);
+    ASSERT_NE(nullptr, tenant_ttl_pool);
+    EXPECT_EQ(1, tenant_ttl_pool->max_threads());
+    EXPECT_NE(tenant_ttl_pool, agent_server->get_thread_pool(TTaskType::COMPACTION));
+    EXPECT_NE(tenant_ttl_pool, agent_server->get_thread_pool(TTaskType::COMPACTION_CONTROL));
+}
+
+TEST_F(AgentTaskTest, tenant_ttl_workerReturnsBusinessResultAndRemovesSignature) {
+    constexpr int64_t task_id = 901;
+    TTenantTtlCompactionReq request;
+    request.__set_protocol_version(1);
+    request.__set_task_id(task_id);
+    request.__set_tablet_id(_tablet_id);
+    request.__set_partition_id(_partition_id);
+    request.__set_tenant_column_unique_id(0);
+    TTenantTtlFilter filter;
+    filter.__set_mode(TTenantTtlFilterMode::DELETE_LIST);
+    filter.__set_tenants({"tenant"});
+    request.__set_filter(filter);
+    TTenantTtlPolicyWatermark watermark;
+    watermark.__set_dictionary_id(201);
+    watermark.__set_dictionary_txn_id(202);
+    watermark.__set_evaluation_time_epoch_seconds(203);
+    request.__set_policy_watermark(watermark);
+    TTenantTtlSchemaExpectation schema;
+    schema.__set_schema_id(1);
+    schema.__set_schema_version(0);
+    request.__set_expected_schema(schema);
+
+    TAgentTaskRequest envelope;
+    envelope.__set_task_type(TTaskType::TENANT_TTL_COMPACTION);
+    envelope.__set_signature(task_id);
+    envelope.__set_tenant_ttl_compaction_req(request);
+    auto agent_task = std::make_shared<TenantTtlCompactionTaskRequest>(
+            envelope, envelope.tenant_ttl_compaction_req, time(nullptr));
+    ASSERT_TRUE(register_task_info(TTaskType::TENANT_TTL_COMPACTION, task_id).first);
+
+    int received = 0;
+    int64_t expected_task_id = task_id;
+    bool expect_invalid_argument = false;
+    DeferOp defer([]() {
+        SyncPoint::GetInstance()->ClearCallBack("FinishAgentTask::input");
+        SyncPoint::GetInstance()->DisableProcessing();
+    });
+    SyncPoint::GetInstance()->EnableProcessing();
+    SyncPoint::GetInstance()->SetCallBack(
+            "FinishAgentTask::input", [&received, &expected_task_id, &expect_invalid_argument](void* arg) {
+        const auto* finish = static_cast<TFinishTaskRequest*>(arg);
+        ASSERT_EQ(TTaskType::TENANT_TTL_COMPACTION, finish->task_type);
+        ASSERT_EQ(expected_task_id, finish->signature);
+        ASSERT_EQ(TStatusCode::OK, finish->task_status.status_code);
+        ASSERT_TRUE(finish->__isset.tenant_ttl_compaction_result);
+        EXPECT_EQ(expected_task_id, finish->tenant_ttl_compaction_result.task_id);
+        EXPECT_NE(TTenantTtlTaskCode::SUCCESS, finish->tenant_ttl_compaction_result.code);
+        EXPECT_NE(TTenantTtlTaskCode::NOOP_VERIFIED, finish->tenant_ttl_compaction_result.code);
+        if (expect_invalid_argument) {
+            EXPECT_EQ(TTenantTtlTaskCode::INVALID_ARGUMENT, finish->tenant_ttl_compaction_result.code);
+        }
+        ++received;
+    });
+
+    run_tenant_ttl_compaction_task(agent_task, nullptr);
+
+    constexpr int64_t mismatched_task_id = 902;
+    expected_task_id = mismatched_task_id;
+    expect_invalid_argument = true;
+    request.__set_task_id(mismatched_task_id + 1);
+    envelope.__set_signature(mismatched_task_id);
+    envelope.__set_tenant_ttl_compaction_req(request);
+    auto invalid_agent_task = std::make_shared<TenantTtlCompactionTaskRequest>(
+            envelope, envelope.tenant_ttl_compaction_req, time(nullptr));
+    ASSERT_TRUE(register_task_info(TTaskType::TENANT_TTL_COMPACTION, mismatched_task_id).first);
+    run_tenant_ttl_compaction_task(invalid_agent_task, nullptr);
+
+    EXPECT_EQ(2, received);
+    const auto tasks = count_all_tasks();
+    EXPECT_TRUE(tasks.find(TTaskType::TENANT_TTL_COMPACTION) == tasks.end());
+}
+
 TEST_F(AgentTaskTest, create_tablet_task_timeout) {
     TCreateTabletReq create_tablet_req = get_create_tablet_request(10010, 368169791, 2);
     create_tablet_req.__set_timeout_ms(2000);

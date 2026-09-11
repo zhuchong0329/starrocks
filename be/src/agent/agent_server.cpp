@@ -136,6 +136,7 @@ private:
     std::unique_ptr<ThreadPool> _thread_pool_check_consistency;
     std::unique_ptr<ThreadPool> _thread_pool_compaction;
     std::unique_ptr<ThreadPool> _thread_pool_compaction_control;
+    std::unique_ptr<ThreadPool> _thread_pool_tenant_ttl_compaction;
     std::unique_ptr<ThreadPool> _thread_pool_update_schema;
 
     std::unique_ptr<ThreadPool> _thread_pool_upload;
@@ -238,6 +239,9 @@ Status AgentServer::Impl::init() {
         BUILD_DYNAMIC_TASK_THREAD_POOL(compaction_control, 0, 1, std::numeric_limits<int>::max(),
                                        _thread_pool_compaction_control);
 
+        BUILD_DYNAMIC_TASK_THREAD_POOL(tenant_ttl_compaction, 0, 1, std::numeric_limits<int>::max(),
+                                       _thread_pool_tenant_ttl_compaction);
+
         BUILD_DYNAMIC_TASK_THREAD_POOL(update_schema, 0, config::update_schema_worker_count,
                                        std::numeric_limits<int>::max(), _thread_pool_update_schema);
 
@@ -328,6 +332,7 @@ void AgentServer::Impl::stop() {
         _thread_pool_check_consistency->shutdown();
         _thread_pool_compaction->shutdown();
         _thread_pool_compaction_control->shutdown();
+        _thread_pool_tenant_ttl_compaction->shutdown();
         _thread_pool_update_schema->shutdown();
         _thread_pool_upload->shutdown();
         _thread_pool_download->shutdown();
@@ -401,6 +406,7 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
             HANDLE_TYPE(TTaskType::CHECK_CONSISTENCY, check_consistency_req);
             HANDLE_TYPE(TTaskType::COMPACTION, compaction_req);
             HANDLE_TYPE(TTaskType::COMPACTION_CONTROL, compaction_control_req);
+            HANDLE_TYPE(TTaskType::TENANT_TTL_COMPACTION, tenant_ttl_compaction_req);
             HANDLE_TYPE(TTaskType::UPLOAD, upload_req);
             HANDLE_TYPE(TTaskType::UPDATE_SCHEMA, update_schema_req);
             HANDLE_TYPE(TTaskType::DOWNLOAD, download_req);
@@ -529,6 +535,10 @@ void AgentServer::Impl::submit_tasks(TAgentResult& agent_result, const std::vect
         case TTaskType::COMPACTION_CONTROL:
             HANDLE_TASK(TTaskType::COMPACTION_CONTROL, all_tasks, run_compaction_control_task,
                         CompactionControlTaskRequest, compaction_control_req, _exec_env);
+            break;
+        case TTaskType::TENANT_TTL_COMPACTION:
+            HANDLE_TASK(TTaskType::TENANT_TTL_COMPACTION, all_tasks, run_tenant_ttl_compaction_task,
+                        TenantTtlCompactionTaskRequest, tenant_ttl_compaction_req, _exec_env);
             break;
         case TTaskType::UPDATE_SCHEMA:
             HANDLE_TASK(TTaskType::UPDATE_SCHEMA, all_tasks, run_update_schema_task, UpdateSchemaTaskRequest,
@@ -753,6 +763,9 @@ ThreadPool* AgentServer::Impl::get_thread_pool(int type) const {
         break;
     case TTaskType::COMPACTION_CONTROL:
         ret = _thread_pool_compaction_control.get();
+        break;
+    case TTaskType::TENANT_TTL_COMPACTION:
+        ret = _thread_pool_tenant_ttl_compaction.get();
         break;
     case TTaskType::UPDATE_SCHEMA:
         ret = _thread_pool_update_schema.get();
