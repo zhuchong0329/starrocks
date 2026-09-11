@@ -429,6 +429,7 @@ public class TenantTtlPolicySnapshotManager {
                 return;
             }
             state.exportActive = false;
+            state.lastAttemptTimeMillis = runtime.currentTimeMillis();
             if (result.snapshot != null) {
                 TenantTtlPolicySnapshot current = state.currentSnapshot;
                 if (current == null || result.snapshot.getDictionaryTxnId() > current.getDictionaryTxnId()) {
@@ -675,10 +676,10 @@ public class TenantTtlPolicySnapshotManager {
         private final String lastFailureMessage;
         private final long lastFailureTimeMillis;
 
-        private SnapshotStatus(long generation, int referenceCount, long snapshotTxnId, long targetTxnId,
-                               long blockedTxnId, long lastAttemptTxnId, long lastAttemptTimeMillis,
-                               int retryFailureCount, long nextRetryTimeMillis, String lastFailureCode,
-                               String lastFailureMessage, long lastFailureTimeMillis) {
+        SnapshotStatus(long generation, int referenceCount, long snapshotTxnId, long targetTxnId,
+                       long blockedTxnId, long lastAttemptTxnId, long lastAttemptTimeMillis,
+                       int retryFailureCount, long nextRetryTimeMillis, String lastFailureCode,
+                       String lastFailureMessage, long lastFailureTimeMillis) {
             this.generation = generation;
             this.referenceCount = referenceCount;
             this.snapshotTxnId = snapshotTxnId;

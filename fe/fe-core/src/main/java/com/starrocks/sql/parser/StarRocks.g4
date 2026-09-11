@@ -57,6 +57,7 @@ statement
     | showTableStatement
     | descTableStatement
     | showTableStatusStatement
+    | showTenantTtlStatusStatement
     | showColumnStatement
     | refreshTableStatement
     | alterTableStatement
@@ -921,6 +922,10 @@ refreshDictionaryStatement
 
 showDictionaryStatement
     : SHOW DICTIONARY qualifiedName?
+    ;
+
+showTenantTtlStatusStatement
+    : SHOW TENANT TTL STATUS FROM qualifiedName (FOR TENANT string)?
     ;
 
 cancelRefreshDictionaryStatement
@@ -3235,7 +3240,7 @@ nonReserved
     | SAMPLE | SCHEDULE | SCHEDULER | SECOND | SECURITY | SEPARATOR | SERIALIZABLE |SEMI | SESSION | SETS | SIGNED | SNAPSHOT | SNAPSHOTS | SPLIT | SQLBLACKLIST | START | STARROCKS
     | STREAM | SUM | STATUS | STOP | SKIP_HEADER | SWAP
     | STORAGE| STRING | STRUCT | STATS | SUBMIT | SUSPEND | SYNC | SYSTEM_TIME
-    | TABLES | TABLET | TABLETS | TAG | TASK | TEMPORARY | TIMESTAMP | TIMESTAMPADD | TIMESTAMPDIFF | THAN | TIME | TIMES | TRANSACTION | TRACE | TRANSLATE
+    | TABLES | TABLET | TABLETS | TAG | TASK | TEMPORARY | TENANT | TIMESTAMP | TIMESTAMPADD | TIMESTAMPDIFF | THAN | TIME | TIMES | TRANSACTION | TRACE | TRANSLATE | TTL
     | TRIM_SPACE
     | TRIGGERS | TRUNCATE | TYPE | TYPES
     | UNBOUNDED | UNCOMMITTED | UNSET | UNINSTALL | USAGE | USER | USERS | UNLOCK

@@ -456,6 +456,22 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         return Optional.ofNullable(partitionStatuses.get(key));
     }
 
+    /** Returns a stable copy for bounded SHOW aggregation; tenant filter payloads are never exposed. */
+    public List<PartitionRuntimeStatus> getPartitionStatuses(long dbId, long tableId) {
+        List<Map.Entry<ProgressKey, PartitionRuntimeStatus>> entries = new ArrayList<>();
+        for (Map.Entry<ProgressKey, PartitionRuntimeStatus> entry : partitionStatuses.entrySet()) {
+            if (entry.getKey().getDbId() == dbId && entry.getKey().getTableId() == tableId) {
+                entries.add(entry);
+            }
+        }
+        entries.sort(Map.Entry.comparingByKey());
+        List<PartitionRuntimeStatus> result = new ArrayList<>(entries.size());
+        for (Map.Entry<ProgressKey, PartitionRuntimeStatus> entry : entries) {
+            result.add(entry.getValue());
+        }
+        return Collections.unmodifiableList(result);
+    }
+
     public Optional<TableRuntimeStatus> getTableStatus(long dbId, long tableId) {
         return Optional.ofNullable(tableStatuses.get(new TableRef(dbId, tableId)));
     }

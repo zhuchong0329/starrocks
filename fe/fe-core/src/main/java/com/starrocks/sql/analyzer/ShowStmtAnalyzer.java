@@ -88,6 +88,7 @@ import com.starrocks.sql.ast.ShowStreamLoadStmt;
 import com.starrocks.sql.ast.ShowTableStatusStmt;
 import com.starrocks.sql.ast.ShowTableStmt;
 import com.starrocks.sql.ast.ShowTabletStmt;
+import com.starrocks.sql.ast.ShowTenantTtlStatusStmt;
 import com.starrocks.sql.ast.ShowTransactionStmt;
 import com.starrocks.sql.ast.spm.ShowBaselinePlanStmt;
 import com.starrocks.sql.common.MetaUtils;
@@ -215,6 +216,27 @@ public class ShowStmtAnalyzer {
                 ErrorReport.reportSemanticException(ErrorCode.ERR_NO_TABLES_USED);
             }
             node.getTbl().normalization(context);
+            return null;
+        }
+
+        @Override
+        public Void visitShowTenantTtlStatusStatement(ShowTenantTtlStatusStmt node, ConnectContext context) {
+            TableName tableName = node.getTableName();
+            if (tableName == null) {
+                ErrorReport.reportSemanticException(ErrorCode.ERR_NO_TABLES_USED);
+            }
+            tableName.normalization(context);
+            if (!CatalogMgr.isInternalCatalog(tableName.getCatalog())) {
+                throw new SemanticException("SHOW TENANT TTL STATUS only supports Internal Catalog tables");
+            }
+            Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(tableName.getDb());
+            if (db == null) {
+                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR, tableName.getDb());
+            }
+            Table table = db.getTable(tableName.getTbl());
+            if (!(table instanceof OlapTable)) {
+                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR, tableName.getTbl());
+            }
             return null;
         }
 

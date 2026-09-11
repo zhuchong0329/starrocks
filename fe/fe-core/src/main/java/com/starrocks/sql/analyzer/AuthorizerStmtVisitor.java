@@ -202,6 +202,7 @@ import com.starrocks.sql.ast.ShowSnapshotStmt;
 import com.starrocks.sql.ast.ShowSqlBlackListStmt;
 import com.starrocks.sql.ast.ShowTableStatusStmt;
 import com.starrocks.sql.ast.ShowTabletStmt;
+import com.starrocks.sql.ast.ShowTenantTtlStatusStmt;
 import com.starrocks.sql.ast.ShowTransactionStmt;
 import com.starrocks.sql.ast.ShowUserPropertyStmt;
 import com.starrocks.sql.ast.ShowUserStmt;
@@ -1908,6 +1909,19 @@ public class AuthorizerStmtVisitor implements AstVisitor<Void, ConnectContext> {
                     statement.getTbl().getCatalog(),
                     context.getCurrentUserIdentity(), context.getCurrentRoleIds(),
                     PrivilegeType.ANY.name(), ObjectType.TABLE.name(), statement.getTbl().getTbl());
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitShowTenantTtlStatusStatement(ShowTenantTtlStatusStmt statement, ConnectContext context) {
+        try {
+            Authorizer.checkTableAction(context, statement.getTableName(), PrivilegeType.SELECT);
+        } catch (AccessDeniedException e) {
+            AccessDeniedException.reportAccessDenied(
+                    statement.getTableName().getCatalog(), context.getCurrentUserIdentity(),
+                    context.getCurrentRoleIds(), PrivilegeType.SELECT.name(), ObjectType.TABLE.name(),
+                    statement.getTableName().getTbl());
         }
         return null;
     }

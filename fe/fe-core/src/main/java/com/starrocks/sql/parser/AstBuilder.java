@@ -448,6 +448,7 @@ import com.starrocks.sql.ast.ShowStreamLoadStmt;
 import com.starrocks.sql.ast.ShowTableStatusStmt;
 import com.starrocks.sql.ast.ShowTableStmt;
 import com.starrocks.sql.ast.ShowTabletStmt;
+import com.starrocks.sql.ast.ShowTenantTtlStatusStmt;
 import com.starrocks.sql.ast.ShowTransactionStmt;
 import com.starrocks.sql.ast.ShowTriggersStmt;
 import com.starrocks.sql.ast.ShowUserPropertyStmt;
@@ -4594,6 +4595,15 @@ public class AstBuilder extends StarRocksBaseVisitor<ParseNode> {
             dictionaryName = getQualifiedName(context.qualifiedName()).toString();
         }
         return new ShowDictionaryStmt(dictionaryName, createPos(context));
+    }
+
+    @Override
+    public ParseNode visitShowTenantTtlStatusStatement(
+            StarRocksParser.ShowTenantTtlStatusStatementContext context) {
+        TableName tableName = qualifiedNameToTableName(getQualifiedName(context.qualifiedName()));
+        String tenant = context.string() == null ? null :
+                ((StringLiteral) visit(context.string())).getStringValue();
+        return new ShowTenantTtlStatusStmt(tableName, tenant, createPos(context));
     }
 
     @Override

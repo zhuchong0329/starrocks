@@ -114,6 +114,7 @@ import com.starrocks.sql.ast.ShowStreamLoadStmt;
 import com.starrocks.sql.ast.ShowTableStatusStmt;
 import com.starrocks.sql.ast.ShowTableStmt;
 import com.starrocks.sql.ast.ShowTabletStmt;
+import com.starrocks.sql.ast.ShowTenantTtlStatusStmt;
 import com.starrocks.sql.ast.ShowTransactionStmt;
 import com.starrocks.sql.ast.ShowTriggersStmt;
 import com.starrocks.sql.ast.ShowUserPropertyStmt;
@@ -280,6 +281,48 @@ public class ShowResultMetaFactory implements AstVisitor<ShowResultSetMetaData, 
         ShowResultSetMetaData.Builder builder = ShowResultSetMetaData.builder();
         for (String title : ShowDictionaryStmt.TITLE_NAMES) {
             builder.addColumn(new Column(title, ScalarType.createVarchar(30)));
+        }
+        return builder.build();
+    }
+
+    @Override
+    public ShowResultSetMetaData visitShowTenantTtlStatusStatement(
+            ShowTenantTtlStatusStmt statement, Void context) {
+        ShowResultSetMetaData.Builder builder = ShowResultSetMetaData.builder()
+                .addColumn(new Column("PhysicalTable", ScalarType.createVarchar(256)))
+                .addColumn(new Column("Enabled", ScalarType.BOOLEAN))
+                .addColumn(new Column("BindingState", ScalarType.createVarchar(32)))
+                .addColumn(new Column("DictionaryName", ScalarType.createVarchar(256)))
+                .addColumn(new Column("DictionaryId", ScalarType.BIGINT))
+                .addColumn(new Column("TableKey", ScalarType.createVarchar(512)))
+                .addColumn(new Column("DefaultDays", ScalarType.INT))
+                .addColumn(new Column("DictionaryLastSuccessTxnId", ScalarType.BIGINT))
+                .addColumn(new Column("DictionaryLastSuccessTime", ScalarType.DATETIME))
+                .addColumn(new Column("SnapshotTxnId", ScalarType.BIGINT))
+                .addColumn(new Column("SnapshotTime", ScalarType.DATETIME))
+                .addColumn(new Column("LastSnapshotAttemptTxnId", ScalarType.BIGINT))
+                .addColumn(new Column("LastSnapshotAttemptTime", ScalarType.DATETIME))
+                .addColumn(new Column("TableKeyMatch", ScalarType.createVarchar(32)))
+                .addColumn(new Column("TableDefaultMatch", ScalarType.createVarchar(32)))
+                .addColumn(new Column("TenantColumnId", ScalarType.createVarchar(256)))
+                .addColumn(new Column("TenantColumnUniqueId", ScalarType.INT))
+                .addColumn(new Column("TimeColumnId", ScalarType.createVarchar(256)))
+                .addColumn(new Column("TimeColumnUniqueId", ScalarType.INT))
+                .addColumn(new Column("PartitionExpressionType", ScalarType.createVarchar(64)))
+                .addColumn(new Column("CompactionRetentionTimeZone", ScalarType.createVarchar(128)))
+                .addColumn(new Column("ProvablePhysicalPartitions", ScalarType.BIGINT))
+                .addColumn(new Column("UnprovablePhysicalPartitions", ScalarType.BIGINT))
+                .addColumn(new Column("SchedulerState", ScalarType.createVarchar(64)))
+                .addColumn(new Column("PendingRewritePartitions", ScalarType.BIGINT))
+                .addColumn(new Column("RunningReplicaTasks", ScalarType.BIGINT))
+                .addColumn(new Column("CompletedPhysicalPartitions", ScalarType.BIGINT))
+                .addColumn(new Column("NextExpiryTime", ScalarType.DATETIME))
+                .addColumn(new Column("IgnoredZeroRows", ScalarType.BIGINT))
+                .addColumn(new Column("ErrorMessage", ScalarType.createVarchar(65535)));
+        if (statement.hasTenant()) {
+            builder.addColumn(new Column("Tenant", ScalarType.createVarchar(65535)))
+                    .addColumn(new Column("EffectiveRetentionDays", ScalarType.INT))
+                    .addColumn(new Column("ResolutionType", ScalarType.createVarchar(32)));
         }
         return builder.build();
     }

@@ -99,6 +99,15 @@ public final class TenantTtlBindingAnalyzer {
         return new TableBindingResult(tableBinding, normalizedPropertyTimeZone);
     }
 
+    /** Revalidates a persisted Dictionary identity without changing its ordinary cache state. */
+    public static void validateDictionaryBinding(Dictionary dictionary) throws DdlException {
+        if (dictionary == null) {
+            throw new DdlException("Tenant-TTL Dictionary is missing");
+        }
+        validateDictionarySchema(dictionary);
+        validateDictionarySource(dictionary);
+    }
+
     private static void validateBusinessTable(OlapTable table) throws DdlException {
         if (!table.isOlapTable() || table.isCloudNativeTable() || table.isMaterializedView() || table.isTemporaryTable()) {
             throw new DdlException("Tenant-TTL only supports local shared-nothing OLAP base tables");

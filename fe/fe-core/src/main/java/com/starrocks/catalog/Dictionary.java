@@ -373,6 +373,14 @@ public class Dictionary implements Writable {
         return this.lastSuccessVersion;
     }
 
+    public synchronized long getLastSuccessFinishedTime() {
+        return lastSuccessFinishedTime;
+    }
+
+    public synchronized String getRuntimeErrorMessage() {
+        return runtimeErrMsg;
+    }
+
     public boolean isRefreshing() {
         return this.state == DictionaryState.REFRESHING ||
                     this.state == DictionaryState.COMMITTING;

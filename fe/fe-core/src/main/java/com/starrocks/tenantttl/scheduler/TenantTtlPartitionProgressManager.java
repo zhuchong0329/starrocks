@@ -176,6 +176,21 @@ public final class TenantTtlPartitionProgressManager {
         }
     }
 
+    public int countTable(long dbId, long tableId) {
+        lock.readLock().lock();
+        try {
+            int count = 0;
+            for (ProgressKey key : progresses.keySet()) {
+                if (key.getDbId() == dbId && key.getTableId() == tableId) {
+                    count++;
+                }
+            }
+            return count;
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
     public int removePhysicalPartitions(long dbId, long tableId, Collection<Long> physicalPartitionIds) {
         List<ProgressKey> keys = new ArrayList<>(physicalPartitionIds.size());
         for (Long physicalPartitionId : physicalPartitionIds) {

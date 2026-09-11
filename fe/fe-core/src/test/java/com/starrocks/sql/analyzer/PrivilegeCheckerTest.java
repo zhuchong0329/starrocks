@@ -374,6 +374,15 @@ public class PrivilegeCheckerTest extends StarRocksTestBase {
         }
     }
 
+    @Test
+    public void testShowTenantTtlStatusRequiresSelect() throws Exception {
+        verifyGrantRevoke(
+                "SHOW TENANT TTL STATUS FROM db1.tbl1 FOR TENANT 'tenant_a'",
+                "grant SELECT on db1.tbl1 to test",
+                "revoke SELECT on db1.tbl1 from test",
+                "Access denied; you need (at least one of) the SELECT privilege(s) on TABLE tbl1 for this operation");
+    }
+
     private static void verifyGrantRevokeFail(String sql, String grantSql, String revokeSql,
                                               String expectError1st, String expectError2nd) throws Exception {
         ConnectContext ctx = starRocksAssert.getCtx();

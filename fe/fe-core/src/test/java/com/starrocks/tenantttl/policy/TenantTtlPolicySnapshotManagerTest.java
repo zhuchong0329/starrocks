@@ -232,6 +232,24 @@ public class TenantTtlPolicySnapshotManagerTest {
         assertEquals(720_000, TenantTtlPolicySnapshotManager.retryDelayMs(100, 1.0));
     }
 
+    @Test
+    public void testLastAttemptTimeRecordsCompletion() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 4, false);
+        long startedAt = runtime.nowMillis;
+        runtime.exportActions.add((node, request) -> {
+            runtime.nowMillis += 1234;
+            return completed(validResponse(request.expectedTxnId));
+        });
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runImmediate();
+
+        assertEquals(startedAt + 1234, manager.getStatus(DICTIONARY_ID).getLastAttemptTimeMillis());
+    }
+
     private static void assertLateResponseDiscarded(BiConsumerWithRuntime invalidation) throws Exception {
         FakeRuntime runtime = new FakeRuntime();
         ManualDispatcher dispatcher = new ManualDispatcher();

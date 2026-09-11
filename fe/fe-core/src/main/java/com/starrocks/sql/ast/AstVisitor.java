@@ -265,6 +265,10 @@ public interface AstVisitor<R, C> {
         return visitShowStatement(statement, context);
     }
 
+    default R visitShowTenantTtlStatusStatement(ShowTenantTtlStatusStmt statement, C context) {
+        return visitShowStatement(statement, context);
+    }
+
     // ---------------------------------------- View Statement ---------------------------------------------------------
 
     default R visitCreateViewStatement(CreateViewStmt statement, C context) {

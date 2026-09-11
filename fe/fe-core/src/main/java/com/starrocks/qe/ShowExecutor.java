@@ -240,6 +240,7 @@ import com.starrocks.sql.ast.ShowStreamLoadStmt;
 import com.starrocks.sql.ast.ShowTableStatusStmt;
 import com.starrocks.sql.ast.ShowTableStmt;
 import com.starrocks.sql.ast.ShowTabletStmt;
+import com.starrocks.sql.ast.ShowTenantTtlStatusStmt;
 import com.starrocks.sql.ast.ShowTransactionStmt;
 import com.starrocks.sql.ast.ShowUserPropertyStmt;
 import com.starrocks.sql.ast.ShowUserStmt;
@@ -268,6 +269,7 @@ import com.starrocks.statistic.MultiColumnStatsMeta;
 import com.starrocks.system.Backend;
 import com.starrocks.system.Frontend;
 import com.starrocks.system.SystemInfoService;
+import com.starrocks.tenantttl.TenantTtlStatusService;
 import com.starrocks.thrift.TAuthInfo;
 import com.starrocks.thrift.TConnectionInfo;
 import com.starrocks.thrift.TListConnectionRequest;
@@ -3046,6 +3048,30 @@ public class ShowExecutor {
                 throw new SemanticException(e.getMessage());
             }
             return new ShowResultSet(showResultMetaFactory.getMetadata(statement), allInfo);
+        }
+
+        @Override
+        public ShowResultSet visitShowTenantTtlStatusStatement(
+                ShowTenantTtlStatusStmt statement, ConnectContext context) {
+            GlobalStateMgr state = GlobalStateMgr.getCurrentState();
+            Database db = state.getLocalMetastore().getDb(statement.getTableName().getDb());
+            if (db == null) {
+                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_DB_ERROR,
+                        statement.getTableName().getDb());
+            }
+            Table table = db.getTable(statement.getTableName().getTbl());
+            if (!(table instanceof OlapTable)) {
+                ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_TABLE_ERROR,
+                        statement.getTableName().getTbl());
+            }
+            try {
+                List<String> row = TenantTtlStatusService.buildRow(
+                        state, db, (OlapTable) table, statement.getTenant());
+                return new ShowResultSet(showResultMetaFactory.getMetadata(statement),
+                        Collections.singletonList(row));
+            } catch (RuntimeException e) {
+                throw new SemanticException(e.getMessage());
+            }
         }
 
         @Override
