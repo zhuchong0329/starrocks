@@ -29,6 +29,8 @@ import com.starrocks.catalog.TenantTtlDictionaryBinding;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.server.GlobalStateMgr;
+import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgress;
+import com.starrocks.tenantttl.scheduler.TenantTtlScheduleDecision;
 import com.starrocks.utframe.StarRocksAssert;
 import com.starrocks.utframe.UtFrameUtils;
 import org.junit.jupiter.api.Assertions;
@@ -262,10 +264,66 @@ public class TenantTtlEvaluationContextTest {
         Assertions.assertTrue(result.getDetail().contains("task ID"));
     }
 
+    @Test
+    public void testScheduleDecisionCatchesUpOnceAndDetectsSemanticOrDataChanges() {
+        TenantTtlEvaluationContext atExpiry = TenantTtlEvaluationContext.captureLocked(
+                db, table, snapshot, () -> EVALUATION_TIME, new AtomicLong(12000)::incrementAndGet).getContext();
+        TenantTtlEvaluationContext.PartitionPlan rewrite = rewritePlan(atExpiry);
+        TenantTtlScheduleDecision.Decision initial = TenantTtlScheduleDecision.decide(
+                atExpiry, rewrite, null, false);
+        Assertions.assertTrue(initial.hasReason(TenantTtlScheduleDecision.TriggerReason.INITIAL_CATCH_UP));
+        Assertions.assertTrue(initial.hasReason(TenantTtlScheduleDecision.TriggerReason.EXPIRY_EVENT_DUE));
+        Assertions.assertTrue(initial.hasReason(TenantTtlScheduleDecision.TriggerReason.DATA_VERSION_ADVANCED));
+
+        TenantTtlPartitionProgress completed = progress(atExpiry, rewrite,
+                rewrite.getPolicyPlan().getCompletedExpiryCursorEpochSeconds(), rewrite.getObservedVisibleVersion());
+        TenantTtlEvaluationContext nextDay = TenantTtlEvaluationContext.captureLocked(
+                db, table, snapshot, () -> EVALUATION_TIME + 86400L,
+                new AtomicLong(13000)::incrementAndGet).getContext();
+        TenantTtlEvaluationContext.PartitionPlan nextDayRewrite = rewritePlan(nextDay);
+        TenantTtlScheduleDecision.Decision unchanged = TenantTtlScheduleDecision.decide(
+                nextDay, nextDayRewrite, completed, false);
+        Assertions.assertFalse(unchanged.shouldEvaluate());
+
+        TenantTtlPartitionProgress behindData = progress(atExpiry, rewrite,
+                rewrite.getPolicyPlan().getCompletedExpiryCursorEpochSeconds(),
+                Math.max(0, rewrite.getObservedVisibleVersion() - 1));
+        TenantTtlScheduleDecision.Decision dataAdvanced = TenantTtlScheduleDecision.decide(
+                nextDay, nextDayRewrite, behindData, false);
+        Assertions.assertEquals(TenantTtlScheduleDecision.TriggerReason.DATA_VERSION_ADVANCED,
+                dataAdvanced.getPrimaryReason());
+
+        TenantTtlEvaluationContext changedPolicy = TenantTtlEvaluationContext.captureLocked(
+                db, table, snapshot(SNAPSHOT_TXN_ID + 1, 29, 365), () -> EVALUATION_TIME + 86400L,
+                new AtomicLong(14000)::incrementAndGet).getContext();
+        TenantTtlScheduleDecision.Decision policyChanged = TenantTtlScheduleDecision.decide(
+                changedPolicy, rewritePlan(changedPolicy), completed, false);
+        Assertions.assertTrue(policyChanged.hasReason(TenantTtlScheduleDecision.TriggerReason.POLICY_CHANGED));
+        Assertions.assertEquals(TenantTtlScheduleDecision.TriggerReason.POLICY_CHANGED,
+                policyChanged.getPrimaryReason());
+
+        TenantTtlEvaluationContext.PartitionPlan noop = atExpiry.getPartitionPlans().stream()
+                .filter(plan -> plan.getType() == TenantTtlPolicyPlanner.PlanType.FE_NOOP)
+                .findFirst().orElseThrow(AssertionError::new);
+        TenantTtlScheduleDecision.Decision noopInitial = TenantTtlScheduleDecision.decide(
+                atExpiry, noop, null, false);
+        Assertions.assertTrue(noopInitial.hasReason(TenantTtlScheduleDecision.TriggerReason.INITIAL_CATCH_UP));
+        Assertions.assertFalse(noopInitial.hasReason(TenantTtlScheduleDecision.TriggerReason.DATA_VERSION_ADVANCED));
+    }
+
     private static TenantTtlEvaluationContext.PartitionPlan rewritePlan(TenantTtlEvaluationContext context) {
         return context.getPartitionPlans().stream()
                 .filter(plan -> plan.getType() == TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE)
                 .findFirst().orElseThrow(AssertionError::new);
+    }
+
+    private static TenantTtlPartitionProgress progress(TenantTtlEvaluationContext context,
+                                                       TenantTtlEvaluationContext.PartitionPlan plan,
+                                                       long completedCursor, long processedThroughVersion) {
+        return new TenantTtlPartitionProgress(context.getDbId(), context.getTableId(),
+                plan.getPhysicalPartitionId(), context.getTableBindingFingerprint(),
+                plan.getPolicyPlan().getTablePolicyFingerprint(), plan.getBoundaryFingerprint(), completedCursor,
+                processedThroughVersion, context.getSnapshotTxnId(), context.getEvaluationTimeEpochSeconds());
     }
 
     private static int replicaCount(long physicalPartitionId) {

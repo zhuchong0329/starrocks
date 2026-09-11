@@ -66,21 +66,29 @@ public class TenantTtlPolicyPlannerTest {
 
         TenantTtlPolicyPlanner.Plan plan = PLANNER.plan(snapshot, TABLE_KEY, 180, UPPER, atDay(29));
         assertPlan(plan, TenantTtlPolicyPlanner.PlanType.FE_NOOP, TenantTtlPolicyPlanner.FilterMode.NONE);
+        Assertions.assertEquals(0, plan.getCompletedExpiryCursorEpochSeconds());
+        Assertions.assertEquals(atDay(30), plan.getNextExpiryEpochSeconds());
 
         plan = PLANNER.plan(snapshot, TABLE_KEY, 180, UPPER, atDay(30));
         assertPlan(plan, TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE,
                 TenantTtlPolicyPlanner.FilterMode.DELETE_LIST);
         Assertions.assertEquals(Collections.singletonList("tenant_a"), strings(plan.getTenants()));
         Assertions.assertEquals(365, plan.getNullRetentionDays());
+        Assertions.assertEquals(atDay(30), plan.getCompletedExpiryCursorEpochSeconds());
+        Assertions.assertEquals(atDay(180), plan.getNextExpiryEpochSeconds());
 
         plan = PLANNER.plan(snapshot, TABLE_KEY, 180, UPPER, atDay(180));
         assertPlan(plan, TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE,
                 TenantTtlPolicyPlanner.FilterMode.KEEP_LIST);
         Assertions.assertEquals(Collections.singletonList("tenant_b"), strings(plan.getTenants()));
+        Assertions.assertEquals(atDay(180), plan.getCompletedExpiryCursorEpochSeconds());
+        Assertions.assertEquals(atDay(365), plan.getNextExpiryEpochSeconds());
 
         plan = PLANNER.plan(snapshot, TABLE_KEY, 180, UPPER, atDay(365));
         assertPlan(plan, TenantTtlPolicyPlanner.PlanType.DROP_LOGICAL_PARTITION,
                 TenantTtlPolicyPlanner.FilterMode.NONE);
+        Assertions.assertEquals(atDay(365), plan.getCompletedExpiryCursorEpochSeconds());
+        Assertions.assertEquals(0, plan.getNextExpiryEpochSeconds());
     }
 
     @Test
@@ -117,7 +125,7 @@ public class TenantTtlPolicyPlannerTest {
         Assertions.assertEquals(TenantTtlPolicyPlanner.PlanType.DROP_LOGICAL_PARTITION, exact.getType());
 
         TenantTtlPolicyPlanner.Plan overflow = PLANNER.plan(snapshot, TABLE_KEY, Integer.MAX_VALUE,
-                UPPER, Long.MIN_VALUE);
+                Long.MAX_VALUE, Long.MAX_VALUE);
         Assertions.assertEquals(TenantTtlPolicyPlanner.PlanType.FAIL_CLOSED, overflow.getType());
         Assertions.assertEquals(TenantTtlPolicyPlanner.FailReason.EXACT_ARITHMETIC_OVERFLOW,
                 overflow.getFailReason());

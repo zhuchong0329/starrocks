@@ -285,30 +285,37 @@ public final class TenantTtlEvaluationContext {
             if (!(current instanceof OlapTable)) {
                 return false;
             }
-            OlapTable table = (OlapTable) current;
-            TableProperty property = table.getTableProperty();
-            if (property == null || property.getTenantTtlDictionaryBinding() == null ||
-                    property.getTenantTtlTableBinding() == null) {
-                return false;
-            }
-            TenantTtlBindingAnalyzer.TableBindingResult layout = TenantTtlBindingAnalyzer.analyzeTableBinding(
-                    db, table, property.getCompactionRetentionTimeZone(), property.getProperties());
-            if (!property.getTenantTtlTableBinding().equals(layout.getTableBinding())) {
-                return false;
-            }
-            MaterializedIndexMeta currentSchema = table.getIndexMetaByIndexId(table.getBaseIndexId());
-            if (currentSchema == null) {
-                return false;
-            }
-            String currentFingerprint = tableBindingFingerprint(dbId, tableId, table.getBaseIndexId(),
-                    property.getTenantTtlDictionaryBinding(), property.getTenantTtlTableBinding(),
-                    currentSchema.getSchemaId(), currentSchema.getSchemaVersion());
-            return tableBindingFingerprint.equals(currentFingerprint);
+            return validateTableBindingLocked(db, (OlapTable) current);
         } catch (DdlException | RuntimeException e) {
             return false;
         } finally {
             locker.unLockDatabase(dbId, LockType.READ);
         }
+    }
+
+    /** Caller must hold the database read or write lock. */
+    public boolean validateTableBindingLocked(Database db, OlapTable table) throws DdlException {
+        if (db == null || table == null || db.getId() != dbId || table.getId() != tableId) {
+            return false;
+        }
+        TableProperty property = table.getTableProperty();
+        if (property == null || property.getTenantTtlDictionaryBinding() == null ||
+                property.getTenantTtlTableBinding() == null) {
+            return false;
+        }
+        TenantTtlBindingAnalyzer.TableBindingResult layout = TenantTtlBindingAnalyzer.analyzeTableBinding(
+                db, table, property.getCompactionRetentionTimeZone(), property.getProperties());
+        if (!property.getTenantTtlTableBinding().equals(layout.getTableBinding())) {
+            return false;
+        }
+        MaterializedIndexMeta currentSchema = table.getIndexMetaByIndexId(table.getBaseIndexId());
+        if (currentSchema == null) {
+            return false;
+        }
+        String currentFingerprint = tableBindingFingerprint(dbId, tableId, table.getBaseIndexId(),
+                property.getTenantTtlDictionaryBinding(), property.getTenantTtlTableBinding(),
+                currentSchema.getSchemaId(), currentSchema.getSchemaVersion());
+        return tableBindingFingerprint.equals(currentFingerprint);
     }
 
     private static String tableBindingFingerprint(long dbId, long tableId, long baseIndexId,

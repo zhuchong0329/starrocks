@@ -246,6 +246,7 @@ import com.starrocks.task.LeaderTaskExecutor;
 import com.starrocks.task.PriorityLeaderTaskExecutor;
 import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshotManager;
 import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgressManager;
+import com.starrocks.tenantttl.scheduler.TenantTtlScheduler;
 import com.starrocks.thrift.TNetworkAddress;
 import com.starrocks.thrift.TNodeInfo;
 import com.starrocks.thrift.TNodesInfo;
@@ -518,6 +519,7 @@ public class GlobalStateMgr {
             new TenantTtlPolicySnapshotManager();
     private final TenantTtlPartitionProgressManager tenantTtlPartitionProgressManager =
             new TenantTtlPartitionProgressManager();
+    private final TenantTtlScheduler tenantTtlScheduler = new TenantTtlScheduler();
     private final RefreshDictionaryCacheTaskDaemon refreshDictionaryCacheTaskDaemon;
 
     private MemoryUsageTracker memoryUsageTracker;
@@ -1505,6 +1507,7 @@ public class GlobalStateMgr {
         batchWriteMgr.start();
         // start dynamic partition task
         dynamicPartitionScheduler.start();
+        tenantTtlScheduler.start();
         // start daemon thread to update db used data quota for db txn manager periodically
         updateDbUsedDataQuotaDaemon.start();
         statisticsMetaManager.start();
@@ -2903,6 +2906,10 @@ public class GlobalStateMgr {
 
     public TenantTtlPartitionProgressManager getTenantTtlPartitionProgressManager() {
         return tenantTtlPartitionProgressManager;
+    }
+
+    public TenantTtlScheduler getTenantTtlScheduler() {
+        return tenantTtlScheduler;
     }
 
     public boolean isInTransferringToLeader() {

@@ -208,6 +208,14 @@ public class TenantTtlPolicySnapshotManager {
         return Collections.unmodifiableSet(new HashSet<>(tableRefs));
     }
 
+    public synchronized Set<TableRef> getAllReferencedTables() {
+        Set<TableRef> tableRefs = new HashSet<>();
+        for (Set<TableRef> referencesForDictionary : references.values()) {
+            tableRefs.addAll(referencesForDictionary);
+        }
+        return Collections.unmodifiableSet(tableRefs);
+    }
+
     public synchronized boolean isReferenced(long dictionaryId) {
         return isReferencedUnlocked(dictionaryId);
     }

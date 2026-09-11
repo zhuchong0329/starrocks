@@ -3885,6 +3885,12 @@ public class Config extends ConfigBase {
     @ConfField(mutable = true)
     public static long tenant_ttl_filter_max_serialized_bytes = 8L * 1024 * 1024;
 
+    @ConfField(mutable = true)
+    public static int tenant_ttl_scheduler_interval_seconds = 60;
+
+    @ConfField(mutable = true)
+    public static int tenant_ttl_scheduler_max_tables_per_cycle = 1000;
+
     /*
      * Replication config
      */

@@ -67,10 +67,11 @@ public final class TenantTtlPolicyPlanner {
         List<TenantTtlByteKey> expiredOverrides = new ArrayList<>();
         List<TenantTtlByteKey> retainedOverrides = new ArrayList<>();
         try {
-            boolean defaultExpired = expired(partitionUpperEpochSecond, evaluationTimeEpochSecond,
-                    resolved.effectiveDefaultDays);
+            ExpirySchedule expirySchedule = expirySchedule(partitionUpperEpochSecond, evaluationTimeEpochSecond,
+                    resolved);
+            boolean defaultExpired = expirySchedule.defaultExpired;
             for (Map.Entry<TenantTtlByteKey, Integer> entry : resolved.sortedOverrides) {
-                if (expired(partitionUpperEpochSecond, evaluationTimeEpochSecond, entry.getValue())) {
+                if (expireAt(partitionUpperEpochSecond, entry.getValue()) <= evaluationTimeEpochSecond) {
                     expiredOverrides.add(entry.getKey());
                 } else {
                     retainedOverrides.add(entry.getKey());
@@ -79,11 +80,11 @@ public final class TenantTtlPolicyPlanner {
 
             if (!defaultExpired && expiredOverrides.isEmpty()) {
                 return createPlan(PlanType.FE_NOOP, FilterMode.NONE, Collections.emptyList(), resolved,
-                        partitionUpperEpochSecond, evaluationTimeEpochSecond, 0);
+                        partitionUpperEpochSecond, evaluationTimeEpochSecond, 0, expirySchedule);
             }
             if (defaultExpired && retainedOverrides.isEmpty()) {
                 return createPlan(PlanType.DROP_LOGICAL_PARTITION, FilterMode.NONE, Collections.emptyList(), resolved,
-                        partitionUpperEpochSecond, evaluationTimeEpochSecond, 0);
+                        partitionUpperEpochSecond, evaluationTimeEpochSecond, 0, expirySchedule);
             }
             FilterMode mode = defaultExpired ? FilterMode.KEEP_LIST : FilterMode.DELETE_LIST;
             List<TenantTtlByteKey> tenants = defaultExpired ? retainedOverrides : expiredOverrides;
@@ -94,7 +95,8 @@ public final class TenantTtlPolicyPlanner {
                         FailReason.FILTER_ROW_LIMIT, mode, tenants.size(), serializedBytes,
                         resolved.tablePolicyFingerprint,
                         planFingerprint(partitionUpperEpochSecond, evaluationTimeEpochSecond, mode, tenants,
-                                resolved.tablePolicyFingerprint));
+                                resolved.tablePolicyFingerprint), expirySchedule.completedExpiryCursorEpochSeconds,
+                        expirySchedule.nextExpiryEpochSeconds);
             }
             if (serializedBytes > maxFilterSerializedBytes) {
                 return Plan.failClosed(resolved.tableKeyMatch, resolved.tableDefaultMatch,
@@ -102,10 +104,11 @@ public final class TenantTtlPolicyPlanner {
                         FailReason.FILTER_BYTE_LIMIT, mode, tenants.size(), serializedBytes,
                         resolved.tablePolicyFingerprint,
                         planFingerprint(partitionUpperEpochSecond, evaluationTimeEpochSecond, mode, tenants,
-                                resolved.tablePolicyFingerprint));
+                                resolved.tablePolicyFingerprint), expirySchedule.completedExpiryCursorEpochSeconds,
+                        expirySchedule.nextExpiryEpochSeconds);
             }
             return createPlan(PlanType.ROWSET_REWRITE, mode, tenants, resolved,
-                    partitionUpperEpochSecond, evaluationTimeEpochSecond, serializedBytes);
+                    partitionUpperEpochSecond, evaluationTimeEpochSecond, serializedBytes, expirySchedule);
         } catch (ArithmeticException e) {
             return Plan.failClosed(resolved.tableKeyMatch, resolved.tableDefaultMatch, resolved.defaultResolutionType,
                     resolved.effectiveDefaultDays, resolved.nullRetentionDays, FailReason.EXACT_ARITHMETIC_OVERFLOW,
@@ -140,12 +143,14 @@ public final class TenantTtlPolicyPlanner {
 
     private Plan createPlan(PlanType type, FilterMode mode, List<TenantTtlByteKey> tenants,
                             ResolvedTablePolicy resolved, long partitionUpperEpochSecond,
-                            long evaluationTimeEpochSecond, long serializedBytes) {
+                            long evaluationTimeEpochSecond, long serializedBytes,
+                            ExpirySchedule expirySchedule) {
         return new Plan(type, mode, tenants, resolved.tableKeyMatch, resolved.tableDefaultMatch,
                 resolved.defaultResolutionType, resolved.effectiveDefaultDays, resolved.nullRetentionDays,
                 null, tenants.size(), serializedBytes, resolved.tablePolicyFingerprint,
                 planFingerprint(partitionUpperEpochSecond, evaluationTimeEpochSecond, mode, tenants,
-                        resolved.tablePolicyFingerprint));
+                        resolved.tablePolicyFingerprint), expirySchedule.completedExpiryCursorEpochSeconds,
+                expirySchedule.nextExpiryEpochSeconds);
     }
 
     private ResolvedTablePolicy resolveTablePolicy(TenantTtlPolicySnapshot snapshot, TenantTtlByteKey tableKey,
@@ -177,10 +182,30 @@ public final class TenantTtlPolicyPlanner {
                 overrides, valid, fingerprint);
     }
 
-    private boolean expired(long partitionUpper, long evaluationTime, int retentionDays) {
+    private long expireAt(long partitionUpper, int retentionDays) {
         long retentionSeconds = Math.multiplyExact((long) retentionDays, SECONDS_PER_DAY);
-        long cutoff = Math.subtractExact(evaluationTime, retentionSeconds);
-        return partitionUpper <= cutoff;
+        return Math.addExact(partitionUpper, retentionSeconds);
+    }
+
+    private ExpirySchedule expirySchedule(long partitionUpper, long evaluationTime,
+                                          ResolvedTablePolicy resolved) {
+        long completedCursor = 0;
+        long nextExpiry = 0;
+        long defaultExpiry = expireAt(partitionUpper, resolved.effectiveDefaultDays);
+        if (defaultExpiry <= evaluationTime) {
+            completedCursor = defaultExpiry;
+        } else {
+            nextExpiry = defaultExpiry;
+        }
+        for (Map.Entry<TenantTtlByteKey, Integer> entry : resolved.sortedOverrides) {
+            long expiry = expireAt(partitionUpper, entry.getValue());
+            if (expiry <= evaluationTime) {
+                completedCursor = Math.max(completedCursor, expiry);
+            } else if (nextExpiry == 0 || expiry < nextExpiry) {
+                nextExpiry = expiry;
+            }
+        }
+        return new ExpirySchedule(defaultExpiry <= evaluationTime, completedCursor, nextExpiry);
     }
 
     private long serializedFilterBytes(List<TenantTtlByteKey> tenants) {
@@ -290,12 +315,15 @@ public final class TenantTtlPolicyPlanner {
         private final long requiredSerializedBytes;
         private final String tablePolicyFingerprint;
         private final String planFingerprint;
+        private final long completedExpiryCursorEpochSeconds;
+        private final long nextExpiryEpochSeconds;
 
         private Plan(PlanType type, FilterMode filterMode, List<TenantTtlByteKey> tenants,
                      TableKeyMatch tableKeyMatch, TableDefaultMatch tableDefaultMatch,
                      ResolutionType defaultResolutionType, int effectiveDefaultDays, int nullRetentionDays,
                      FailReason failReason, long requiredTenantCount, long requiredSerializedBytes,
-                     String tablePolicyFingerprint, String planFingerprint) {
+                     String tablePolicyFingerprint, String planFingerprint,
+                     long completedExpiryCursorEpochSeconds, long nextExpiryEpochSeconds) {
             this.type = Objects.requireNonNull(type);
             this.filterMode = Objects.requireNonNull(filterMode);
             this.tenants = Collections.unmodifiableList(new ArrayList<>(tenants));
@@ -309,6 +337,8 @@ public final class TenantTtlPolicyPlanner {
             this.requiredSerializedBytes = requiredSerializedBytes;
             this.tablePolicyFingerprint = tablePolicyFingerprint;
             this.planFingerprint = planFingerprint;
+            this.completedExpiryCursorEpochSeconds = completedExpiryCursorEpochSeconds;
+            this.nextExpiryEpochSeconds = nextExpiryEpochSeconds;
         }
 
         private static Plan failClosed(TableKeyMatch keyMatch, TableDefaultMatch defaultMatch,
@@ -316,9 +346,21 @@ public final class TenantTtlPolicyPlanner {
                                        int nullRetentionDays, FailReason reason, FilterMode requiredMode,
                                        long requiredTenantCount, long requiredSerializedBytes,
                                        String tablePolicyFingerprint, String planFingerprint) {
+            return failClosed(keyMatch, defaultMatch, defaultSource, effectiveDefaultDays, nullRetentionDays,
+                    reason, requiredMode, requiredTenantCount, requiredSerializedBytes, tablePolicyFingerprint,
+                    planFingerprint, 0, 0);
+        }
+
+        private static Plan failClosed(TableKeyMatch keyMatch, TableDefaultMatch defaultMatch,
+                                       ResolutionType defaultSource, int effectiveDefaultDays,
+                                       int nullRetentionDays, FailReason reason, FilterMode requiredMode,
+                                       long requiredTenantCount, long requiredSerializedBytes,
+                                       String tablePolicyFingerprint, String planFingerprint,
+                                       long completedExpiryCursorEpochSeconds, long nextExpiryEpochSeconds) {
             return new Plan(PlanType.FAIL_CLOSED, requiredMode, Collections.emptyList(), keyMatch, defaultMatch,
                     defaultSource, effectiveDefaultDays, nullRetentionDays, reason, requiredTenantCount,
-                    requiredSerializedBytes, tablePolicyFingerprint, planFingerprint);
+                    requiredSerializedBytes, tablePolicyFingerprint, planFingerprint,
+                    completedExpiryCursorEpochSeconds, nextExpiryEpochSeconds);
         }
 
         public PlanType getType() {
@@ -371,6 +413,27 @@ public final class TenantTtlPolicyPlanner {
 
         public String getPlanFingerprint() {
             return planFingerprint;
+        }
+
+        public long getCompletedExpiryCursorEpochSeconds() {
+            return completedExpiryCursorEpochSeconds;
+        }
+
+        public long getNextExpiryEpochSeconds() {
+            return nextExpiryEpochSeconds;
+        }
+    }
+
+    private static final class ExpirySchedule {
+        private final boolean defaultExpired;
+        private final long completedExpiryCursorEpochSeconds;
+        private final long nextExpiryEpochSeconds;
+
+        private ExpirySchedule(boolean defaultExpired, long completedExpiryCursorEpochSeconds,
+                               long nextExpiryEpochSeconds) {
+            this.defaultExpired = defaultExpired;
+            this.completedExpiryCursorEpochSeconds = completedExpiryCursorEpochSeconds;
+            this.nextExpiryEpochSeconds = nextExpiryEpochSeconds;
         }
     }
 
