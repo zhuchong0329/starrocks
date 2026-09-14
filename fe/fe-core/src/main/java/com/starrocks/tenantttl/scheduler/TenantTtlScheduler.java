@@ -149,6 +149,7 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         boolean coordinatorEnabled = rewriteExecutionView == rewriteCoordinator;
         if (coordinatorEnabled) {
             rewriteCoordinator.reconcile(state, pendingRewritePlans);
+            refreshPendingRewritePlansAfterReconcile(progressManager);
         }
         if (!drops.isEmpty()) {
             executeFirstCatalogDrop(state, drops.get(0));
@@ -158,6 +159,22 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         if (coordinatorEnabled) {
             applyCoordinatorStatuses(rewriteCoordinator.getExecutionStatuses());
         }
+    }
+
+    private void refreshPendingRewritePlansAfterReconcile(TenantTtlPartitionProgressManager progressManager) {
+        List<PendingRewritePlan> remaining = new ArrayList<>(pendingRewritePlans.size());
+        for (PendingRewritePlan pending : pendingRewritePlans) {
+            ProgressKey key = key(pending.getContext(), pending.getPartitionPlan());
+            TenantTtlScheduleDecision.Decision refreshed = TenantTtlScheduleDecision.decide(
+                    pending.getContext(), pending.getPartitionPlan(), progressManager.get(key).orElse(null),
+                    rewriteCoordinator.isRetryPending(key));
+            if (refreshed.shouldEvaluate()) {
+                remaining.add(pending);
+            } else {
+                updateStatus(pending.getContext(), pending.getPartitionPlan(), PartitionState.IDLE, refreshed, "");
+            }
+        }
+        pendingRewritePlans = Collections.unmodifiableList(remaining);
     }
 
     private void applyCoordinatorStatuses(List<TenantTtlRewriteCoordinator.ExecutionStatus> statuses) {

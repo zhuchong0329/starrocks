@@ -157,9 +157,9 @@ public class TenantTtlEndToEndTest {
         Assertions.assertEquals(SNAPSHOT_TXN_ID, progress.getLastSuccessSnapshotTxnId());
         Assertions.assertEquals(EVALUATION_TIME, progress.getLastSuccessEvaluationTimeEpochSeconds());
         Assertions.assertFalse(coordinator.getActiveTask().isPresent());
-
-        scheduler.scheduleOnce(state);
         Assertions.assertTrue(scheduler.getPendingRewritePlans().isEmpty());
+        Assertions.assertEquals(TenantTtlScheduler.PartitionState.IDLE,
+                scheduler.getPartitionStatus(progress.key()).orElseThrow(AssertionError::new).getState());
     }
 
     private static void assertFrozenRequest(TenantTtlCompactionTask task) {
