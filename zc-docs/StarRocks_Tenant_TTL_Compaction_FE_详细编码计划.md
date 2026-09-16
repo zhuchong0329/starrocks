@@ -946,6 +946,7 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 | FE-TABLE-004 | 018、024、027、028 | 绑定和后续 Rollup guard、只展开 Base Index |
 | FE-TIME-001 | 017、018、022、026 | tenant/recordTimestamp 身份固定及 Unique ID 下发 |
 | FE-TIME-002～005 | 022、023、027、030 | Range/List、时区、有限上界和按分区 fail-closed |
+| FE-TIME-006 | 033 | day date_trunc 自动 List、原始 CAST AST、日历日/DST 边界、CREATE/ALTER 和重启恢复 |
 | FE-DICT-001～002 | 017、018 | 三列 Dictionary 和 Primary Key 源表准入 |
 | FE-DICT-003～007 | 021、029、030 | 旧快照、双路隔离、追平和退避 |
 | FE-DICT-008～009 | 018、020、021 | 对象模型、按需启用和首次完整刷新 |
@@ -1022,3 +1023,15 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 3. 不验证禁用属性 DDL，因为首期没有该语法。
 4. 不回移或验证多 KEY `dictionary_get(..., null_if_not_exist)` 社区修复；本功能三列 Primary Key 策略路径未遇到该问题。
 5. 不验证后续轮次的 DELETE_LIST 分片、KEEP_LIST 超限执行、并发调度、取消协议、Dictionary 分页导出或调度历史接口。
+
+## 18. 第 033 轮：日粒度 date_trunc 自动 List 扩展
+
+新增需求已按 FE-TIME-006 获用户确认；独立于 DDL 生成工具实现和提交。显式 Range 以及其他粒度另议。
+
+实施分为三个步骤，均已完成：
+
+1. **绑定与持久化准入**：`TenantTtlBindingAnalyzer` 精确识别 `date_trunc('day', from_unixtime(recordTimestamp))` 和单层 DATETIME CAST，新增绑定类型，复用显式时区、完整表达式指纹及格式版本 1。测试真实 CREATE/ALTER、单/多列、大小写、CAST、非法表达式、缺失时区、JSON/EditLog、SHOW CREATE 和 metadata-only ALTER。
+2. **保守日边界与评估**：`TenantTtlPartitionBoundResolver` 严格读取 DATETIME 零点，用绑定时区的日历后一天起点作为上界，多值取最大；不可证明时整物理分区 fail-closed。测试 DST、跨月年/闰日、非法类型/日期、NULL、默认/空值、到期前/中/后、四态分流、与旧 `%Y%m%d` 的等价计划，以及完成后的调度抑制。
+3. **集群验收**：全部 Tenant-TTL FE 回归 83 例通过、Checkstyle 0 违规、仅 FE 构建通过；升级现有本地集群且不重启 BE，两张真实单/多列自动 List 表各从 16 行正确清理至 9 行；额外 FE 重启后绑定与自动重建的策略快照恢复，结果保持不变。
+
+生产代码仅改两个类，未修改 BE、通用 Range 解析或写入约束。完整动作、结果、缓存使用注意事项、留存日志和手工 SQL 见《Tenant_TTL_033_date_trunc_实现与复测记录.md》。自动 List 内部空占位分区的聚合 FAIL_CLOSED 展示也在该文档中说明，未在本轮扩大范围修改。

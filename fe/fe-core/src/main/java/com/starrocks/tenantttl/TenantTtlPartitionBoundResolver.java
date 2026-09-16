@@ -119,7 +119,8 @@ public final class TenantTtlPartitionBoundResolver {
                 return resolveRange((RangePartitionInfo) partitionInfo, timeColumn, logicalPartitionId, binding);
             }
             if (TenantTtlBindingAnalyzer.LIST_DIRECT_UNIX_SECONDS.equals(expressionType) ||
-                    TenantTtlBindingAnalyzer.LIST_FROM_UNIXTIME_YYYYMMDD.equals(expressionType)) {
+                    TenantTtlBindingAnalyzer.LIST_FROM_UNIXTIME_YYYYMMDD.equals(expressionType) ||
+                    TenantTtlBindingAnalyzer.LIST_DATE_TRUNC_DAY_FROM_UNIXTIME.equals(expressionType)) {
                 if (!(partitionInfo instanceof ListPartitionInfo)) {
                     return Resolution.unprovable(UnprovableReason.BINDING_MISMATCH,
                             "bound List expression no longer matches partition metadata");
@@ -217,24 +218,30 @@ public final class TenantTtlPartitionBoundResolver {
 
         boolean formattedDate = TenantTtlBindingAnalyzer.LIST_FROM_UNIXTIME_YYYYMMDD.equals(
                 binding.getPartitionExpressionType());
-        ZoneId zone = formattedDate ? requireZone(binding) : null;
+        boolean truncatedDay = TenantTtlBindingAnalyzer.LIST_DATE_TRUNC_DAY_FROM_UNIXTIME.equals(
+                binding.getPartitionExpressionType());
+        ZoneId zone = formattedDate || truncatedDay ? requireZone(binding) : null;
         List<TimeInterval> intervals = new ArrayList<>(timeValues.size());
         for (LiteralExpr value : timeValues) {
             if (value == null || value instanceof NullLiteral) {
                 return Resolution.unprovable(UnprovableReason.NULL_OR_DEFAULT_LIST_VALUE,
                         "List partition time component is NULL or DEFAULT");
             }
-            if (formattedDate) {
-                if (!(value instanceof StringLiteral)) {
-                    return Resolution.unprovable(UnprovableReason.INVALID_BOUND_LITERAL,
-                            "formatted List time component must be an 8-digit string");
-                }
+            if (formattedDate || truncatedDay) {
                 LocalDate date;
-                try {
-                    date = LocalDate.parse(value.getStringValue(), YYYYMMDD);
-                } catch (DateTimeParseException e) {
-                    return Resolution.unprovable(UnprovableReason.INVALID_TIME_ZONE_OR_DATE,
-                            "invalid %Y%m%d List value: " + value.getStringValue());
+                if (truncatedDay) {
+                    date = truncatedDayDate(value);
+                } else {
+                    if (!(value instanceof StringLiteral)) {
+                        return Resolution.unprovable(UnprovableReason.INVALID_BOUND_LITERAL,
+                                "formatted List time component must be an 8-digit string");
+                    }
+                    try {
+                        date = LocalDate.parse(value.getStringValue(), YYYYMMDD);
+                    } catch (DateTimeParseException e) {
+                        return Resolution.unprovable(UnprovableReason.INVALID_TIME_ZONE_OR_DATE,
+                                "invalid %Y%m%d List value: " + value.getStringValue());
+                    }
                 }
                 long lower = date.atStartOfDay(zone).toEpochSecond();
                 long upper = date.plusDays(1).atStartOfDay(zone).toEpochSecond();
@@ -246,6 +253,23 @@ public final class TenantTtlPartitionBoundResolver {
         }
         intervals.sort(Comparator.comparingLong(interval -> interval.getLowerInclusive()));
         return Resolution.provable(intervals);
+    }
+
+    private static LocalDate truncatedDayDate(LiteralExpr literal) {
+        if (!(literal instanceof DateLiteral) || !literal.getType().isDatetime()) {
+            throw new IllegalArgumentException("date_trunc day List time component must be a DATETIME literal");
+        }
+        DateLiteral value = (DateLiteral) literal;
+        if (value.getHour() != 0 || value.getMinute() != 0 || value.getSecond() != 0 ||
+                value.getMicrosecond() != 0) {
+            throw new IllegalArgumentException("date_trunc day List time component must be midnight");
+        }
+        // Validate the stored components without truncation or normalization of malformed metadata.
+        if (value.getYear() < 0 || value.getYear() > 9999) {
+            throw new DateTimeException("date_trunc day List year is outside the DATETIME range");
+        }
+        return LocalDate.of(Math.toIntExact(value.getYear()), Math.toIntExact(value.getMonth()),
+                Math.toIntExact(value.getDay()));
     }
 
     private static long integerBound(LiteralExpr literal) {

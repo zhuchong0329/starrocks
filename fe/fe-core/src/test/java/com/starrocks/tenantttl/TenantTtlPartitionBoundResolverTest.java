@@ -165,6 +165,97 @@ public class TenantTtlPartitionBoundResolverTest {
     }
 
     @Test
+    public void testDateTruncDayCalendarBoundsMatchFormattedDates() throws Exception {
+        Column timeColumn = new Column("recordTimestamp", Type.BIGINT, false);
+        ListPartitionInfo truncated = listInfo(Collections.singletonList(new Column("day", Type.DATETIME, false)));
+        ListPartitionInfo formatted = listInfo(Collections.singletonList(new Column("day", Type.VARCHAR, false)));
+        String[] dates = {"2024-03-10", "2024-11-03", "2024-02-29", "2024-12-31", "2024-04-30"};
+        long[] hours = {23, 25, 24, 24, 24};
+        for (int i = 0; i < dates.length; i++) {
+            truncated.setDirectLiteralExprValues(PARTITION_ID,
+                    Collections.singletonList(new DateLiteral(dates[i] + " 00:00:00", Type.DATETIME)));
+            formatted.setDirectLiteralExprValues(PARTITION_ID,
+                    Collections.singletonList(new StringLiteral(dates[i].replace("-", ""))));
+            TenantTtlPartitionBoundResolver.Resolution result = resolve(truncated, timeColumn,
+                    TenantTtlBindingAnalyzer.LIST_DATE_TRUNC_DAY_FROM_UNIXTIME, 0, "America/Los_Angeles");
+            Assertions.assertTrue(result.isProvable());
+            TenantTtlPartitionBoundResolver.TimeInterval interval = result.getIntervals().get(0);
+            Assertions.assertEquals(hours[i] * 3600, interval.getUpperExclusive() - interval.getLowerInclusive());
+            Assertions.assertEquals(LocalDate.parse(dates[i]).plusDays(1)
+                            .atStartOfDay(ZoneId.of("America/Los_Angeles")).toEpochSecond(),
+                    result.getPartitionUpperEpochSecond());
+            TenantTtlPartitionBoundResolver.Resolution old = resolve(formatted, timeColumn,
+                    TenantTtlBindingAnalyzer.LIST_FROM_UNIXTIME_YYYYMMDD, 0, "America/Los_Angeles");
+            Assertions.assertEquals(old.getPartitionUpperEpochSecond(), result.getPartitionUpperEpochSecond());
+            Assertions.assertEquals(old.getIntervals().get(0).getLowerInclusive(), interval.getLowerInclusive());
+        }
+    }
+
+    @Test
+    public void testDateTruncMultiListMaxUpperAndInvalidTupleFailClosed() throws Exception {
+        Column timeColumn = new Column("recordTimestamp", Type.BIGINT, false);
+        ListPartitionInfo info = listInfo(Arrays.asList(new Column("bucket", Type.INT, false),
+                new Column("day", Type.DATETIME, false)));
+        List<LiteralExpr> later = Arrays.asList(new IntLiteral(1), new DateLiteral("2024-03-02", Type.DATETIME));
+        List<LiteralExpr> earlier = Arrays.asList(new IntLiteral(63), new DateLiteral("2024-02-29", Type.DATETIME));
+        info.setDirectMultiLiteralExprValues(PARTITION_ID, Arrays.asList(later, earlier));
+        TenantTtlPartitionBoundResolver.Resolution result = resolve(info, timeColumn,
+                TenantTtlBindingAnalyzer.LIST_DATE_TRUNC_DAY_FROM_UNIXTIME, 1, "Asia/Shanghai");
+        Assertions.assertTrue(result.isProvable());
+        Assertions.assertEquals(2, result.getIntervals().size());
+        Assertions.assertEquals(LocalDate.of(2024, 3, 3).atStartOfDay(ZoneId.of("Asia/Shanghai")).toEpochSecond(),
+                result.getPartitionUpperEpochSecond());
+        info.setDirectMultiLiteralExprValues(PARTITION_ID, Arrays.asList(later,
+                Arrays.asList(new IntLiteral(63), new DateLiteral("2024-02-29 12:00:00", Type.DATETIME))));
+        assertUnprovable(resolve(info, timeColumn,
+                        TenantTtlBindingAnalyzer.LIST_DATE_TRUNC_DAY_FROM_UNIXTIME, 1, "Asia/Shanghai"),
+                TenantTtlPartitionBoundResolver.UnprovableReason.INVALID_BOUND_LITERAL);
+        info.setDirectMultiLiteralExprValues(PARTITION_ID, Arrays.asList(later, Collections.singletonList(new IntLiteral(1))));
+        assertUnprovable(resolve(info, timeColumn,
+                        TenantTtlBindingAnalyzer.LIST_DATE_TRUNC_DAY_FROM_UNIXTIME, 1, "Asia/Shanghai"),
+                TenantTtlPartitionBoundResolver.UnprovableReason.TUPLE_ARITY_MISMATCH);
+    }
+
+    @Test
+    public void testDateTruncRejectsNonMidnightWrongTypesNullAndMalformedDates() throws Exception {
+        Column timeColumn = new Column("recordTimestamp", Type.BIGINT, false);
+        ListPartitionInfo info = listInfo(Collections.singletonList(new Column("day", Type.DATETIME, true)));
+        String type = TenantTtlBindingAnalyzer.LIST_DATE_TRUNC_DAY_FROM_UNIXTIME;
+        assertUnprovable(resolve(info, timeColumn, type, 0, "UTC"),
+                TenantTtlPartitionBoundResolver.UnprovableReason.DEFAULT_OR_MISSING_LIST_VALUES);
+        LiteralExpr[] wrongValues = {
+                new StringLiteral("2024-03-10 00:00:00"), new IntLiteral(20240310),
+                new DateLiteral("2024-03-10", Type.DATE),
+                new DateLiteral("2024-03-10 01:00:00", Type.DATETIME),
+                new DateLiteral("2024-03-10 00:01:00", Type.DATETIME),
+                new DateLiteral("2024-03-10 00:00:01", Type.DATETIME),
+                new DateLiteral(2024, 3, 10, 0, 0, 0, 1)
+        };
+        for (LiteralExpr value : wrongValues) {
+            info.setDirectLiteralExprValues(PARTITION_ID, Arrays.asList(
+                    new DateLiteral("2024-03-09", Type.DATETIME), value));
+            assertUnprovable(resolve(info, timeColumn, type, 0, "UTC"),
+                    TenantTtlPartitionBoundResolver.UnprovableReason.INVALID_BOUND_LITERAL);
+        }
+        info.setDirectLiteralExprValues(PARTITION_ID, Collections.singletonList(NullLiteral.create(Type.DATETIME)));
+        assertUnprovable(resolve(info, timeColumn, type, 0, "UTC"),
+                TenantTtlPartitionBoundResolver.UnprovableReason.NULL_OR_DEFAULT_LIST_VALUE);
+        info.setDirectLiteralExprValues(PARTITION_ID, Collections.emptyList());
+        assertUnprovable(resolve(info, timeColumn, type, 0, "UTC"),
+                TenantTtlPartitionBoundResolver.UnprovableReason.DEFAULT_OR_MISSING_LIST_VALUES);
+        for (DateLiteral invalid : Arrays.asList(new DateLiteral(2024, 2, 30, 0, 0, 0, 0),
+                new DateLiteral(10000, 1, 1, 0, 0, 0, 0), new DateLiteral(2024, 0, 1, 0, 0, 0, 0))) {
+            info.setDirectLiteralExprValues(PARTITION_ID, Collections.singletonList(invalid));
+            assertUnprovable(resolve(info, timeColumn, type, 0, "UTC"),
+                    TenantTtlPartitionBoundResolver.UnprovableReason.INVALID_TIME_ZONE_OR_DATE);
+        }
+        info.setDirectLiteralExprValues(PARTITION_ID,
+                Collections.singletonList(new DateLiteral("2024-03-10", Type.DATETIME)));
+        assertUnprovable(resolve(info, timeColumn, type, 0, "Invalid/Zone"),
+                TenantTtlPartitionBoundResolver.UnprovableReason.INVALID_TIME_ZONE_OR_DATE);
+    }
+
+    @Test
     public void testNullDefaultAndMissingListValuesFailClosed() {
         Column timeColumn = new Column("recordTimestamp", Type.BIGINT, false);
         ListPartitionInfo listInfo = listInfo(Collections.singletonList(timeColumn));

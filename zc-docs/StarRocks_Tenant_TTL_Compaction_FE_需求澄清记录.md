@@ -6,9 +6,11 @@
 
 建立日期：2026-09-10
 
-当前阶段：FE 需求澄清
+当前阶段：FE 第 033 轮实现、自测与本地集群升级已完成（日粒度 `date_trunc` 自动 List 分区）
 
-文档状态：持续追加，本版仅包含已确认结论
+文档状态：持续追加；已确认契约与明确标注的待确认扩展分开记录，待确认方案不得作为实施依据。
+
+最近补充：2026-09-16，FE-TIME-006 已完成独立实现，83 个 Tenant-TTL FE 用例通过，真实 CREATE/ALTER、四态清理和 FE 重启恢复验证通过；显式 Range 及其他粒度仍另议。
 
 ## 1. 文档范围与结论优先级
 
@@ -147,6 +149,8 @@
 4. 只要分区元数据能给出有限、可转换的上界，Range 粒度可以是秒、分钟、小时、天或任意不等宽的有限区间；首期不强制固定日分区。
 5. FE 使用 Catalog 中的半开区间 `[partition_lower, partition_upper)`，不根据分区名称或预期粒度重建边界。
 
+2026-09-16 补充：外层 `date_trunc` 的自动 List 扩展已按 FE-TIME-006 确认；本条显式 Range 的支持范围不变。
+
 ### FE-TIME-003：首期 List 分区范围与边界证明
 
 状态：已确认
@@ -172,6 +176,7 @@
 6. 日期 `d` 在绑定时区下转换为 `[d.atStartOfDay(zone), d.plusDays(1).atStartOfDay(zone))`。不使用 `lower + 86400` 构造日粒度上界，以正确处理夏令时的 23/25 小时日界。
 7. 一个物理分区包含多个 List 值或 tuple 时，FE 为每个时间值生成区间并保留完整区间集；当前过期证明使用所有区间上界的最大值作为 `partition_upper`。日期之间存在空洞时也只会保守地推迟删除，不会误删。
 8. 只有 `partition_upper <= evaluation_time - retention_days * 86400` 时，FE 才能认定该 tenant 在整个 List 分区中已过期。
+9. 第 033 轮增加 `date_trunc('day', from_unixtime(recordTimestamp))` 自动 List，精确表达式及 DATETIME 值的完整日区间证明按 FE-TIME-006 执行。
 
 ### FE-TIME-004：声明式分区时区
 
@@ -201,6 +206,94 @@
 3. List `DEFAULT` 分区、时间分量为 NULL、非法 `%Y%m%d`、tuple 元素数不匹配、整数区间溢出，或同一物理分区的任意时间值无法解释时，跳过整个物理分区。
 4. 表级分区表达式已通过准入校验后，个别分区的不可证明性不会使整张表的绑定失败；其他具有有限可信上界的分区继续评估。
 5. 当前所有分区均无法证明或表尚无分区时，DDL 仍可成功；这表示当前没有可执行分区，不表示 Dictionary 绑定未生效。
+
+### FE-TIME-006：外层 `date_trunc` 分区绑定扩展
+
+状态：已确认（2026-09-16）。用户已确认显式 Range 另议、完整日区间/DST/多值最大上界/fail-closed 语义，以及其余实现与验收安排，并授权开始编码。
+
+核查日期：2026-09-16。核查代码为主库 `28bfc090f`（第 032 轮之后）。主库补齐应作为独立 Tenant-TTL 实现轮次，不混入 DDL 生成工具的提交。
+
+#### 已核实的问题与原需求关系
+
+1. `TenantTtlBindingAnalyzer.analyzePartition()` 当前只有四类绑定：`RANGE_DIRECT_UNIX_SECONDS`、`RANGE_FROM_UNIXTIME`、`LIST_DIRECT_UNIX_SECONDS`、`LIST_FROM_UNIXTIME_YYYYMMDD`。Range 的匹配只允许直接时间列或一层 DATETIME CAST 下的 `from_unixtime(recordTimestamp)`；List 的函数形式只允许精确的 `from_unixtime(recordTimestamp, '%Y%m%d')`。
+2. `date_trunc('day', from_unixtime(recordTimestamp))` 不匹配任何上述函数分支。进入 List 绑定分析时会被当作不支持的非普通列分量而拒绝；即使仅放宽绑定，`TenantTtlPartitionBoundResolver` 仍没有对应的类型分流和 DATETIME List 值到完整时间桶的转换。
+3. FE-TIME-002 原本明确排除 `date_trunc`，FE-TIME-003 也只接受直接 Unix 秒及 `%Y%m%d`。因此本项是新增表达式支持需求，不应将原实现描述为遗漏了已经确认的 `date_trunc` 支持。
+4. CREATE 绑定和对既有表执行 ALTER 绑定共用上述分析器，修改工具生成的 DDL 不能单独补齐主库能力。调度创建评估上下文和运行状态检查也会重新校验持久化表布局，必须覆盖完整绑定生命周期。
+
+主要核查位置：
+
+- `fe/fe-core/src/main/java/com/starrocks/catalog/TenantTtlBindingAnalyzer.java`：`analyzePartition()`、`isRangeFromUnixTime()`、`isListFromUnixTime()`、`isFromUnixTime()`。
+- `fe/fe-core/src/main/java/com/starrocks/tenantttl/TenantTtlPartitionBoundResolver.java`：`resolve()`、`resolveList()`。
+- `fe/fe-core/src/main/java/com/starrocks/sql/parser/AstBuilder.java`：`getPartitionDesc()`、`checkAndExtractPartitionColForRange()`。
+- `fe/fe-core/src/main/java/com/starrocks/sql/analyzer/AnalyzerUtils.java`：`checkAndExtractPartitionCol()`。
+- `fe/fe-core/src/main/java/com/starrocks/catalog/ListPartitionInfo.java`：`getPartitionExprs()` 会还原内部生成列的原始分区表达式。
+
+#### 本次进程内验证结果
+
+复用 `starrocks-tenant-ttl-e2e` 容器内现有已编译 FE 类，调用 `SqlParser.parseSingleStatement()` 以及现有 Range/List 匹配方法。已核对容器和主库的绑定分析器、解析器 `AstBuilder`、边界推导器三个源码文件 SHA-256 一致；没有启动编译，没有向运行中的数据库执行建表、写入或删除。
+
+| 验证输入 | 实测结果 |
+| --- | --- |
+| `PARTITION BY from_unixtime(recordTimestamp, '%Y%m%d')` | 解析为 `ListPartitionDesc` |
+| `PARTITION BY date_trunc('day', from_unixtime(recordTimestamp))` | 解析为 `ListPartitionDesc` |
+| `PARTITION BY (tenant, date_trunc('day', from_unixtime(recordTimestamp)))` | 解析为 `ListPartitionDesc` |
+| `PARTITION BY RANGE(date_trunc('day', from_unixtime(recordTimestamp))) (...)` | 通用解析器报 `Unsupported expr ... in PARTITION BY clause` |
+| 现有匹配方法检查 `from_unixtime(recordTimestamp)` | Range 匹配为 true、List 为 false |
+| 现有匹配方法检查 `from_unixtime(recordTimestamp, '%Y%m%d')` | Range 匹配为 false、List 为 true |
+| 现有匹配方法检查 `date_trunc('day', from_unixtime(recordTimestamp))` | Range/List 均为 false |
+| 现有匹配方法检查 `date_trunc('day', CAST(from_unixtime(recordTimestamp) AS DATETIME))` | Range/List 均为 false |
+
+自动分区语法的外层 `date_trunc` 只有在满足通用解析器的简单表达式条件时才走表达式 Range；第二个参数为嵌套 `from_unixtime` 时不满足该条件，当前解析器回退为基于内部生成列的自动 List。不能仅根据 SQL 含有 `date_trunc` 就断言该表是 Range 分区。
+
+上述结果验证了解析分流与现有匹配缺口，不代表已完成完整 CREATE/ALTER、实际写入或 Tenant-TTL 删除的端到端测试；这些是后续实现的验收项。
+
+#### 已确认支持范围
+
+1. 本轮先支持日粒度自动 List 的以下两种形式：
+
+   ```sql
+   PARTITION BY date_trunc('day', from_unixtime(recordTimestamp))
+
+   PARTITION BY (
+       tenant_bucket,
+       date_trunc('day', from_unixtime(recordTimestamp))
+   )
+   ```
+
+2. 时间源仍固定为当前绑定身份的 `recordTimestamp BIGINT` Unix 秒。时间分量恰好一个；多表达式 List 的其余分量仍只能为普通列引用。`day` 必须为字符串字面量，大小写规范化后匹配。
+3. 精确识别上述 AST，以及 `date_trunc` 时间参数中将无格式参数的 `from_unixtime(recordTimestamp)` 转为 DATETIME 的等价 CAST 形态。不得通用地剥离任意 CAST、算术或嵌套函数；带格式参数的 `from_unixtime`、`recordTimestamp / 1000`、其他时间列及额外函数包装继续拒绝。
+4. 新增专用绑定类型 `LIST_DATE_TRUNC_DAY_FROM_UNIXTIME`，复用现有 `TenantTtlTableBinding` 字段记录时间列身份、时间分量下标、规范化时区和完整表达式指纹。仅支持 day 时，粒度已包含在类型中，无需新建独立粒度属性。既有四类绑定的类型值和语义保持不变。
+5. 继续要求显式 `compaction_retention_time_zone`，并复用与 `dynamic_partition.time_zone` 一致性校验。继续采用 FE-TIME-004 的管理员声明语义，不修改写入路径或增加写入时区限制。
+6. 本轮不扩展通用 Range 分区语法。显式 `RANGE(date_trunc(...))`、小时/月/年等其他粒度、普通 DATE/DATETIME 源列和任意嵌套表达式需要另行明确范围与证明规则。若工具必须输出显式 Range，需先重新对齐该诉求，不能把自动 List 支持当作 Range 支持交付。
+7. 普通建表路径自动生成的分区列沿用 StarRocks 既有行为；Tenant-TTL 不新增 `retentionDays` 或 `expire_at` 列。对已经采用目标表达式的表，ALTER 绑定仍只修改元数据，不拷贝数据、不变更物理分区、不触发 Schema Change。
+
+#### 时间上界证明和错误处理
+
+1. List 中的 `date_trunc('day', ...)` 结果表示一个完整的本地日，不是一个 Unix 秒点。元数据时间值必须是可严格解释的 DATETIME 日起点，时分秒及小数秒均为零；非日起点、NULL、DEFAULT、非法日期或元数据类型不符均令该物理分区 fail-closed，不能向下取整修复非法值。
+2. 对本地日期 `d`，按绑定时区生成 `[d.atStartOfDay(zone), d.plusDays(1).atStartOfDay(zone))`。使用日历加一天，不使用固定 `86400` 秒计算日界，以覆盖 DST、跨月、跨年和闰日。
+   日历运算仅用于解释分区覆盖范围；TTL 保留时长仍为 `retention_days * 86400` 秒。极少数时区在零点跳时，日期起点取 `atStartOfDay(zone)` 返回的首个有效时刻。
+3. 一个物理分区含多个 List 值/tuple 时，逐个推导时间区间，并取所有区间上界的最大值；其中任一时间值不可证明，就跳过整个物理分区。
+4. 继续使用既有过期判据 `partition_upper <= evaluation_time - retention_days * 86400`。例如分区值为 `2026-09-01 00:00:00`，上界应为绑定时区的 `2026-09-02 00:00:00`；不得把 9 月 1 日零点作为上界，否则会提前删除尚未整体过期的 tenant 数据。
+5. 表级表达式不受支持时 CREATE/ALTER 拒绝；表达式合法但个别分区数据不可证明时，绑定允许成功，运行时仅跳过该分区，遵循 FE-DDL-002/003 和 FE-TIME-005。
+6. 将新表达式类型和完整表达式指纹纳入原有绑定、重放、运行时复核与任务指纹链路。FE 仍只向 BE 发送固定 tenant 名单与既有水位，BE 的请求协议、精确过滤和 Rowset Rewrite 契约不变。
+
+#### 实现与验收安排
+
+1. 绑定分析：在 `TenantTtlBindingAnalyzer` 增加精确的日粒度匹配，覆盖实际 Catalog 还原出的生成列表达式；拒绝其他粒度、非字面量、错误时间列、非等价 CAST、重复时间分量及非法非时间分量。
+2. 边界推导：在 `TenantTtlPartitionBoundResolver` 增加新类型的 DATETIME List 值校验和日区间展开，保留既有 fail-closed、最大上界和精确算术规则。不能只改准入白名单。
+3. 持久化和 DDL 测试：补充 `TenantTtlBindingDdlTest`，覆盖 CREATE 绑定、先建表再 ALTER、单/多表达式、大小写及 CAST 等价形态、时区缺失/不一致、错误绑定无部分提交；验证 SHOW CREATE、JSON/EditLog round-trip 和旧绑定兼容。
+4. 边界与调度测试：补充 `TenantTtlPartitionBoundResolverTest` 及评估/调度测试，覆盖午夜边界前后、DST 23/25 小时日、闰日、跨月年、多 tuple 最大上界、NULL/非法值；对比已有 `%Y%m%d` 日分区在同一时区、日期和策略下得到相同的有效上界及 TTL 计划。
+5. 端到端测试：使用独立测试表，经真实 CREATE/ALTER 和写入确认 Catalog 实际为 List，验证 FE NOOP、部分 tenant Rewrite、整分区 DROP、重启/回放后重新识别，以及 ALTER 不触发数据复制或 Schema Change。输出可用 MySQL client 手动复测的动作和结果。
+6. 本项已确认，按第 033 轮实施代码与回归测试；主库补齐使用独立 Tenant-TTL 轮次提交，测试记录只报告实际执行结果。DDL 生成工具的修改和提交独立处理。
+7. 用户追加确认：功能完成并自测通过后，将保留的本地 StarRocks 测试集群升级到本轮版本，保留集群数据及可复用构建缓存。本轮仅改 FE，复用现有 BE。
+
+#### 第 033 轮实施结果
+
+1. 已实现上述新绑定类型及严格日边界推导；单/多表达式、原始 AST 中的显式 DATETIME CAST、CREATE/ALTER 及持久化恢复均已验证。没有修改通用分区解析、写入路径或 BE 契约。
+2. 83 个 Tenant-TTL FE 用例全部通过，Checkstyle 0 违规，FE 打包成功。真实两张单/多列测试表各从 16 行变为 9 行，分别验证 NOOP、DELETE_LIST、KEEP_LIST 和 Catalog DROP。
+3. 既有本地集群已只升级 FE，保留 BE 及原数据，并完成额外一次 FE 重启恢复测试；引用 Dictionary 自动刷新并重建策略快照，无需手动 REFRESH。
+4. 自动 List 的内部空占位分区沿用缺失 List 值的 fail-closed 规则，会令聚合 SchedulerState 显示 FAIL_CLOSED，但不影响其他可证明分区的清理。本轮没有擅自放宽该规则。
+5. 实际命令、输出、已测/未测范围和可复制 SQL 见《Tenant_TTL_033_date_trunc_实现与复测记录.md》及配套 `tenant_ttl_round033_setup.sql`、`tenant_ttl_round033_verify.sql`。
 
 ## 4. 三列 TTL 策略表与 Dictionary
 
@@ -846,7 +939,7 @@ Dictionary 对象存在且结构合法，但暂无成功快照时，允许 DDL �
 5. 不存在 `recordTimestamp`，该列不是 `BIGINT`，或已解析的时间分区表达式并非引用当前该列。
 6. 表未分区，分区类型不是受支持的 Range/List，或表级分区表达式超出 FE-TIME-002/003 的首期范围。
 7. Range 使用多列、多时间分量、任意嵌套函数或不支持的时间函数。
-8. List 没有受支持的时间分量、包含多个时间分量、使用非精确 `from_unixtime(recordTimestamp, '%Y%m%d')` 的时间函数，或其他分量不是普通列引用。
+8. List 没有受支持的时间分量、包含多个时间分量、使用 FE-TIME-003/006 之外的时间函数，或其他分量不是普通列引用。
 9. 表存在查询可见的非 Base Rollup Index 或同步物化索引，或者正处于其创建、转换或删除过程。
 
 #### 时区错误
@@ -1325,6 +1418,7 @@ FAIL_CLOSED
 | FE-TIME-001 | 业务列固定为 `tenant VARCHAR` 和 Unix 秒 `recordTimestamp BIGINT`，绑定列 ID/Unique ID 使用 | 已确认 |
 | FE-TIME-002 | Range 支持直接 Unix 秒和 `from_unixtime(recordTimestamp)`，任意有限粒度均按 Catalog 半开区间证明 | 已确认 |
 | FE-TIME-003 | List 支持直接 Unix 秒及单/多表达式 `from_unixtime(recordTimestamp, '%Y%m%d')`，以所有值的最大上界证明整体过期 | 已确认 |
+| FE-TIME-006 | 日粒度 `date_trunc('day', from_unixtime(recordTimestamp))` 自动 List 及等价 DATETIME CAST；日历日边界、最大上界、异常分区 fail-closed；显式 Range 另议 | 已确认 |
 | FE-TIME-004 | `compaction_retention_time_zone` 是显式、声明式分区语义；不从会话推导，不修改或限制任何写入流程 | 已确认 |
 | FE-TIME-005 | `MAXVALUE`/`DEFAULT`/NULL/非法值等无法证明边界按物理分区跳过，不阻止其他分区 | 已确认 |
 | FE-DICT-001 | 策略表固定为 `tenant, table_name, retention_days` 三列 | 已确认 |
@@ -1382,3 +1476,4 @@ FAIL_CLOSED
 2. 新增或重启 BE/CN 时的 Dictionary Cache 补齐方式，以及它与 FE 策略快照水位的关系。
 3. `SHOW TENANT TTL STATUS` 的权限模型、输出列类型、NULL/零值忽略计数展示、时间分区绑定与可证明分区计数、错误码和完整语法细节。
 4. Tenant-TTL 评估历史、最近调度、最近 Compaction 结果和分区级执行进度的查看接口。
+5. 显式 `RANGE(date_trunc(...))`、其他截断粒度和 DATE/DATETIME 源列的扩展范围及证明规则。FE-TIME-006 仅覆盖已确认的日粒度自动 List。

@@ -41,6 +41,7 @@ public final class TenantTtlBindingAnalyzer {
     public static final String RANGE_FROM_UNIXTIME = "RANGE_FROM_UNIXTIME";
     public static final String LIST_DIRECT_UNIX_SECONDS = "LIST_DIRECT_UNIX_SECONDS";
     public static final String LIST_FROM_UNIXTIME_YYYYMMDD = "LIST_FROM_UNIXTIME_YYYYMMDD";
+    public static final String LIST_DATE_TRUNC_DAY_FROM_UNIXTIME = "LIST_DATE_TRUNC_DAY_FROM_UNIXTIME";
 
     private static final String LIST_DATE_FORMAT = "%Y%m%d";
 
@@ -175,6 +176,8 @@ public final class TenantTtlBindingAnalyzer {
                     currentType = LIST_DIRECT_UNIX_SECONDS;
                 } else if (isListFromUnixTime(expression, timeColumn)) {
                     currentType = LIST_FROM_UNIXTIME_YYYYMMDD;
+                } else if (isListDateTruncDayFromUnixTime(expression, timeColumn)) {
+                    currentType = LIST_DATE_TRUNC_DAY_FROM_UNIXTIME;
                 } else if (!(expression instanceof SlotRef)) {
                     throw new DdlException("Tenant-TTL List non-time components must be plain column references: " +
                             expression.toSql());
@@ -191,7 +194,8 @@ public final class TenantTtlBindingAnalyzer {
                 throw new DdlException("Tenant-TTL List partition must contain a supported recordTimestamp component");
             }
             return new PartitionBinding(expressionType, timeComponentIndex,
-                    LIST_FROM_UNIXTIME_YYYYMMDD.equals(expressionType), fingerprint(expressions));
+                    LIST_FROM_UNIXTIME_YYYYMMDD.equals(expressionType) ||
+                            LIST_DATE_TRUNC_DAY_FROM_UNIXTIME.equals(expressionType), fingerprint(expressions));
         }
         throw new DdlException("Tenant-TTL only supports Range or List partitioning");
     }
@@ -224,6 +228,31 @@ public final class TenantTtlBindingAnalyzer {
 
     private static boolean isListFromUnixTime(Expr expression, Column timeColumn) {
         return isFromUnixTime(expression, timeColumn, true);
+    }
+
+    private static boolean isListDateTruncDayFromUnixTime(Expr expression, Column timeColumn) {
+        if (!(expression instanceof FunctionCallExpr)) {
+            return false;
+        }
+        FunctionCallExpr function = (FunctionCallExpr) expression;
+        if (function.getFnName().getDb() != null ||
+                !FunctionSet.DATE_TRUNC.equalsIgnoreCase(function.getFnName().getFunction()) ||
+                function.getChildren().size() != 2 || !(function.getChild(0) instanceof StringLiteral) ||
+                !"day".equalsIgnoreCase(((StringLiteral) function.getChild(0)).getStringValue())) {
+            return false;
+        }
+        // Generated partition columns retain the original, unanalyzed expression. An explicit CAST
+        // carries its target in TypeDef, whereas an implicit/analyzed cast has its resolved Type.
+        Expr candidate = function.getChild(1);
+        if (candidate instanceof CastExpr) {
+            CastExpr cast = (CastExpr) candidate;
+            Type target = cast.getTargetTypeDef() == null ? cast.getType() : cast.getTargetTypeDef().getType();
+            if (!target.isDatetime()) {
+                return false;
+            }
+            candidate = cast.getChild(0);
+        }
+        return isFromUnixTime(candidate, timeColumn, false);
     }
 
     private static boolean isFromUnixTime(Expr expression, Column timeColumn, boolean requireDateFormat) {

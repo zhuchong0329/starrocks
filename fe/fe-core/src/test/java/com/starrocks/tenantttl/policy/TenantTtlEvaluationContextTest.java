@@ -38,6 +38,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -91,6 +93,82 @@ public class TenantTtlEvaluationContextTest {
         db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(DB_NAME);
         table = (OlapTable) db.getTable(TABLE_NAME);
         snapshot = snapshot(SNAPSHOT_TXN_ID, 30, 365);
+    }
+
+    @Test
+    public void testDateTruncDayExpiryBoundariesAndEquivalentFormattedPlans() throws Exception {
+        StarRocksAssert ddl = new StarRocksAssert(UtFrameUtils.createDefaultCtx()).useDatabase(DB_NAME);
+        String[] expressions = {"date_trunc('day', from_unixtime(recordTimestamp))",
+                "from_unixtime(recordTimestamp, '%Y%m%d')"};
+        String[] values = {"2024-03-10 00:00:00", "20240310"};
+        OlapTable[] tables = new OlapTable[2];
+        for (int i = 0; i < expressions.length; i++) {
+            String name = "day_expiry_" + i;
+            ddl.withTable("CREATE TABLE " + name + " (tenant VARCHAR(128) NULL, recordTimestamp BIGINT NOT NULL) " +
+                    "DUPLICATE KEY(tenant, recordTimestamp) PARTITION BY " + expressions[i] +
+                    " DISTRIBUTED BY HASH(tenant) BUCKETS 1 PROPERTIES('replication_num' = '1', " +
+                    "'compaction_retention_condition' = \"dictionary_ttl('" + DICTIONARY_NAME + "', '" +
+                    TABLE_KEY + "', 180)\", 'compaction_retention_time_zone' = 'America/Los_Angeles')");
+            ddl.alterTable("ALTER TABLE " + name + " ADD PARTITION p0 VALUES IN ('" + values[i] + "')");
+            tables[i] = (OlapTable) db.getTable(name);
+        }
+        long upper = LocalDate.of(2024, 3, 11).atStartOfDay(ZoneId.of("America/Los_Angeles")).toEpochSecond();
+        long[] offsets = {30L * 86400 - 1, 30L * 86400, 30L * 86400 + 1, 180L * 86400, 365L * 86400};
+        TenantTtlPolicyPlanner.PlanType[] types = {TenantTtlPolicyPlanner.PlanType.FE_NOOP,
+                TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE, TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE,
+                TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE, TenantTtlPolicyPlanner.PlanType.DROP_LOGICAL_PARTITION};
+        AtomicLong taskIds = new AtomicLong(20000);
+        TenantTtlEvaluationContext atExpiry = null;
+        TenantTtlEvaluationContext.PartitionPlan atExpiryPlan = null;
+        for (int i = 0; i < offsets.length; i++) {
+            long evaluationTime = upper + offsets[i];
+            TenantTtlEvaluationContext.PartitionPlan first = null;
+            for (OlapTable dayTable : tables) {
+                TenantTtlEvaluationContext.CaptureResult captured = TenantTtlEvaluationContext.captureLocked(
+                        db, dayTable, snapshot, () -> evaluationTime, taskIds::incrementAndGet);
+                Assertions.assertTrue(captured.isSuccess(), captured.getDetail());
+                TenantTtlEvaluationContext context = captured.getContext();
+                TenantTtlEvaluationContext.PartitionPlan plan = context.getPartitionPlans().stream()
+                        .filter(p -> p.getPhysicalPartitionId() ==
+                                dayTable.getPartition("p0").getDefaultPhysicalPartition().getId())
+                        .findFirst().orElseThrow(AssertionError::new);
+                // Automatic List tables also contain an empty placeholder partition. Its missing
+                // time values must fail closed without preventing the provable partition's plan.
+                for (TenantTtlEvaluationContext.PartitionPlan other : context.getPartitionPlans()) {
+                    if (other != plan) {
+                        Assertions.assertEquals(TenantTtlPolicyPlanner.PlanType.FAIL_CLOSED, other.getType());
+                        Assertions.assertTrue(other.getReplicaTasks().isEmpty());
+                    }
+                }
+                Assertions.assertEquals(upper, plan.getPartitionUpperEpochSecond());
+                Assertions.assertEquals(types[i], plan.getType());
+                if (plan.getType() == TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE) {
+                    Assertions.assertEquals(i == 3 ? TenantTtlPolicyPlanner.FilterMode.KEEP_LIST :
+                            TenantTtlPolicyPlanner.FilterMode.DELETE_LIST, plan.getPolicyPlan().getFilterMode());
+                    Assertions.assertEquals(Collections.singletonList(TenantTtlByteKey.utf8(i == 3 ?
+                            "tenant_b" : "tenant_a")), plan.getPolicyPlan().getTenants());
+                    Assertions.assertEquals(1, plan.getReplicaTasks().size());
+                } else {
+                    Assertions.assertTrue(plan.getReplicaTasks().isEmpty());
+                }
+                if (first != null) {
+                    Assertions.assertEquals(first.getPolicyPlan().getPlanFingerprint(),
+                            plan.getPolicyPlan().getPlanFingerprint());
+                }
+                first = plan;
+                if (dayTable == tables[0] && i == 1) {
+                    atExpiry = context;
+                    atExpiryPlan = plan;
+                }
+            }
+        }
+        TenantTtlPartitionProgress completed = progress(atExpiry, atExpiryPlan,
+                atExpiryPlan.getPolicyPlan().getCompletedExpiryCursorEpochSeconds(),
+                atExpiryPlan.getObservedVisibleVersion());
+        TenantTtlEvaluationContext nextDay = TenantTtlEvaluationContext.captureLocked(db, tables[0], snapshot,
+                () -> upper + 31L * 86400, taskIds::incrementAndGet).getContext();
+        Assertions.assertFalse(TenantTtlScheduleDecision.decide(nextDay,
+                rewritePlan(nextDay), completed, false).shouldEvaluate());
     }
 
     @Test
