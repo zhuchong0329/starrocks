@@ -51,6 +51,8 @@ message PQueryStatistics {
     repeated NodeExecStatsItemPB node_exec_stats_items = 11;
     optional int64 read_local_cnt = 12;
     optional int64 read_remote_cnt = 13;
+    // Sticky within one execution; not an integrity guarantee for historical cache values.
+    optional bool query_corruption_detected = 14 [default = false];
 }
 
 message QueryStatisticsItemPB {

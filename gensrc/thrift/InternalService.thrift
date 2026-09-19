@@ -390,6 +390,9 @@ struct TQueryOptions {
   215: optional string http_request_host_allowlist_regexp = "";
   216: optional bool http_request_allow_private_in_allowlist = false;
   217: optional bool enable_cache_udaf = false;
+
+  // Only independent local OLAP scan corruption in eligible user SELECTs.
+  218: optional bool enable_query_corruption_tolerance = false;
 }
 
 // A scan range plus the parameters needed to execute that scan.

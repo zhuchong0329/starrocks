@@ -46,6 +46,10 @@ import static java.lang.Runtime.getRuntime;
 
 public class Config extends ConfigBase {
 
+    // Startup-only; snapshotted for supported user-facing local OLAP SELECT queries.
+    @ConfField
+    public static boolean enable_query_corruption_tolerance = false;
+
     /**
      * The max size of one sys log and audit log
      */

@@ -52,7 +52,8 @@
 - 源码挂载：宿主机本 worktree → `/host-workspace`，只读。
 - 卷与容器标签记录 purpose=query-corruption-tolerance、baseline=9559176fab6e2cb885779f1e7b680133d58d6972；卷另标 architecture=arm64。
 - 已检查 GCC 12.3.0、Java 17.0.15、Maven 3.6.3、CMake 3.22.1、ccache、lld、镜像内 thirdparty 目录及 LLVM 静态库。没有确认 clang++ 可用，不假设 Clang 构建已准备好。
-- 新卷当前没有源码或构建树。QCT-001 经批准后才初始化并验证完整依赖。
+- QCT-001 已初始化 /query-corruption-workspace/src、独立 Maven/ccache/logs；FE 构建及 10 项资格测试通过，BE ut_build_Release 首次全量构建中。详见 QCT-001-验收.md，不将构建中写成成功。
+- 容器新增 ninja-build 1.10.1。FE 增量命令必须包含 -Dmaven.clean.skip=true，避免现有 POM 的 initialize/auto-clean 删除编译资产。
 
 初始化布局：`/query-corruption-workspace/src` 为独立源码副本，`cache/ccache`、`cache/maven`、`logs/QCT-NNN`、`runtime`、`test-data` 都在此新卷下。
 

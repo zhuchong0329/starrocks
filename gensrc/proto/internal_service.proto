@@ -95,6 +95,8 @@ message PTransmitChunkParams {
     optional bool is_pipeline_level_shuffle = 10 [default = false];
     // Driver sequences of pipeline level shuffle.
     repeated int32 driver_sequences = 11;
+    // Carries diagnostics with existing data/EOS; never requires a separate acknowledgement.
+    optional bool query_corruption_detected = 12 [default = false];
 };
 
 message PTransmitDataResult {
