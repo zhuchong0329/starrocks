@@ -154,6 +154,11 @@ Status DataStreamMgr::transmit_chunk(const PTransmitChunkParams& request, ::goog
     // request can only be used before calling recvr's add_batch or when request
     // is the last for the sender, because request maybe released after it's batch
     // is consumed by ExchangeNode.
+    // Publish the diagnostic before making this packet's data or EOS visible to consumers.
+    // This also covers pure EOS (e.g. an entirely unreadable JOIN build input).
+    if (request.query_corruption_detected()) {
+        recvr->mark_query_corruption_detected();
+    }
     if (request.has_query_statistics()) {
         recvr->add_sub_plan_statistics(request.query_statistics(), request.sender_id());
     }

@@ -85,6 +85,7 @@ public:
         _query_context->init_mem_tracker(-1, GlobalEnv::GetInstance()->process_mem_tracker());
 
         TQueryOptions query_options;
+        query_options.__set_enable_query_corruption_tolerance(true);
         TQueryGlobals query_globals;
         _runtime_state = std::make_shared<RuntimeState>(_fragment_id, query_options, query_globals, _exec_env);
         _runtime_state->set_query_ctx(_query_context.get());
@@ -256,6 +257,107 @@ TEST_F(ExchangePassThroughTest, recv_closed_2) {
     ASSERT_OK(exchange_sink->set_finishing(_runtime_state.get()));
     _local_stub->finish_rpcs();
     exchange_sink->close(_runtime_state.get());
+}
+
+TEST_F(ExchangePassThroughTest, corruption_is_visible_before_pure_eos_without_attach) {
+    ASSERT_FALSE(_query_context->query_corruption_detected());
+    PTransmitChunkParams request;
+    request.mutable_finst_id()->set_hi(_fragment_id.hi);
+    request.mutable_finst_id()->set_lo(_fragment_id.lo);
+    request.set_node_id(_dest_node_id);
+    request.set_sender_id(0);
+    request.set_be_number(0);
+    request.set_sequence(0);
+    request.set_eos(true);
+    request.set_query_corruption_detected(true);
+    google::protobuf::Closure* done = nullptr;
+    ASSERT_OK(_exec_env->stream_mgr()->transmit_chunk(request, &done));
+    ASSERT_TRUE(_query_context->query_corruption_detected());
+    ASSERT_TRUE(_recvr->is_finished());
+    // No attach_query_ctx or additional health/status request was needed.
+    _recvr->mark_query_corruption_detected();
+    _query_context->set_final_sink();
+    PQueryStatistics result;
+    _query_context->final_query_statistic()->to_pb(&result);
+    ASSERT_TRUE(result.query_corruption_detected());
+}
+
+TEST_F(ExchangePassThroughTest, strict_receiver_does_not_accept_partial_diagnostic) {
+    _runtime_state->_query_options.__set_enable_query_corruption_tolerance(false);
+    TUniqueId other_id;
+    other_id.hi = _fragment_id.hi;
+    other_id.lo = _fragment_id.lo + 1;
+    RowDescriptor row_desc;
+    auto strict = _exec_env->stream_mgr()->create_recvr(_runtime_state.get(), row_desc, other_id, 1, 1,
+                                                        config::exchg_node_buffer_size_bytes, false,
+                                                        std::make_shared<QueryStatisticsRecvr>(), true, 1, false);
+    strict->mark_query_corruption_detected();
+    ASSERT_FALSE(_query_context->query_corruption_detected());
+    strict->close();
+}
+
+TEST_F(ExchangePassThroughTest, every_destination_and_pure_eos_carry_sticky_diagnostic) {
+    class CapturingStub final : public PInternalService_RecoverableStub {
+    public:
+        CapturingStub() : PInternalService_RecoverableStub(butil::EndPoint{}) {}
+        void transmit_chunk(google::protobuf::RpcController*, const PTransmitChunkParams* request,
+                            PTransmitChunkResult* response, google::protobuf::Closure* done) override {
+            packets.emplace_back(*request);
+            Status::OK().to_protobuf(response->mutable_status());
+            pending = done;
+        }
+        void acknowledge() {
+            auto* done = std::exchange(pending, nullptr);
+            if (done != nullptr) {
+                done->Run();
+            }
+        }
+        std::vector<PTransmitChunkParams> packets;
+        google::protobuf::Closure* pending = nullptr;
+    };
+    auto destinations = _destinations;
+    auto second = destinations.front();
+    second.fragment_instance_id.lo++;
+    destinations.push_back(second);
+    auto buffer = std::make_shared<SinkBuffer>(_fragment_context.get(), destinations, false);
+    buffer->incr_sinker(_runtime_state.get());
+    auto stub = std::make_shared<CapturingStub>();
+    // Disables intermediate audit statistics; the independent diagnostic must still arrive.
+    _query_context->set_final_sink();
+    auto send = [&](size_t destination, bool eos) {
+        auto params = std::make_shared<PTransmitChunkParams>();
+        params->set_node_id(0);
+        params->set_sender_id(0);
+        params->set_be_number(0);
+        params->set_eos(eos);
+        TransmitChunkInfo request{destinations[destination].fragment_instance_id, stub, params, {}, 0,
+                                  destinations[destination].brpc_server};
+        ASSERT_OK(buffer->add_request(request));
+        stub->acknowledge(); // Normal RPC completion, not a diagnostic acknowledgement.
+    };
+    send(0, false);
+    ASSERT_FALSE(stub->packets.back().has_query_corruption_detected());
+    _query_context->mark_query_corruption_detected();
+    send(0, false);
+    send(1, false);
+    send(0, true);
+    send(1, true);
+    ASSERT_EQ(5, stub->packets.size());
+    for (size_t i = 1; i < stub->packets.size(); ++i) {
+        ASSERT_TRUE(stub->packets[i].query_corruption_detected());
+        ASSERT_FALSE(stub->packets[i].has_query_statistics());
+    }
+    ASSERT_TRUE(buffer->is_finished());
+    // Existing cancellation/early LIMIT finish must not create a late diagnostic RPC.
+    auto cancelled = std::make_shared<SinkBuffer>(_fragment_context.get(), destinations, false);
+    cancelled->incr_sinker(_runtime_state.get());
+    cancelled->cancel_one_sinker(_runtime_state.get());
+    TransmitChunkInfo ignored{
+            destinations[0].fragment_instance_id, stub, std::make_shared<PTransmitChunkParams>(), {}, 0,
+            destinations[0].brpc_server};
+    ASSERT_OK(cancelled->add_request(ignored));
+    ASSERT_EQ(5, stub->packets.size());
+    ASSERT_TRUE(cancelled->is_finished());
 }
 
 } // namespace starrocks::pipeline

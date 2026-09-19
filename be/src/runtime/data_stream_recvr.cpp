@@ -164,6 +164,10 @@ DataStreamRecvr::DataStreamRecvr(DataStreamMgr* stream_mgr, RuntimeState* runtim
           _instance_profile(runtime_state->runtime_profile_ptr()),
           _query_mem_tracker(runtime_state->query_mem_tracker_ptr()),
           _instance_mem_tracker(runtime_state->instance_mem_tracker_ptr()),
+          _corruption_query_ctx(runtime_state->query_options().enable_query_corruption_tolerance &&
+                                                runtime_state->query_ctx() != nullptr
+                                        ? runtime_state->query_ctx()->weak_from_this()
+                                        : std::weak_ptr<pipeline::QueryContext>()),
           _sub_plan_query_statistics_recvr(std::move(sub_plan_query_statistics_recvr)),
           _is_pipeline(is_pipeline),
           _keep_order(keep_order),
@@ -216,6 +220,12 @@ void DataStreamRecvr::bind_profile(int32_t driver_sequence, const std::shared_pt
 void DataStreamRecvr::attach_query_ctx(pipeline::QueryContext* query_ctx) {
     if (_query_ctx.use_count() == 0) {
         _query_ctx = query_ctx->get_shared_ptr();
+    }
+}
+
+void DataStreamRecvr::mark_query_corruption_detected() {
+    if (auto ctx = _corruption_query_ctx.lock()) {
+        ctx->mark_query_corruption_detected();
     }
 }
 

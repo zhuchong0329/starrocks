@@ -47,6 +47,11 @@ void QueryStatistics::to_pb(PQueryStatistics* statistics) {
     statistics->set_read_local_cnt(read_local_cnt);
     statistics->set_read_remote_cnt(read_remote_cnt);
     statistics->set_transmitted_bytes(transmitted_bytes);
+    if (query_corruption_detected()) {
+        statistics->set_query_corruption_detected(true);
+    } else {
+        statistics->clear_query_corruption_detected();
+    }
     {
         std::lock_guard l(_lock);
         for (const auto& [table_id, stats_item] : _stats_items) {
@@ -100,6 +105,7 @@ void QueryStatistics::clear() {
     read_local_cnt = 0;
     read_remote_cnt = 0;
     transmitted_bytes = 0;
+    _query_corruption_detected = false;
     _stats_items.clear();
     _exec_stats_items.clear();
 }
@@ -151,6 +157,8 @@ void QueryStatistics::add_scan_stats(int64_t scan_rows, int64_t scan_bytes) {
 }
 
 void QueryStatistics::merge(int sender_id, QueryStatistics& other) {
+    // Diagnostics are sticky, unlike consumable delta audit counters.
+    set_query_corruption_detected(other.query_corruption_detected());
     // Make the exchange action atomic
     int64_t scan_rows = other.scan_rows.load();
     if (other.scan_rows.compare_exchange_strong(scan_rows, 0)) {
@@ -212,6 +220,7 @@ void QueryStatistics::merge(int sender_id, QueryStatistics& other) {
 }
 
 void QueryStatistics::merge_pb(const PQueryStatistics& statistics) {
+    set_query_corruption_detected(statistics.query_corruption_detected());
     if (statistics.has_scan_rows()) {
         scan_rows += statistics.scan_rows();
     }

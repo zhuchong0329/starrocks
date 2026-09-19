@@ -81,4 +81,43 @@ TEST_F(QueryStatisticsTest, basic) {
     ASSERT_EQ(s2.get_read_remote_cnt(), 0);
 }
 
+TEST_F(QueryStatisticsTest, corruption_is_optional_and_sticky_not_a_consumed_delta) {
+    QueryStatistics healthy;
+    PQueryStatistics empty;
+    healthy.to_pb(&empty);
+    ASSERT_FALSE(empty.has_query_corruption_detected());
+
+    QueryStatistics damaged;
+    damaged.set_query_corruption_detected(true);
+    damaged.set_query_corruption_detected(false);
+    PQueryStatistics wire;
+    damaged.to_pb(&wire);
+    ASSERT_TRUE(wire.query_corruption_detected());
+
+    QueryStatistics first;
+    QueryStatistics second;
+    first.merge(0, damaged);
+    second.merge(0, damaged);
+    ASSERT_TRUE(first.query_corruption_detected());
+    ASSERT_TRUE(second.query_corruption_detected());
+    first.merge_pb(empty);
+    ASSERT_TRUE(first.query_corruption_detected());
+
+    QueryStatisticsRecvr receiver;
+    receiver.insert(wire, 0);
+    receiver.insert(empty, 0);
+    QueryStatistics aggregate1;
+    QueryStatistics aggregate2;
+    receiver.aggregate(&aggregate1);
+    receiver.aggregate(&aggregate2);
+    ASSERT_TRUE(aggregate1.query_corruption_detected());
+    ASSERT_TRUE(aggregate2.query_corruption_detected());
+    first.clear();
+    ASSERT_FALSE(first.query_corruption_detected());
+    // Reusing a protobuf destination must not leak a previous query's diagnostic.
+    first.to_pb(&wire);
+    ASSERT_FALSE(wire.has_query_corruption_detected());
+    ASSERT_FALSE(wire.query_corruption_detected());
+}
+
 } // namespace starrocks

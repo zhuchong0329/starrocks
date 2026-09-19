@@ -34,6 +34,8 @@ SinkBuffer::SinkBuffer(FragmentContext* fragment_ctx, const std::vector<TPlanFra
           _mem_tracker(fragment_ctx->runtime_state()->instance_mem_tracker()),
           _brpc_timeout_ms(fragment_ctx->runtime_state()->query_options().query_timeout * 1000),
           _is_dest_merge(is_dest_merge),
+          _enable_query_corruption_tolerance(
+                  fragment_ctx->runtime_state()->query_options().enable_query_corruption_tolerance),
           _rpc_http_min_size(fragment_ctx->runtime_state()->get_rpc_http_min_size()),
           _sent_audit_stats_frequency_upper_limit(
                   std::max((int64_t)64, BitUtil::RoundUpToPowerOfTwo(fragment_ctx->total_dop() * 4))) {
@@ -354,6 +356,12 @@ Status SinkBuffer::_try_to_send_rpc(const TUniqueId& instance_id, const std::fun
             }
         }
 
+        // Every actual destination/data/EOS packet must carry the sticky flag after corruption.
+        // Audit statistics are sampled and consumed, so they are not a reliable transport here.
+        if (_enable_query_corruption_tolerance &&
+            _fragment_ctx->runtime_state()->query_ctx()->query_corruption_detected()) {
+            request.params->set_query_corruption_detected(true);
+        }
         *request.params->mutable_finst_id() = context.finst_id;
         request.params->set_sequence(++context.request_seq);
 

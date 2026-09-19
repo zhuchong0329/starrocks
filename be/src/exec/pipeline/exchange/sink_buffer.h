@@ -148,6 +148,7 @@ private:
     MemTracker* const _mem_tracker;
     const int32_t _brpc_timeout_ms;
     const bool _is_dest_merge;
+    const bool _enable_query_corruption_tolerance;
 
     /// Taking into account of efficiency, all the following maps
     /// use int64_t as key, which is the field type of TUniqueId::lo

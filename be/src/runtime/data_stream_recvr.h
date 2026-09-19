@@ -136,6 +136,7 @@ public:
     bool get_encode_level() const { return _encode_level; }
 
     void attach_query_ctx(pipeline::QueryContext* query_ctx);
+    void mark_query_corruption_detected();
     void attach_observer(RuntimeState* state, pipeline::PipelineObserver* observer) {
         _observable.add_observer(state, observer);
     }
@@ -255,6 +256,8 @@ private:
     // used in event scheduler
     // Capture shared_ptr to avoid use-after-free.
     std::weak_ptr<pipeline::QueryContext> _query_ctx;
+    // Immutable, initialized before registration: packets may arrive before operator prepare.
+    const std::weak_ptr<pipeline::QueryContext> _corruption_query_ctx;
     pipeline::Observable _observable;
 
     std::atomic<size_t> _rpc_round_roubin_index = 0;

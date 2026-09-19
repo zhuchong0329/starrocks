@@ -292,6 +292,7 @@ std::shared_ptr<QueryStatistics> QueryContext::final_query_statistic() {
     }
 
     _sub_plan_query_statistics_recvr->aggregate(res.get());
+    res->set_query_corruption_detected(query_corruption_detected());
     return res;
 }
 

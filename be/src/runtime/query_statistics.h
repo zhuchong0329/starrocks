@@ -52,6 +52,12 @@ public:
     QueryStatistics() = default;
 
     void set_returned_rows(int64_t num_rows) { this->returned_rows = num_rows; }
+    void set_query_corruption_detected(bool detected) {
+        if (detected) {
+            _query_corruption_detected.store(true, std::memory_order_relaxed);
+        }
+    }
+    bool query_corruption_detected() const { return _query_corruption_detected.load(std::memory_order_relaxed); }
 
     void add_stats_item(QueryStatisticsItemPB& stats_item);
     void add_exec_stats_item(uint32_t node_id, int64_t push, int64_t pull, int64_t pred_filter, int64_t index_filter,
@@ -99,6 +105,7 @@ private:
     // number rows returned by query.
     // only set once by result sink when closing.
     int64_t returned_rows{0};
+    std::atomic<bool> _query_corruption_detected{false};
     struct ScanStats {
         ScanStats(int64_t rows, int64_t bytes) : scan_rows(rows), scan_bytes(bytes) {}
         int64_t scan_rows = 0;
