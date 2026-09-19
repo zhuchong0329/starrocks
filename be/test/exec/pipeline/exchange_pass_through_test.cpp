@@ -14,6 +14,8 @@
 
 #include <gtest/gtest.h>
 
+#include <deque>
+
 #include "exec/pipeline/exchange/exchange_sink_operator.h"
 #include "exec/pipeline/fragment_context.h"
 #include "gen_cpp/DataSinks_types.h"
@@ -46,6 +48,33 @@ public:
 
 class ExchangePassThroughTest : public ::testing::Test {
 public:
+    // Pass-through still sends RPC metadata. This fixture has no listening BE;
+    // route that metadata through the real manager and complete callbacks only
+    // after SinkBuffer releases its send lock, matching asynchronous RPC completion.
+    class LocalStub final : public PInternalService_RecoverableStub {
+    public:
+        LocalStub() : PInternalService_RecoverableStub(butil::EndPoint{}) {}
+        void transmit_chunk(google::protobuf::RpcController*, const PTransmitChunkParams* request,
+                            PTransmitChunkResult* response, google::protobuf::Closure* done) override {
+            Status::OK().to_protobuf(response->mutable_status());
+            auto status = ExecEnv::GetInstance()->stream_mgr()->transmit_chunk(*request, &done);
+            if (!status.ok()) {
+                status.to_protobuf(response->mutable_status());
+            }
+            if (done != nullptr) {
+                pending.push_back(done);
+            }
+        }
+        void finish_rpcs() {
+            while (!pending.empty()) {
+                auto* done = pending.front();
+                pending.pop_front();
+                done->Run();
+            }
+        }
+        std::deque<google::protobuf::Closure*> pending;
+    };
+
     void SetUp() override {
         BackendOptions::set_localhost("0.0.0.0");
 
@@ -65,10 +94,22 @@ public:
         _fragment_context->set_fragment_instance_id(_fragment_id);
         _fragment_context->set_runtime_state(std::shared_ptr<RuntimeState>{_runtime_state});
         _runtime_state->set_fragment_ctx(_fragment_context.get());
+        _fragment_context->prepare_pass_through_chunk_buffer();
 
         TNetworkAddress address;
         address.__set_hostname(BackendOptions::get_local_ip());
         address.__set_port(config::brpc_port);
+        // Save and restore only this endpoint's pool; do not depend on another UT
+        // having started a service or registered a query-level buffer.
+        ASSERT_NE(nullptr, _exec_env->brpc_stub_cache()->get_stub(address));
+        butil::EndPoint endpoint;
+        ASSERT_EQ(0, butil::str2endpoint(address.hostname.c_str(), address.port, &endpoint));
+        _stub_pool = *_exec_env->brpc_stub_cache()->_stub_map.seek(endpoint);
+        _saved_stubs = std::move(_stub_pool->_stubs);
+        _saved_stub_index = _stub_pool->_idx;
+        _local_stub = std::make_shared<LocalStub>();
+        _stub_pool->_stubs = {_local_stub};
+        _stub_pool->_idx = 0;
         TPlanFragmentDestination destination;
         destination.__set_fragment_instance_id(_fragment_id);
         destination.__set_brpc_server(address);
@@ -99,10 +140,24 @@ public:
     void TearDown() override {
         _recvr->close();
         _exec_env->stream_mgr()->close();
+        _local_stub->finish_rpcs();
+        _stub_pool->_stubs = std::move(_saved_stubs);
+        _stub_pool->_idx = _saved_stub_index;
+        _fragment_context->destroy_pass_through_chunk_buffer();
         _query_context->set_exec_env(nullptr);
     }
 
 protected:
+    Status send(const OperatorPtr& sink) {
+        auto status = sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next());
+        _local_stub->finish_rpcs();
+        return status;
+    }
+
+    std::shared_ptr<LocalStub> _local_stub;
+    std::shared_ptr<BrpcStubCache::StubPool> _stub_pool;
+    std::vector<std::shared_ptr<PInternalService_RecoverableStub>> _saved_stubs;
+    int64_t _saved_stub_index = 0;
     TUniqueId _fragment_id;
     ExecEnv* _exec_env;
     std::shared_ptr<QueryContext> _query_context;
@@ -125,29 +180,31 @@ protected:
 TEST_F(ExchangePassThroughTest, test_exchange_pass_through) {
     int32_t driver_sequence = 0;
     auto exchange_sink = _exchange_sink_factory->create(_degree_of_parallelism, driver_sequence);
-    exchange_sink->prepare(_runtime_state.get());
+    ASSERT_OK(exchange_sink->prepare(_runtime_state.get()));
+    ASSERT_OK(exchange_sink->prepare_local_state(_runtime_state.get()));
 
     size_t sent_bytes = 0;
     size_t chunk_bytes = _chunk_builder._chunk_size * 8;
     // data is batched up to max_transmit_batched_bytes. Until then no data is actually sent.
     while (sent_bytes + chunk_bytes < config::max_transmit_batched_bytes) {
         sent_bytes += chunk_bytes;
-        exchange_sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next());
+        ASSERT_OK(send(exchange_sink));
         std::unique_ptr<Chunk> received_chunk = nullptr;
         std::ignore = _recvr->get_chunk_for_pipeline(&received_chunk, driver_sequence);
         EXPECT_TRUE(received_chunk == nullptr);
     }
 
     // once the sent bytes exceeds max_transmit_batched_bytes, the data is sent.
-    exchange_sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next());
+    ASSERT_OK(send(exchange_sink));
     std::unique_ptr<Chunk> received_chunk = nullptr;
     std::ignore = _recvr->get_chunk_for_pipeline(&received_chunk, driver_sequence);
-    EXPECT_TRUE(received_chunk != nullptr);
+    ASSERT_TRUE(received_chunk != nullptr);
 
     // sending chunks without consuming leads to a full sink buffer.
-    while (!_sink_buffer->is_full()) {
-        exchange_sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next());
+    for (int i = 0; !_sink_buffer->is_full() && i < 4096; ++i) {
+        ASSERT_OK(send(exchange_sink));
     }
+    ASSERT_TRUE(_sink_buffer->is_full());
 
     // receiver ready to consume the data.
     EXPECT_TRUE(_recvr->has_output_for_pipeline(driver_sequence));
@@ -155,6 +212,7 @@ TEST_F(ExchangePassThroughTest, test_exchange_pass_through) {
     // consuming chunks on the reciever side automatically relieves pressure on the sink side.
     do {
         std::ignore = _recvr->get_chunk_for_pipeline(&received_chunk, driver_sequence);
+        _local_stub->finish_rpcs();
     } while (received_chunk != nullptr);
     EXPECT_FALSE(_sink_buffer->is_full());
 
@@ -165,15 +223,18 @@ TEST_F(ExchangePassThroughTest, recv_closed_1) {
     int32_t driver_sequence = 0;
     auto exchange_sink = _exchange_sink_factory->create(_degree_of_parallelism, driver_sequence);
     ASSERT_OK(exchange_sink->prepare(_runtime_state.get()));
+    ASSERT_OK(exchange_sink->prepare_local_state(_runtime_state.get()));
 
-    while (!_sink_buffer->is_full()) {
-        ASSERT_OK(exchange_sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next()));
+    for (int i = 0; !_sink_buffer->is_full() && i < 4096; ++i) {
+        ASSERT_OK(send(exchange_sink));
     }
+    ASSERT_TRUE(_sink_buffer->is_full());
 
     ASSERT_OK(exchange_sink->set_finishing(_runtime_state.get()));
 
     std::thread thr([recvr = _recvr]() { recvr->close(); });
     thr.join();
+    _local_stub->finish_rpcs();
     exchange_sink->close(_runtime_state.get());
 }
 
@@ -181,15 +242,19 @@ TEST_F(ExchangePassThroughTest, recv_closed_2) {
     int32_t driver_sequence = 0;
     auto exchange_sink = _exchange_sink_factory->create(_degree_of_parallelism, driver_sequence);
     ASSERT_OK(exchange_sink->prepare(_runtime_state.get()));
+    ASSERT_OK(exchange_sink->prepare_local_state(_runtime_state.get()));
 
-    while (!_sink_buffer->is_full()) {
-        ASSERT_OK(exchange_sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next()));
+    for (int i = 0; !_sink_buffer->is_full() && i < 4096; ++i) {
+        ASSERT_OK(send(exchange_sink));
     }
+    ASSERT_TRUE(_sink_buffer->is_full());
 
     std::thread thr([recvr = _recvr]() { recvr->close(); });
     thr.join();
+    _local_stub->finish_rpcs();
 
     ASSERT_OK(exchange_sink->set_finishing(_runtime_state.get()));
+    _local_stub->finish_rpcs();
     exchange_sink->close(_runtime_state.get());
 }
 
