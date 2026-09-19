@@ -60,6 +60,7 @@ private:
     Status _init_scanner_columns(std::vector<uint32_t>& scanner_columns, std::vector<uint32_t>& reader_columns);
     Status _init_unused_output_columns(const std::vector<std::string>& unused_output_columns);
     Status _init_olap_reader(RuntimeState* state);
+    bool _tolerate_storage_corruption(const Status& status, Chunk* failed_chunk = nullptr);
     TCounterMinMaxType::type _get_counter_min_max_type(const std::string& metric_name);
     void _init_counter(RuntimeState* state);
     Status _init_global_dicts(TabletReaderParams* params);
@@ -88,6 +89,8 @@ private:
     int64_t _version = 0;
 
     RuntimeState* _runtime_state = nullptr;
+    // Task-local EOF, never a tablet-wide stop flag. Also protects an incompletely opened Reader.
+    bool _corruption_tolerated = false;
     const std::vector<SlotDescriptor*>* _slots = nullptr;
 
     // For release memory.

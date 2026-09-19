@@ -630,6 +630,17 @@ add_executable(starrocks_test test_main.cpp $<TARGET_OBJECTS:starrocks_test_objs
 
 TARGET_LINK_LIBRARIES(starrocks_test ${TEST_LINK_LIBS})
 
+# Focused regression executable for query corruption tolerance. Reuses the normal
+# BE_TEST libraries and initialization, without requiring every unrelated UT object.
+# The same tests remain part of starrocks_test; this target is opt-in only.
+add_executable(query_corruption_test EXCLUDE_FROM_ALL
+        test_main.cpp
+        exec/pipeline/olap_scan_operator_test.cpp
+        exec/pipeline/exchange_pass_through_test.cpp
+        runtime/query_statistics_test.cpp)
+target_compile_options(query_corruption_test PRIVATE -fno-access-control)
+target_link_libraries(query_corruption_test ${TEST_LINK_LIBS})
+
 # =================================================
 # test cases must be compiled as a standalone binary
 ADD_BE_TEST(storage/task/engine_storage_migration_task_test)

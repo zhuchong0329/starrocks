@@ -48,6 +48,7 @@
 #include "types/logical_type.h"
 #include "util/runtime_profile.h"
 #include "util/table_metrics.h"
+#include "util/uid_util.h"
 
 namespace starrocks::pipeline {
 
@@ -615,13 +616,23 @@ Status OlapChunkSource::_init_olap_reader(RuntimeState* runtime_state) {
     RETURN_IF_ERROR(_prj_iter->init_output_schema(*_params.unused_output_column_ids));
     _reader->set_is_asc_hint(_scan_op->is_asc());
 
-    RETURN_IF_ERROR(_reader->prepare());
-    RETURN_IF_ERROR(_reader->open(_params));
+    auto status = _reader->prepare();
+    if (!status.ok()) {
+        return _tolerate_storage_corruption(status) ? Status::OK() : status;
+    }
+    status = _reader->open(_params);
+    if (!status.ok()) {
+        return _tolerate_storage_corruption(status) ? Status::OK() : status;
+    }
 
     return Status::OK();
 }
 
 Status OlapChunkSource::_read_chunk(RuntimeState* state, ChunkPtr* chunk) {
+    if (UNLIKELY(_corruption_tolerated)) {
+        chunk->reset();
+        return Status::EndOfFile("independent scan stopped after file corruption");
+    }
     ASSIGN_OR_RETURN(auto chunk_ptr,
                      ChunkHelper::new_chunk_pooled_checked(_prj_iter->output_schema(), _runtime_state->chunk_size()));
     chunk->reset(chunk_ptr);
@@ -668,6 +679,10 @@ Status OlapChunkSource::_read_chunk_from_storage(RuntimeState* state, Chunk* chu
         Status status = _prj_iter->get_next(chunk);
         // update counter when eof or error
         if (UNLIKELY(!status.ok())) {
+            if (_tolerate_storage_corruption(status, chunk)) {
+                _update_realtime_counter(chunk);
+                return Status::EndOfFile("independent scan stopped after file corruption");
+            }
             _update_realtime_counter(chunk);
             return status;
         }
@@ -705,6 +720,24 @@ Status OlapChunkSource::_read_chunk_from_storage(RuntimeState* state, Chunk* chu
         return Status::EndOfFile("limit reach");
     }
     return Status::OK();
+}
+
+bool OlapChunkSource::_tolerate_storage_corruption(const Status& status, Chunk* failed_chunk) {
+    // Call only at the independent storage prepare/open/get_next boundary, never around
+    // shared morsel preparation, expression evaluation, or generic scan error handling.
+    if (!status.is_corruption() || !_runtime_state->query_options().enable_query_corruption_tolerance ||
+        _runtime_state->is_cancelled() || _runtime_state->query_ctx() == nullptr) {
+        return false;
+    }
+    if (failed_chunk != nullptr) {
+        failed_chunk->reset();
+    }
+    _runtime_state->query_ctx()->mark_query_corruption_detected();
+    _corruption_tolerated = true;
+    LOG(WARNING) << "independent scan stopped after tolerated file corruption: query_id="
+                 << print_id(_runtime_state->query_id()) << ", tablet_id=" << _scan_range->tablet_id
+                 << ", status=" << status;
+    return true;
 }
 
 void OlapChunkSource::_update_realtime_counter(Chunk* chunk) {

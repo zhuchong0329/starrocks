@@ -285,6 +285,10 @@ public:
     bool is_final_sink() const { return _is_final_sink; }
     void set_final_sink() { _is_final_sink = true; }
 
+    // Diagnostic only: does not cancel, isolate, or reschedule any other scan task.
+    void mark_query_corruption_detected() { _query_corruption_detected.store(true, std::memory_order_release); }
+    bool query_corruption_detected() const { return _query_corruption_detected.load(std::memory_order_acquire); }
+
     QueryContextPtr get_shared_ptr() { return shared_from_this(); }
 
     // STREAM MV
@@ -374,6 +378,7 @@ private:
     std::unordered_map<int32_t, std::shared_ptr<NodeExecStats>> _node_exec_stats;
 
     bool _is_final_sink = false;
+    std::atomic<bool> _query_corruption_detected{false};
     std::shared_ptr<QueryStatisticsRecvr> _sub_plan_query_statistics_recvr; // For receive
 
     int64_t _scan_limit = 0;
