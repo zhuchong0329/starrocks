@@ -161,6 +161,9 @@ public class LeaderOpExecutor {
                         ctx.getState().setMsg(result.getErrorMsg());
                     }
                     if (state == MysqlStateType.EOF || state == MysqlStateType.OK) {
+                        if (result.isSetQuery_corruption_warning()) {
+                            ctx.setQueryCorruptionWarning(result.getQuery_corruption_warning());
+                        }
                         afterForward();
                     }
                 }
@@ -372,4 +375,3 @@ public class LeaderOpExecutor {
         return params;
     }
 }
-

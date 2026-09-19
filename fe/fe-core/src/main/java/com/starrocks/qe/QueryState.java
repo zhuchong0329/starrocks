@@ -85,6 +85,7 @@ public class QueryState {
     private boolean isQuery = false;
     private long affectedRows = 0;
     private int warningRows = 0;
+    private boolean queryCorruptionToleranceEnabled;
     // make it public for easy to use
     public int serverStatus = 0;
     private boolean isFinished = false;
@@ -101,6 +102,7 @@ public class QueryState {
         isQuery = false;
         affectedRows = 0;
         warningRows = 0;
+        queryCorruptionToleranceEnabled = false;
         serverStatus = 0;
         isFinished = false;
     }
@@ -192,6 +194,18 @@ public class QueryState {
 
     public int getWarningRows() {
         return warningRows;
+    }
+
+    public void setWarningRows(int warningRows) {
+        this.warningRows = warningRows;
+    }
+
+    public boolean isQueryCorruptionToleranceEnabled() {
+        return queryCorruptionToleranceEnabled;
+    }
+
+    public void setQueryCorruptionToleranceEnabled(boolean enabled) {
+        queryCorruptionToleranceEnabled = enabled;
     }
 
     public MysqlPacket toResponsePacket() {

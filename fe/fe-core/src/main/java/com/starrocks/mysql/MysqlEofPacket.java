@@ -22,13 +22,14 @@ import com.starrocks.qe.QueryState;
 // MySQL protocol EOF packet
 public class MysqlEofPacket extends MysqlPacket {
     private static final int EOF_INDICATOR = 0XFE;
-    private static final int WARNINGS = 0;
+    private final int warnings;
     // private static final int STATUS_FLAGS = 0;
 
     private int serverStatus = 0;
 
     public MysqlEofPacket(QueryState state) {
         this.serverStatus = state.serverStatus;
+        this.warnings = state.getWarningRows();
     }
 
     @Override
@@ -37,7 +38,7 @@ public class MysqlEofPacket extends MysqlPacket {
 
         serializer.writeInt1(EOF_INDICATOR);
         if (capability.isProtocol41()) {
-            serializer.writeInt2(WARNINGS);
+            serializer.writeInt2(warnings);
             serializer.writeInt2(serverStatus);
         }
     }

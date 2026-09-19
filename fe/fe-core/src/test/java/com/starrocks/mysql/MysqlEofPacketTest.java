@@ -33,6 +33,18 @@ public class MysqlEofPacketTest {
     }
 
     @Test
+    public void testWarningCount() {
+        QueryState state = new QueryState();
+        state.setWarningRows(1);
+        state.setEof();
+        MysqlSerializer serializer = MysqlSerializer.newInstance(capability);
+        new MysqlEofPacket(state).writeTo(serializer);
+        ByteBuffer buffer = serializer.toByteBuffer();
+        Assertions.assertEquals(0xfe, MysqlCodec.readInt1(buffer));
+        Assertions.assertEquals(1, MysqlCodec.readInt2(buffer));
+    }
+
+    @Test
     public void testWrite() {
         MysqlEofPacket packet = new MysqlEofPacket(new QueryState());
         MysqlSerializer serializer = MysqlSerializer.newInstance(capability);

@@ -898,6 +898,8 @@ struct TMasterOpResult {
     10:optional string sql_digest;
     // StarMgr max journal ID for shared-data mode follower sync
     11:optional i64 maxStarMgrJournalId;
+    // Retain the local session diagnostic when a user query is forwarded to another FE.
+    12:optional string query_corruption_warning;
 }
 
 struct TIsMethodSupportedRequest {

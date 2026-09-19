@@ -766,6 +766,7 @@ public class StmtExecutor {
     // Exception:
     // IOException: talk with client failed.
     public void execute() throws Exception {
+        QueryCorruptionWarning.beginStatement(context, parsedStmt, isInternalStmt);
         long beginTimeInNanoSecond = TimeUtils.getStartTime();
         context.setStmtId(STMT_ID_GENERATOR.incrementAndGet());
         context.setIsForward(false);
@@ -1626,6 +1627,12 @@ public class StmtExecutor {
             coord = getCoordinatorFactory().createQueryScheduler(context, fragments, scanNodes, descTable, execPlan);
         }
 
+        if (coord instanceof DefaultCoordinator && QueryCorruptionPolicy.isEligible(
+                Config.enable_query_corruption_tolerance, isInternalStmt, context, parsedStmt, execPlan, false)) {
+            ((DefaultCoordinator) coord).getJobSpec().getQueryOptions().setEnable_query_corruption_tolerance(true);
+            context.getState().setQueryCorruptionToleranceEnabled(true);
+        }
+
         // Predict the cost of this query
         if (Config.enable_query_cost_prediction) {
             CostPredictor predictor = getCostPredictor();
@@ -1753,6 +1760,7 @@ public class StmtExecutor {
                 return;
             }
 
+            QueryCorruptionWarning.record(context, statisticsForAuditLog);
             analyzePlanWithExecStats(execPlan);
             if (context.isArrowFlightSql()) {
                 context.updateReturnRows(statisticsForAuditLog.getReturnedRows());

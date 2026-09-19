@@ -397,10 +397,12 @@ public class ConnectProcessorTest extends DDLTestBase {
     @Test
     public void testResetConnection() throws IOException {
         ConnectContext ctx = initMockContext(mockChannel(resetConnectionPacket), GlobalStateMgr.getCurrentState());
+        ctx.setQueryCorruptionWarning("previous pooled request");
 
         ConnectProcessor processor = new ConnectProcessor(ctx);
         processor.processOnce();
         Assertions.assertEquals(MysqlCommand.COM_RESET_CONNECTION, myContext.getCommand());
+        Assertions.assertNull(ctx.getQueryCorruptionWarning());
         Assertions.assertTrue(myContext.getState().toResponsePacket() instanceof MysqlOkPacket);
         Assertions.assertFalse(myContext.isKilled());
     }

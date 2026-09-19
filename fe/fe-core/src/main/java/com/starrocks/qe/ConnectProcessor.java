@@ -181,6 +181,7 @@ public class ConnectProcessor {
 
     // COM_RESET_CONNECTION: reset current connection session variables
     private void handleResetConnection() throws IOException {
+        ctx.clearQueryCorruptionWarning();
         resetConnectionSession();
         ctx.getState().setOk();
     }
@@ -480,6 +481,7 @@ public class ConnectProcessor {
         try (Timer ignored = Tracers.watchScope(Tracers.Module.PARSER, "Parser")) {
             stmts = com.starrocks.sql.parser.SqlParser.parse(originStmt, ctx.getSessionVariable());
         } catch (ParsingException parsingException) {
+            ctx.clearQueryCorruptionWarning();
             throw new AnalysisException(parsingException.getMessage());
         }
 
@@ -644,6 +646,7 @@ public class ConnectProcessor {
     // binary<var>      parameter_values  value of each parameter
     // detail https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_execute.html
     private void handleExecute() {
+        ctx.clearQueryCorruptionWarning();
         packetBuf = packetBuf.order(ByteOrder.LITTLE_ENDIAN);
         // stmt_id
         int stmtId = packetBuf.getInt();
@@ -826,6 +829,9 @@ public class ConnectProcessor {
 
     // use to return result packet to user
     private void finalizeCommand() throws IOException {
+        if (ctx.getState().isError()) {
+            ctx.clearQueryCorruptionWarning();
+        }
         ByteBuffer packet = null;
         if (executor != null && executor.isForwardToLeader()) {
             // for ERR State, set packet to remote packet(executor.getOutputPacket())
@@ -1095,6 +1101,9 @@ public class ConnectProcessor {
         result.setState(ctx.getState().getStateType().toString());
         result.setErrorMsg(ctx.getState().getErrorMessage());
         //Put the txnId in connectContext into result and pass it back to the follower node
+        if (!ctx.getState().isError() && ctx.getQueryCorruptionWarning() != null) {
+            result.setQuery_corruption_warning(ctx.getQueryCorruptionWarning());
+        }
         result.setTxn_id(ctx.getTxnId());
 
         if (executor != null) {

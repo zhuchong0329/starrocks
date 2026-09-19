@@ -156,6 +156,25 @@ public class ConnectContext {
 
     // state
     protected QueryState state;
+    // Survives QueryState.reset() so a subsequent SHOW WARNINGS can inspect the last statement.
+    private String queryCorruptionWarning;
+
+    public String getQueryCorruptionWarning() {
+        return queryCorruptionWarning;
+    }
+
+    public void setQueryCorruptionWarning(String warning) {
+        if (warning == null) {
+            return;
+        }
+        queryCorruptionWarning = warning.length() > 1024 ? warning.substring(0, 1024) : warning;
+        state.setWarningRows(Math.max(1, state.getWarningRows()));
+    }
+
+    public void clearQueryCorruptionWarning() {
+        queryCorruptionWarning = null;
+    }
+
     protected long returnRows;
 
     // error code

@@ -89,6 +89,38 @@ public class LeaderOpExecutorMockTest {
     }
 
     @Test
+    public void testForwardedCorruptionDiagnosticAndStrictError() throws Exception {
+        StatementBase statement = UtFrameUtils.parseStmtWithNewParser("select * from d1.t1", connectContext);
+        TMasterOpResult response = new TMasterOpResult();
+        response.setState("EOF");
+        response.setQuery_corruption_warning(QueryCorruptionWarning.NAME + ": forwarded partial result");
+        try (MockedStatic<ThriftRPCRequestExecutor> rpc = Mockito.mockStatic(ThriftRPCRequestExecutor.class)) {
+            rpc.when(() -> ThriftRPCRequestExecutor.call(Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any()))
+                    .thenReturn(response);
+            connectContext.getState().reset();
+            connectContext.clearQueryCorruptionWarning();
+            new LeaderOpExecutor(statement, statement.getOrigStmt(), connectContext,
+                    RedirectStatus.FORWARD_NO_SYNC, false, null).execute();
+            Assertions.assertEquals(response.getQuery_corruption_warning(), connectContext.getQueryCorruptionWarning());
+            Assertions.assertEquals(1, connectContext.getState().getWarningRows());
+            Assertions.assertEquals(1, QueryCorruptionWarning.rows(connectContext, 0, -1).size());
+
+            // Even if a response contains a diagnostic, an error must remain an error.
+            response.setState("ERR");
+            response.setErrorMsg("shared initialization failed");
+            connectContext.getState().reset();
+            connectContext.clearQueryCorruptionWarning();
+            new LeaderOpExecutor(statement, statement.getOrigStmt(), connectContext,
+                    RedirectStatus.FORWARD_NO_SYNC, false, null).execute();
+            Assertions.assertTrue(connectContext.getState().isError());
+            Assertions.assertNull(connectContext.getQueryCorruptionWarning());
+        } finally {
+            connectContext.getState().reset();
+            connectContext.clearQueryCorruptionWarning();
+        }
+    }
+
+    @Test
     public void testFetchLeaderMaxJournalId_success() throws Exception {
         TMasterOpResult result = new TMasterOpResult();
         result.setMaxJournalId(200L);

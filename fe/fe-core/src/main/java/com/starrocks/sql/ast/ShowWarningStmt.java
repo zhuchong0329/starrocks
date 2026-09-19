@@ -20,10 +20,20 @@ import com.starrocks.sql.parser.NodePosition;
 // Show Warning stmt
 public class ShowWarningStmt extends ShowStmt {
     private LimitElement limitElement;
+    private final boolean errorsOnly;
 
     public ShowWarningStmt(LimitElement limitElement, NodePosition pos) {
+        this(limitElement, pos, false);
+    }
+
+    public ShowWarningStmt(LimitElement limitElement, NodePosition pos, boolean errorsOnly) {
         super(pos);
         this.limitElement = limitElement;
+        this.errorsOnly = errorsOnly;
+    }
+
+    public boolean isErrorsOnly() {
+        return errorsOnly;
     }
 
     public long getLimitNum() {
@@ -33,6 +43,9 @@ public class ShowWarningStmt extends ShowStmt {
         return -1L;
     }
 
+    public long getOffset() {
+        return limitElement == null ? 0 : limitElement.getOffset();
+    }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {

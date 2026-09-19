@@ -3670,9 +3670,9 @@ public class AstBuilder extends StarRocksBaseVisitor<ParseNode> {
     public ParseNode visitShowWarningStatement(StarRocksParser.ShowWarningStatementContext context) {
         NodePosition pos = createPos(context);
         if (context.limitElement() != null) {
-            return new ShowWarningStmt((LimitElement) visit(context.limitElement()), pos);
+            return new ShowWarningStmt((LimitElement) visit(context.limitElement()), pos, context.ERRORS() != null);
         }
-        return new ShowWarningStmt(null, pos);
+        return new ShowWarningStmt(null, pos, context.ERRORS() != null);
     }
 
     @Override

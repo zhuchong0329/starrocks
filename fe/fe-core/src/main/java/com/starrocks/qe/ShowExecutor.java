@@ -341,6 +341,14 @@ public class ShowExecutor {
         }
 
         @Override
+        public ShowResultSet visitShowWarningStatement(com.starrocks.sql.ast.ShowWarningStmt statement,
+                                                       ConnectContext context) {
+            return new ShowResultSet(showResultMetaFactory.getMetadata(statement),
+                    statement.isErrorsOnly() ? EMPTY_SET
+                            : QueryCorruptionWarning.rows(context, statement.getOffset(), statement.getLimitNum()));
+        }
+
+        @Override
         public ShowResultSet visitShowMaterializedViewStatement(ShowMaterializedViewsStmt statement, ConnectContext context) {
             String dbName = statement.getDb();
             String catalogName = statement.getCatalogName();
