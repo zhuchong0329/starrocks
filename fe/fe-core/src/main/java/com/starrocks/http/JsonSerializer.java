@@ -20,6 +20,7 @@ import com.starrocks.analysis.Expr;
 import com.starrocks.catalog.Column;
 import com.starrocks.proto.PQueryStatistics;
 import com.starrocks.proto.QueryStatisticsItemPB;
+import com.starrocks.qe.QueryCorruptionWarning;
 import com.starrocks.qe.ShowResultSet;
 import com.starrocks.qe.ShowResultSetMetaData;
 import io.netty.buffer.ByteBuf;
@@ -118,6 +119,11 @@ public class JsonSerializer {
     }
 
     public static ByteBuf getStatistic(PQueryStatistics queryStatistics) throws IOException {
+        return getStatistic(queryStatistics, false, null);
+    }
+
+    public static ByteBuf getStatistic(PQueryStatistics queryStatistics, boolean toleranceEnabled, String warning)
+            throws IOException {
         ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
         OutputStreamWriter outputStreamWriter = new OutputStreamWriter(resultStream);
         JsonWriter jsonWriter = new JsonWriter(outputStreamWriter);
@@ -139,6 +145,17 @@ public class JsonSerializer {
         jsonWriter.name(STATISTICS_SCAN_BYTES).value(scanBytes);
         jsonWriter.name(STATISTICS_RETURN_ROWS).value(returnRows);
         jsonWriter.endObject();
+        if (toleranceEnabled) {
+            jsonWriter.name("partial_result").value(warning != null);
+            jsonWriter.name("warnings").beginArray();
+            if (warning != null) {
+                jsonWriter.beginObject();
+                jsonWriter.name("code").value(QueryCorruptionWarning.NAME);
+                jsonWriter.name("message").value(warning);
+                jsonWriter.endObject();
+            }
+            jsonWriter.endArray();
+        }
         jsonWriter.endObject();
 
         outputStreamWriter.write("\n");

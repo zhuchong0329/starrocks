@@ -156,6 +156,7 @@ public class ExecuteSqlAction extends RestBaseAction {
                 context.getNettyChannel().close();
             }
         } catch (StarRocksHttpException e) {
+            context.clearQueryCorruptionWarning();
             LOG.warn("fail to process url: {}", request.getRequest().uri(), e);
             RestBaseResult failResult = new RestBaseResult(e.getMessage());
             response.getContent().append(failResult.toJson());
@@ -295,6 +296,7 @@ public class ExecuteSqlAction extends RestBaseAction {
 
         // exception was caught in StmtExecutor and set Error info in QueryState, so just send status 500 with exception info
         if (context.getState().getStateType() == QueryState.MysqlStateType.ERR) {
+            context.clearQueryCorruptionWarning();
             // for queryStatement, if some data already sent, we just close the channel
             if (parsedStmt instanceof QueryStatement && context.getSendDate()) {
                 context.getNettyChannel().close();

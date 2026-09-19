@@ -89,7 +89,10 @@ public class HttpResultSender {
             }
             if (batch.isEos()) {
                 if (!context.isOnlyOutputResultRaw()) {
-                    ByteBuf statisticData = JsonSerializer.getStatistic(batch.getQueryStatistics());
+                    com.starrocks.qe.QueryCorruptionWarning.record(context, batch.getQueryStatistics());
+                    ByteBuf statisticData = JsonSerializer.getStatistic(batch.getQueryStatistics(),
+                            context.getState().isQueryCorruptionToleranceEnabled(),
+                            context.getQueryCorruptionWarning());
                     nettyChannel.writeAndFlush(statisticData);
                 }
                 sendEmptyLastContent();

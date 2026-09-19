@@ -1628,7 +1628,7 @@ public class StmtExecutor {
         }
 
         if (coord instanceof DefaultCoordinator && QueryCorruptionPolicy.isEligible(
-                Config.enable_query_corruption_tolerance, isInternalStmt, context, parsedStmt, execPlan, false)) {
+                Config.enable_query_corruption_tolerance, isInternalStmt, context, parsedStmt, execPlan, true)) {
             ((DefaultCoordinator) coord).getJobSpec().getQueryOptions().setEnable_query_corruption_tolerance(true);
             context.getState().setQueryCorruptionToleranceEnabled(true);
         }
