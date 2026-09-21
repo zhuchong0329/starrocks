@@ -4,6 +4,13 @@
 
 本 worktree 只用于本地 OLAP 查询文件损坏容错，不是 Tenant-TTL。
 
+**2026-09-21 / QCT-007 最新状态（优先于下文 QCT-006 历史记录）**：用户确认删除 EXPLAIN/Pipeline/扫描源/远端 Runtime Filter 资格检查，保留 OUTFILE、DefaultCoordinator instanceof 及其他既定边界；允许混合源局部容错、已容忍损坏的诊断也可丢失。QueryCorruptionWarning.beginStatement 增加 null 快速返回，SHOW 行为不变。需求/设计/规划已更新 v1.2。
+
+- 本轮仅新增一个独立提交，FE 增量编译/package 与 41 项功能回归通过，0 失败/错误/跳过；详见 `zc-docs/query-corruption-tolerance/QCT-007-验收.md`。
+- 用户明确要求性能验收等待后续命令：不要自动启动性能矩阵/JFR，不复用 QCT-006 数据声称新版性能通过。无 BE 生产修改，本轮未重编 BE、未重新注入物理故障。
+- 仅同步 6 个 FE 生产/测试源文件到已有专属卷，复用缓存；FE target jar 已被本轮增量编译更新，不能继续冒称 QCT-005 旧对照产物。卷内 src Git 元数据仍为 QCT-005，含本轮未提交 FE 源码；本轮 jar 仅作编译测试产物，不冒称已经按新提交正式发版。未启动或修改物理测试集群配置/数据，BE 与 baseline-src 原版产物不变；测试启动器直接读取 src 的 jar，未来运行前必须重新核对版本与源码清单。
+- 日志 `logs/QCT-007/fe-tests-package-r1.log`、`fe-tests-package-r2.log`、`final-artifact-audit.log`；两次同组 41 项均通过。首包版本 UNKNOWN，复验包明确标识 `4.0.11-QCT-007-worktree` / `22a4478221d94b27e24d006a36f3b15bf962aac2-QCT007-uncommitted`，不是正式提交包。空间约 108 GiB，无遗留活跃测试 Java/BE/Ninja。本轮不推送、不发 PR，不更新历史补丁包或 production-review worktree；后续按新命令处理。
+
 截至 2026-09-20：需求/设计/实施规划 v1.1，QCT-001～005 已独立提交推送，QCT-006 实现、功能验收与性能评估已完成，随本轮独立提交交付。整查询全部不可读也返回 Warning，不实现可用输入保护。性能有非零代价，原始测量和观测回退必须保留；不改变执行流程、不新增等待仍是约束。
 
 **最终状态优先于下文历史过程记录**：没有正在运行的构建、性能或故障测试；本任务 1 FE / 3 BE 均已停止，全部注入文件恢复原始摘要。不要操作历史 PID，也不要因为旧段落写“构建中”而重建或清理缓存。
@@ -132,12 +139,12 @@
 ## 6. 功能边界提醒
 
 - 代码默认 false，验收后产品 fe.conf 设置 true。
-- 仅用户只读 SELECT、本地 shared-nothing OLAP、已接入 Pipeline/协议。
+- 仅用户 SELECT 入口请求启用，OUTFILE/写入/内部任务排除；实际错误转换仍只在已接入本地 shared-nothing OLAP 独立 Reader。
 - 仅吞独立存储 Reader prepare/open/get_next 明确物理 Corruption；公共准备/共享拆分及其他错误保持严格。
 - 失败 Chunk 丢弃，只结束失败任务；不设 tablet 共享停止标记、不修复文件、不切副本。
-- 单侧全坏、整查询全坏均允许结果或空结果 + Warning；不实现成功读取证据、逐输入健康矩阵或全坏错误。
+- 单侧全坏、整查询全坏均允许结果或空结果；FE 收到诊断才附 Warning，已容忍损坏也可无标识。不实现成功读取证据、逐输入健康矩阵或全坏错误。
 - MySQL/JDBC Warning 与标准 HTTP 末尾 partial_result/warnings 都在第一阶段，先 MySQL 后 HTTP。
-- 未接入路径原样严格，包括短路/非 Pipeline、HTTP raw、混合外部表；不强制慢路径或禁用优化。
+- 短路/Arrow/HTTP raw 保持排除；不再预检 Pipeline/扫描源/远端过滤，混合源允许局部容错，未接入 Reader 保持原错误。EXPLAIN ANALYZE 可容错；不强制慢路径或禁用优化。
 - 不改变计划、调度、EOS、LIMIT 和取消流程；不新增诊断 RPC/同步确认/等待。实际采用的容错通过既有通道标识，不等待无关后台收尾。
 - Query Cache 沿当前实现；B 方案第二阶段。明确告知历史污染及后续漏标风险。
 - 性能目标尽可能小，编码完成后集中评估，不要求绝对零开销。健康路径不新增读盘/逐行统计/共享热计数；不把静态判断当实测。

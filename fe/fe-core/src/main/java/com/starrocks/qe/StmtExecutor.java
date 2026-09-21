@@ -1627,11 +1627,14 @@ public class StmtExecutor {
             coord = getCoordinatorFactory().createQueryScheduler(context, fragments, scanNodes, descTable, execPlan);
         }
 
-        if (coord instanceof DefaultCoordinator && QueryCorruptionPolicy.isEligible(
-                Config.enable_query_corruption_tolerance, isInternalStmt, context, parsedStmt, execPlan, true)) {
+        boolean corruptionToleranceEnabled = false;
+        if (Config.enable_query_corruption_tolerance && coord instanceof DefaultCoordinator
+                && QueryCorruptionPolicy.isEligible(true, isInternalStmt, context, parsedStmt, execPlan, isOutfileQuery)) {
             ((DefaultCoordinator) coord).getJobSpec().getQueryOptions().setEnable_query_corruption_tolerance(true);
-            context.getState().setQueryCorruptionToleranceEnabled(true);
+            corruptionToleranceEnabled = true;
         }
+        // A retry may use a different plan/coordinator; never retain the previous attempt's opt-in.
+        context.getState().setQueryCorruptionToleranceEnabled(corruptionToleranceEnabled);
 
         // Predict the cost of this query
         if (Config.enable_query_cost_prediction) {

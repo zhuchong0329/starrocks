@@ -16,6 +16,7 @@ package com.starrocks.sql.plan;
 
 import com.starrocks.qe.QueryCorruptionPolicy;
 import com.starrocks.qe.SessionVariable;
+import com.starrocks.sql.ast.QueryStatement;
 import com.starrocks.sql.ast.StatementBase;
 import com.starrocks.thrift.TExplainLevel;
 import com.starrocks.utframe.UtFrameUtils;
@@ -62,8 +63,9 @@ class QueryCorruptionPlanTest extends PlanTestBase {
         StatementBase statement = UtFrameUtils.parseStmtWithNewParser(sql, connectContext);
         ExecPlan plan = getExecPlan(sql);
         String before = plan.getExplainString(TExplainLevel.VERBOSE);
-        assertFalse(QueryCorruptionPolicy.isEligible(false, false, connectContext, statement, plan, true));
-        assertEquals(expected, QueryCorruptionPolicy.isEligible(true, false, connectContext, statement, plan, true), before);
+        boolean outfile = ((QueryStatement) statement).hasOutFileClause();
+        assertFalse(QueryCorruptionPolicy.isEligible(false, false, connectContext, statement, plan, outfile));
+        assertEquals(expected, QueryCorruptionPolicy.isEligible(true, false, connectContext, statement, plan, outfile), before);
         assertEquals(before, plan.getExplainString(TExplainLevel.VERBOSE));
     }
 
@@ -81,7 +83,7 @@ class QueryCorruptionPlanTest extends PlanTestBase {
     }
 
     @Test
-    void realRemoteRuntimeFilterIsExcludedWithoutRemovingTheFilter() throws Exception {
+    void realRemoteRuntimeFilterOptsInWithoutRemovingTheFilter() throws Exception {
         SessionVariable session = connectContext.getSessionVariable();
         session.setEnableGlobalRuntimeFilter(true);
         session.setGlobalRuntimeFilterProbeMinSize(0);
@@ -89,7 +91,7 @@ class QueryCorruptionPlanTest extends PlanTestBase {
                 + "join [broadcast] t1 vt3 on vt1.v1 = vt3.v4 "
                 + "join [colocate] t0 vt4 on vt1.v1 = vt4.v1";
         assertTrue(getExecPlan(sql).getExplainString(TExplainLevel.VERBOSE).contains("remote = true"));
-        checkUnchanged(sql, false);
+        checkUnchanged(sql, true);
         assertTrue(session.getEnableGlobalRuntimeFilter());
     }
 
@@ -101,6 +103,18 @@ class QueryCorruptionPlanTest extends PlanTestBase {
         String cte = "with x as (select * from t0) select * from x union all select * from x";
         assertTrue(getExecPlan(cte).getExplainString(TExplainLevel.NORMAL).contains("MultiCastDataSinks"));
         checkUnchanged(cte, true);
+    }
+
+    @Test
+    void explainAnalyzeOptsInWithoutChangingThePlan() throws Exception {
+        checkUnchanged("explain analyze select * from t0", true);
+    }
+
+    @Test
+    void nonPipelineOptInDoesNotEnablePipeline() throws Exception {
+        connectContext.getSessionVariable().setEnablePipelineEngine(false);
+        checkUnchanged("select * from t0", true);
+        assertFalse(connectContext.getSessionVariable().isEnablePipelineEngine());
     }
 
     @Test

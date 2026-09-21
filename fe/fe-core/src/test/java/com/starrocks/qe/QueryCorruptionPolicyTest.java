@@ -30,12 +30,15 @@ import com.starrocks.thrift.TQueryOptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -94,36 +97,44 @@ class QueryCorruptionPolicyTest {
     }
 
     @Test
-    void explainAndOutfileAreStrict() {
+    void explainIncludingAnalyzeMayOptInButOutfileIsStrict() {
         when(statement.isExplain()).thenReturn(true);
-        assertFalse(eligible());
-        when(statement.isExplain()).thenReturn(false);
-        when(statement.hasOutFileClause()).thenReturn(true);
-        assertFalse(eligible());
+        for (StatementBase.ExplainLevel level : StatementBase.ExplainLevel.values()) {
+            when(statement.getExplainLevel()).thenReturn(level);
+            assertTrue(eligible());
+        }
+        assertFalse(QueryCorruptionPolicy.isEligible(true, false, context, statement, plan, true));
+        // Reuse the caller's existing OUTFILE boolean; do not inspect the AST again.
+        verify(statement, never()).hasOutFileClause();
+        verify(statement, never()).isExplain();
+        verify(statement, never()).getExplainLevel();
     }
 
     @Test
-    void shortCircuitAndNonPipelineAreNotRewritten() {
+    void shortCircuitRemainsStrictButPipelineSupportIsNotChecked() {
         when(plan.isShortCircuit()).thenReturn(true);
         assertFalse(eligible());
         when(plan.isShortCircuit()).thenReturn(false);
         when(fragment.canUsePipeline()).thenReturn(false);
-        assertFalse(eligible());
-        when(fragment.canUsePipeline()).thenReturn(true);
         when(session.isEnablePipelineEngine()).thenReturn(false);
-        assertFalse(eligible());
+        assertTrue(eligible());
+        verify(fragment, never()).canUsePipeline();
+        verifyNoInteractions(session);
     }
 
     @Test
-    void lakeConnectorAndMixedSourcesAreStrict() {
+    void lakeConnectorAndMixedSourcesMayCarryTheOptionWithoutNewReaderSupport() {
         when(table.isCloudNativeTableOrMaterializedView()).thenReturn(true);
-        assertFalse(eligible());
+        assertTrue(eligible());
         when(table.isCloudNativeTableOrMaterializedView()).thenReturn(false);
         when(scan.isRunningAsConnectorOperator()).thenReturn(true);
-        assertFalse(eligible());
+        assertTrue(eligible());
         when(scan.isRunningAsConnectorOperator()).thenReturn(false);
         when(plan.getScanNodes()).thenReturn(List.of(scan, mock(ScanNode.class)));
-        assertFalse(eligible());
+        assertTrue(eligible());
+        when(plan.getScanNodes()).thenReturn(List.of(mock(ScanNode.class)));
+        assertTrue(eligible());
+        verifyNoInteractions(scan, table);
     }
 
     @Test
@@ -136,24 +147,54 @@ class QueryCorruptionPolicyTest {
     }
 
     @Test
-    void remoteRuntimeFilterRemainsEnabledButQueryIsStrict() {
+    void remoteRuntimeFilterDoesNotPreventOptInOrGetInspected() {
         HashJoinNode join = mock(HashJoinNode.class);
         RuntimeFilterDescription filter = mock(RuntimeFilterDescription.class);
         when(join.getBuildRuntimeFilters()).thenReturn(List.of(filter));
         when(fragment.getPlanRoot()).thenReturn(join);
         assertTrue(eligible());
         when(filter.isHasRemoteTargets()).thenReturn(true);
-        assertFalse(eligible());
+        assertTrue(eligible());
+        verify(fragment, never()).getPlanRoot();
+        verifyNoInteractions(join, filter);
     }
 
     @Test
-    void httpMustBeIntegratedAndRawIsAlwaysStrict() {
+    void standardHttpMayOptInAndRawIsStrict() {
         HttpConnectContext http = mock(HttpConnectContext.class);
-        when(http.getSessionVariable()).thenReturn(session);
-        assertFalse(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, false));
-        assertTrue(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, true));
+        assertTrue(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, false));
+        when(plan.getScanNodes()).thenReturn(List.of(mock(ScanNode.class)));
+        assertTrue(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, false));
         when(http.isOnlyOutputResultRaw()).thenReturn(true);
-        assertFalse(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, true));
+        assertFalse(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, false));
+    }
+
+    @Test
+    void eligibilityDoesNotWalkScansOrFragmentTrees() {
+        when(plan.getScanNodes()).thenReturn(new AbstractList<ScanNode>() {
+            @Override
+            public ScanNode get(int index) {
+                throw new AssertionError("eligibility must not inspect scan nodes");
+            }
+
+            @Override
+            public int size() {
+                return 100_000;
+            }
+        });
+        PlanFragment other = mock(PlanFragment.class);
+        when(plan.getFragments()).thenReturn(new ArrayList<>(List.of(fragment, other)));
+        when(fragment.getPlanRoot()).thenThrow(new AssertionError("must not inspect the plan tree"));
+        when(fragment.canUsePipeline()).thenThrow(new AssertionError("must not recompute Pipeline support"));
+        assertTrue(eligible());
+        verifyNoInteractions(other, session, scan, table);
+    }
+
+    @Test
+    void missingPlanOrFragmentsRemainStrict() {
+        assertFalse(QueryCorruptionPolicy.isEligible(true, false, context, statement, null, false));
+        when(plan.getFragments()).thenReturn(new ArrayList<>());
+        assertFalse(eligible());
     }
 
     @Test

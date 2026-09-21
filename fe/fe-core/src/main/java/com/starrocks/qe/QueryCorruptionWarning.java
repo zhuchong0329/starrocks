@@ -30,6 +30,9 @@ public final class QueryCorruptionWarning {
     }
 
     public static void beginStatement(ConnectContext context, StatementBase statement, boolean internal) {
+        if (context.getQueryCorruptionWarning() == null) {
+            return;
+        }
         if (!internal && !(statement instanceof ShowWarningStmt)) {
             context.clearQueryCorruptionWarning();
         }

@@ -31,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 class QueryCorruptionWarningTest {
     private ConnectContext context() {
@@ -60,6 +62,14 @@ class QueryCorruptionWarningTest {
         assertEquals(1, context.getState().getWarningRows());
         assertTrue(context.getQueryCorruptionWarning().contains(QueryCorruptionWarning.NAME));
         assertTrue(context.getQueryCorruptionWarning().contains(context.getQueryId().toString()));
+    }
+
+    @Test
+    void absentWarningReturnsWithoutClearingContext() {
+        ConnectContext context = mock(ConnectContext.class);
+        QueryCorruptionWarning.beginStatement(context, mock(QueryStatement.class), false);
+        verify(context).getQueryCorruptionWarning();
+        verifyNoMoreInteractions(context);
     }
 
     @Test
