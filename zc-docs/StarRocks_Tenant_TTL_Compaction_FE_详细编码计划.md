@@ -1,12 +1,14 @@
 # StarRocks Tenant-TTL Compaction FE 详细编码计划
 
-> 本文档是 FE 需求澄清完成后的实施计划与实施记录。它把已确认的 FE/BE 契约映射到源码、独立提交轮次、测试和退出条件；第 17 节记录最终实现与验证结果。
+> 本文档把已确认的 FE/BE 契约映射到源码、独立提交轮次、测试和退出条件。第 17/18 节是既往轮次的真实实施记录；第 19 节是本次调度修复计划，未执行的测试不能当作已通过。
 
 源码基线：StarRocks `4.0.11-zc_docs`，commit `0a590df8d`
 
 建立日期：2026-09-11
 
-当前状态：第 017～030 轮已完成
+当前状态：第 017～034 轮已完成；2026-09-23 调度修复需求已全部确认，基线为 `3cbaf979c`。用户已授权完成文档后直接实施第 19 节的编码、增量编译和测试验收；不等待单独批准，但重大契约变化仍需先确认。
+
+阅读约定：第 9 节的 017～030 为历史实施拆分，涉及旧调度槽、未知恢复或在途删除屏障的安排已被第 19 节替代，不应按历史步骤重做。第 17 节测试数字只证明当时实现，不证明本次新增并行边界。
 
 ## 1. 输入文档与结论优先级
 
@@ -54,7 +56,7 @@
 3. 不支持 Primary Key 业务表、Shared-data、Rollup、同步物化索引和临时分区。
 4. 不支持在分区内部按 `recordTimestamp` 精确删行；FE 只能证明整个物理分区内某 tenant 全部过期。
 5. 不实现任务取消协议；已经下发的任务自然结束，结果由 fingerprint fencing 隔离。
-6. 不实现多任务并发；当前 Leader 同时最多一个 Catalog 删除或一个 Replica Agent Task。
+6. 不增加主动并发调度；FE 单线程逐项处理，但超时、切主和通用补发后旧 BE 任务可能仍运行，不承诺 BE 严格全局单任务。
 7. 不实现跨 RPC Session 或首期分页 Dictionary 导出。
 8. 不实现 `KEEP_LIST` 超限分片；超限按分区 fail-closed。
 9. 不恢复已按旧策略删除的数据，不承诺策略变更的跨表原子切换。
@@ -126,7 +128,7 @@ TenantTtlScheduler (Leader only)
 2. 未被 Tenant-TTL 引用的 Dictionary 不导出 FE 策略快照，刷新链路不增加额外工作。
 3. Tenant-TTL 导出或 Builder 失败只保留旧 FE 快照或进入等待状态，不回滚普通 Dictionary 的成功事务。
 4. FE 计划器不读取 BE Rowset/Segment；BE 不读取 Dictionary 或 TTL 天数。
-5. Catalog 分区删除和 Rowset Rewrite 是互斥执行路径，禁止相互降级。
+5. 同一当前计划的 Catalog 分区删除和 Rowset Rewrite 是互斥选择，禁止相互降级；旧超时任务与后续 Catalog 删除的实际重叠按第 19 节验证。
 
 ## 5. 核心对象与建议包结构
 
@@ -215,7 +217,7 @@ TenantTtlRetryPolicy
 TenantTtlRuntimeStatus
 ```
 
-进度 Manager 负责持久化“已经完成的事实”；Scheduler 的队列、候选上下文、在途 Agent Task 和部分 Replica 成功仅为 Leader 本地运行时状态，不持久化。
+进度 Manager 负责持久化“已经完整完成的事实”；重型上下文和 Replica 部分成功只保留到当前分区本轮处理结束，不跨轮恢复。跨轮保留最低限度的 BLOCKED 身份/恢复判据及实时诊断，不保留第二套执行队列或完整成功缓存。实际沿用的类名为 `TenantTtlScheduler` 和 `TenantTtlRewriteCoordinator`，不为落实早期建议类名而额外拆类。
 
 ## 6. 关键数据契约
 
@@ -305,14 +307,13 @@ PAUSED
 5. 发布计划前再次检查表绑定 fingerprint；不一致则丢弃整轮候选。
 6. Manager 中快照切换不修改已经物化或已下发的任务。
 
-### 7.3 全局串行破坏性执行
+### 7.3 全轮串行与有界任务处理
 
-Leader-local Coordinator 同时只允许一个破坏性单元：
+Leader 捕获绑定表 ID 集合，逐表评估、顺序处理其分区和 Replica；整轮结束才等待默认 600 秒。移除 1000 表批次轮转，不先物化所有表的完整任务。
 
-- 一个 `DROP_LOGICAL_PARTITION`；或
-- 一个 `(backendId, tabletId)` Replica Agent Task。
+每个 Replica 最多 30 次尝试（含发送前失败检查），可恢复失败间隔 10 秒，首次尝试起累计最多 3600 秒，任一先到即退出本轮该任务。未知结果等待原请求并允许现有补发，不重置预算。轮内普通重试保持 task ID/请求，跨轮重新评估产生新身份。每秒检查，等待不持 Catalog 锁或长 monitor。
 
-Replica Task 以稳定 `(tabletId, backendId)` 顺序执行。明确未进入执行或已经终止的可重试结果可以释放全局槽并进入退避；网络超时、响应丢失和 `TTL_ALREADY_RUNNING` 保持原不可变 task ID 收敛，不能另发不同请求并放开冲突任务。
+不修改 `ReportHandler`，不维护超时全局独占或同分区删除屏障；FE 串行不等于超时后的 BE 全局单任务。部分成功只在当前分区本轮保留，完整成功才提交 Progress；BLOCKED 只保留轻量恢复判据，详见第 19 节。
 
 ### 7.4 Leader 切换
 
@@ -332,7 +333,7 @@ Replica Task 以稳定 `(tabletId, backendId)` 顺序执行。明确未进入执
 4. 测试只记录实际执行项；未执行的相关测试写明原因。
 5. 每轮开始前检查工作树，保留用户和上游已有修改。
 
-建议轮次如下：
+已完成首期的原始拆分如下（当时的前置门槛已由第 13 节给出最终结论）；本次新轮次见第 19 节：
 
 | 轮次 | 主题 | 主要产物 | 前置依赖 |
 | --- | --- | --- | --- |
@@ -683,6 +684,8 @@ Builder 能把一个完整导出响应转换为不可变候选，且所有错误
 
 ### 第 027 轮：Leader 调度、到期事件与 Catalog 删除
 
+历史轮次；以下旧槽/旧任务删除屏障不是本次目标，当前替代方案见第 19 节。
+
 建议提交：`feat(fe): [027] schedule tenant ttl partition plans`
 
 #### 实现
@@ -712,6 +715,8 @@ Builder 能把一个完整导出响应转换为不可变候选，且所有错误
 Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Rewrite 只生成待执行计划。
 
 ### 第 028 轮：全部 Replica Rewrite 编排、重试和故障收敛
+
+历史轮次；以下未知结果独占、旧 soft timeout 和跨轮执行模型已由 FE-SCHED-009～013 及第 19 节替代。
 
 建议提交：`feat(fe): [028] orchestrate tenant ttl replica rewrites`
 
@@ -827,9 +832,9 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 - Dictionary Snapshot provider
 - Catalog snapshot/topology provider
 - Agent task submitter/completion source
-- retry scheduler/jitter source
+- 单调计时器和可控等待器；Dictionary 导出测试仍可独立注入 jitter source
 
-断言全局槽、顺序、task ID、重试 request byte equality、fingerprint fencing 和 Progress 推进，而不是通过等待真实 daemon 周期观察结果。
+断言 FE 单线程推进顺序、次数/累计预算、task ID、重试 request byte equality、fingerprint fencing 和 Progress 推进，不通过真实等待 600/3600 秒测试；不再断言超时后 BE 全局只有一个任务。
 
 ### 10.5 集成与故障测试
 
@@ -906,13 +911,13 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 2. 名单补集完整，NULL tenant 和默认 TTL 语义符合 FE-PLAN-001～003。
 3. 无快照、边界不可证明、名单超限、身份变化和未知结果一律 fail-closed。
 4. 全部 Catalog Replica 成功前不推进分区完成水位。
-5. Catalog 删除前完成锁内身份复核；Rewrite 不与同逻辑分区 Catalog 删除并发。
+5. Catalog 删除前完成锁内身份复核；当前计划分流唯一。旧 Rewrite 与 Catalog 删除重叠时，BE shutdown/commit 和 FE 进度发布必须通过专项竞态验收。
 
 ### 14.2 可恢复性
 
 1. Dictionary 导出失败不破坏普通 Dictionary，旧成功 FE 快照可继续使用。
 2. FE 重启/Leader 切换可从 binding 和 progress 重建，不依赖旧内存任务。
-3. 网络响应丢失使用原 task ID 和原请求收敛。
+3. 网络响应丢失在剩余累计预算内等待原请求及既有补发；预算耗尽本轮退出，下一轮以当前输入和完整进度重新核验，不无限占槽。
 4. 策略变化、迟到写入和拓扑变化最终触发重新评估。
 
 ### 14.3 兼容性
@@ -931,11 +936,11 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 
 ## 15. 对齐后执行方式
 
-本计划获得确认后，按以下节奏开始编码：
+本次用户已授权文档完成后直接编码、编译和测试，按以下节奏执行：
 
 1. 每次只启动一轮，开始前再次列出该轮契约、文件和测试。
 2. 完成代码后先做 diff/review 和目标测试，再形成独立 commit。
-3. 向用户报告实际测试、未测项、风险和 commit，获得继续指令后进入下一轮。
+3. 向用户报告实际测试、未测项、风险和 commit；按已授权的轮次继续，不在每轮之间要求重复批准。
 4. 遇到澄清文档未覆盖且会改变外部行为的选择时暂停，不在代码中先行定案。
 
 ## 16. 已确认契约到编码轮次的追踪矩阵
@@ -958,10 +963,13 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 | FE-OBS-001～004 | 021、025、027～029 | 静态/运行时状态、tenant 解析和双水位 |
 | FE-EVAL-001～004 | 024、026、028 | 固定时间/快照、watermark、Replica task identity |
 | FE-PLAN-001～003 | 023、024、030 | NULL 最大 TTL、名单极性、空/超限语义 |
-| FE-SCHED-001～003 | 025、027、028 | 到期事件、补偿触发、持久化进度和 Leader 队列 |
-| FE-SCHED-004 | 027～028 | 四态分流、Catalog/Rewrite 互斥和旧任务在途跳过 |
+| FE-SCHED-001～003 | 025、027、028；035～038 修订 | 到期事件、补偿触发、完整成功进度与轮内部分结果 |
+| FE-SCHED-004 | 027～028；036～038 修订 | 四态分流，旧超时 Rewrite 与 Catalog 删除并行安全 |
 | FE-SCHED-005 | 026、028 | 专用 Agent Task、完整结果、无取消和 fencing |
 | FE-SCHED-006～007 | 025、027、028、030 | 全 Replica、全局串行、错误收敛和切主 |
+| FE-SCHED-008～010 | 035～038 | 跨批次回归、逐表整轮、30 次/累计 3600 秒、600 秒轮后等待 |
+| FE-SCHED-011～012 | 035～038 | ReportHandler 不变、专属任务生命周期、轻量 BLOCKED 恢复 |
+| FE-SCHED-013 | 035～038 | 删除/提交/回报/切主竞态、旧机制清理及编译验收 |
 
 该矩阵用于每轮 review 时检查需求覆盖；若实现 diff 触及不属于该轮的条款，优先拆分提交，而不是扩大当轮范围。
 
@@ -1035,3 +1043,158 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 3. **集群验收**：全部 Tenant-TTL FE 回归 83 例通过、Checkstyle 0 违规、仅 FE 构建通过；升级现有本地集群且不重启 BE，两张真实单/多列自动 List 表各从 16 行正确清理至 9 行；额外 FE 重启后绑定与自动重建的策略快照恢复，结果保持不变。
 
 生产代码仅改两个类，未修改 BE、通用 Range 解析或写入约束。完整动作、结果、缓存使用注意事项、留存日志和手工 SQL 见《Tenant_TTL_033_date_trunc_实现与复测记录.md》。自动 List 内部空占位分区的聚合 FAIL_CLOSED 展示也在该文档中说明，未在本轮扩大范围修改。
+
+## 19. 第 035～038 轮：全轮串行推进与有界失败处理
+
+计划日期：2026-09-23。代码基线：`3cbaf979c`。依据：FE-SCHED-003～013 及本次会话全部已确认结论。
+
+状态：用户已授权先完成文档，再直接编码、编译和测试。以下为实施安排，不是完成记录；实际结果在第 19.9 节持续记录。若实施中需要改变已确认语义、扩展协议或调整 BE 契约，先暂停对齐。
+
+### 19.1 范围、拆分与退出原则
+
+| 轮次 | 主题 | 交付与测试重点 |
+| --- | --- | --- |
+| 035 | 轮内累计预算基础 | 小型 budget 值对象：30 次、10 秒、累计 3600 秒、短等待与角色退出；不切换生产 daemon；Coordinator 接入与分类归 036 |
+| 036 | 完整调度轮次接入与旧状态机清理 | 逐表处理、600 秒轮后等待、去除 1000 表限制；专属完成生命周期、轻量阻塞、完整进度与 Catalog 竞态安全一并接入；删除旧独占/跨轮执行机制 |
+| 037 | 并行与故障专项回归 | 补发/回报/超时/切主竞态，drop 与 Rewrite 交错、部分成功跨轮核验及阻塞恢复；只作本轮相关修正 |
+| 038 | 增量构建、手工闭环及交付 | FE/BE 相关回归、已有缓存增量编译、SQL 验收动作/结果、默认配置及文档核对 |
+
+每轮一个独立提交，遵守 AGENTS.md 的主题及 Problem/Implementation/Compatibility/Tests 要求；不自动 push。035 的未接入入口是短期迁移步骤，036 必须删除旧入口，不长期维护两套执行器。036 接入时即具备关键安全测试，不能以“037 会补测试”为由提交已知不安全的可运行路径。
+
+不进入本轮：导出字节预算翻倍、导出 RPC 超时调整、Dictionary 指数退避改造、DELETE_LIST 分片、并发调度、取消、禁用 DDL、混部、Dictionary 重启补齐、多 KEY 社区修复。
+
+### 19.2 对象职责与精简清单
+
+源码统一以仓库根目录为相对基准：
+
+| 文件/对象 | 本次职责与改动 |
+| --- | --- |
+| `fe/fe-core/src/main/java/com/starrocks/tenantttl/scheduler/TenantTtlScheduler.java` | 捕获有限表集合、逐表四路分流并处理完本轮结论；短锁状态发布、角色退出、600 秒轮后等待；去掉 tableScanOffset 和全表重型 pending 列表 |
+| `.../tenantttl/scheduler/TenantTtlRewriteCoordinator.java` | 当前分区/当前 Replica 的有界同步编排；保留不可变输入验证，去掉跨轮 executions、reconcile 全集误判、unknownExclusive、指数 retryDelay 和扫描周期消费结果的状态机 |
+| `.../task/TenantTtlCompactionTask.java` | 不可变请求，线程安全接纳有效终态，非终态提示与关闭状态；关闭后拒绝迟到结果，不清空尚未消费的有效成功 |
+| `.../leader/LeaderImpl.java` 的 Tenant-TTL 专属完成分支 | 根据接纳结果决定移除注册；`TTL_ALREADY_RUNNING`/无有效终态不冒充完成；普通任务分支不变 |
+| `.../tenantttl/scheduler/TenantTtlPartitionProgressManager.java` | 继续唯一维护完整成功事实，不改变 Image/EditLog 模式；配合调用方闭合 Catalog 校验到提交的锁边界 |
+| `.../tenantttl/TenantTtlStatusService.java` | 沿用表级有界摘要，准确表达超时/耗尽/阻塞，不新增历史查询 |
+| `.../common/Config.java` | 周期默认 600，max_attempts 默认 30，现有 soft_timeout 默认 3600 改为累计预算；旧 max_tables 字段保留兼容并注明不再使用 |
+| `.../leader/ReportHandler.java` | 不改生产代码；只通过测试验证既有补发行为与专属任务生命周期的交互 |
+
+不机械保留原 `PartitionExecution`/`ActiveTask` 所有字段。当前分区仅需不可变计划、expectedProgress、轮内成功版本和本轮结果；当前 Replica 仅需固定预算、已尝试次数、单调开始时间、任务引用和错误。保留一个短临界区处理关闭/结果接纳及角色代际，不将整个串行循环声明为 synchronized。
+
+已成功分区不增加缓存；失败部分集合不跨轮。BLOCKED 的最低恢复判据与可截断的展示摘要分开：不因 SHOW 只展示有限条记录就让阻塞任务自动重发。记录与真实受阻分区关联，drop/身份变化/切主及时回收，不持有名单或完整上下文。
+
+### 19.3 尝试/时间预算与结果生命周期
+
+1. Replica 开始处理时读取并固定 maxAttempts 与 timeoutSeconds；计时使用可注入单调时钟，评估时间仍用固定 epoch 秒。正值边界按需求处理，安全换算为 long。
+2. 每次进入发送前检查先占用一次尝试。副本不健康/版本未追上/节点不可用也计数；可恢复终态或确定未发送的暂时失败后，等待固定 10 秒，再在剩余预算内进入下一次尝试。
+3. 只有明确终态才能主动进入下一次业务尝试。异步提交异常、网络结果不明、通用失败但缺业务终态、`TTL_ALREADY_RUNNING` 保持当前身份等待有效结果；通用补发不计新尝试、不延长截止时间。
+4. 首次处理起累计 3600 秒包含所有尝试及间隔；每次 sleep 最多 1 秒并受剩余时间限制。示例：3500 秒返回可恢复失败，等待 10 秒后下一次只剩 90 秒。
+5. 到期/次数耗尽/角色失效后关闭本轮任务并移除 Agent 注册；不取消 BE，不设置全局或逻辑分区屏障。移除与已经捕获的补发存在窗口，接受原请求仍可能到达 BE。
+6. 回报线程只更新本任务结果及必要注册，不能自行向下一 Replica 派发或提交分区进度。结果接纳、重复回报、关闭采用明确同步；已接纳合法成功不能被后来的非终态/失败覆盖。
+7. `TTL_ALREADY_RUNNING` 不是最终成功也不是明确失败，不调用使真实终态无法匹配的完成清理。对于未知 task ID 的晚到回报继续确认接收，不重新注册或写进度。
+8. 同 task ID 轮内重试仅重置必要的本次传递状态，不修改请求。对重复/迟到的旧失败保持保守，不能将低版本或错误身份的结果当成功；任意有效成功也必须对应仍开放、仍有效的计划。
+
+### 19.4 BLOCKED 的逐类恢复判据
+
+以下是已确认“相关条件变化后重评估”的具体实现安排；不新增手工恢复 DDL、不持久化阻塞记录：
+
+| 错误 | 保留的轻量身份/条件 | 自动解除阻塞的相关变化 |
+| --- | --- | --- |
+| `INVALID_ARGUMENT` | 绑定/Schema、规范化计划语义/过滤器指纹、目标拓扑 | 相关请求语义/结构或目标身份变化，重新准入后尝试 |
+| `NOT_SUPPORTED` | 上述身份及目标 BE 的可信启动标识 | 支持资格相关 Schema/布局变化、目标替换或已观测到 BE 新启动标识 |
+| `DATA_INVARIANT_VIOLATION` | 计划身份、目标、观测数据版本及 BE 启动标识 | 相关数据版本、身份或节点实例变化后重新安全核验 |
+| `INTERNAL_ERROR` | 计划身份、目标、观测数据版本及 BE 启动标识 | 相关输入/数据/节点实例变化后重新安全核验，不自动当普通忙重试 |
+
+计划语义指纹不得包含仅用于执行标识的 task ID、每轮 evaluation_time 或语义不变的 SnapshotTxnId；到期导致过滤集合实际变化属于新语义。优先复用已有指纹，不跨轮保存过滤器字节。
+
+节点启动标识使用当前 `ComputeNode.getLastStartTime()` 可观测信息，不把每次 heartbeat 时间当成节点变化，也不信任未知/缺失值作为已恢复。节点暂时不存活仍不能下发任务。
+
+BE 内部修复若没有改变任何 FE 可观察条件，不承诺自动发现。现阶段人工修复后可通过已有 FE 重启/Leader 重建使本地阻塞状态重建，再安全核验；不要求为解锁而制造业务数据或假策略变化，也不新增运维 API。切主/重启丢失 BLOCKED 只意味着重新核验，不意味着已有成功事实。
+
+### 19.5 完整进度、Catalog 删除与切主
+
+1. 单个物理分区顺序处理全部必需 Replica；普通失败耗尽后仍继续其他有效任务，最终只要任一必需目标未成功就不提交完整进度。确定性错误阻止同一失败计划紧密重做，不影响其他分区。
+2. 所有成功版本取最小值，完成时在 Catalog 读锁下复核绑定、策略、边界和拓扑，并将复核到 `compareAndAdvanceCompletedPlan()` 保持在同一受保护区间，遵守现有 Catalog→progress 锁顺序。没有进度时的 expected=null 也不能在 drop 后重新插入孤儿记录。
+3. 失败不清空原完整进度；处理完释放本轮部分集合。下轮按原完整进度与当前语义、到期、数据版本决定是否需要重新核验全部 Replica。
+4. Catalog DROP 维持写锁内身份/策略检查和 FORCE 路径，成功后回收进度；去掉“旧超时 Rewrite 在途”专属拒绝。当前计划的四路分流仍唯一，DROP 失败不转为 Rewrite。
+5. 静态保护依据需以测试证明：`TabletManager::drop_tablet()` 的 header 锁与 shutdown、TTL commit 的同锁状态复核、任务持有 Tablet 引用及 staged 输出回收。不要新增 BE cancel 或改变当前提交契约来替代验证。
+6. 切主通知不能被整轮 monitor 阻塞；角色失效后停止新发送/重试/进度提交，关闭本地任务入口。短暂失去再获得 Leader 也必须使旧执行代际失效，不能只检查此刻 isLeader 为 true 就继续旧循环。
+
+### 19.6 各轮具体工作与测试
+
+#### 035：轮内累计预算基础
+
+建议提交：`refactor(tenant-ttl): [035] bound replica attempts within a round`
+
+- 增加小型 `TenantTtlExecutionBudget`（不是另一套执行器），固定任务的次数/时间配置，以可注入单调时钟与短等待器独立验证累计边界；不切换生产 Scheduler。
+- 纯预算测试覆盖第 30/31 次、固定 10 秒、3500+10+90、deadline 截短最后一次睡眠、角色失效、中断、非正值及 INT 最大值；不等待真实 3600 秒。
+- Coordinator 的发送前检查、未知状态、计划失效、BLOCKED 和 request identity 接入及测试统一放在 036，避免 035 先复制一套暂时执行器又在 036 删除。
+- 退出条件：预算单测通过，旧生产调用路径保持原状；这是组件级交付，不宣称生产调度问题已经修复。
+
+#### 036：完整轮次接入与正确性边界
+
+建议提交：`fix(tenant-ttl): [036] drain table tasks before the scheduler delay`
+
+- 将 Scheduler 切换到逐表四态处理及新入口，移除 tableScanOffset、跨轮部分 executions 和无限未知独占；轮后读取 600 秒配置。
+- 同一提交完成 TenantTtlCompactionTask/LeaderImpl 专属生命周期、短锁切主隔离、BLOCKED 恢复与进度提交的 Catalog 锁边界，避免过渡版本丢失真实终态或产生孤儿进度。
+- 新增 attempts 配置；保留旧 max_tables 兼容字段但不读取；更新注释/SHOW 摘要和所有旧接口调用/测试。
+- 在 `TenantTtlSchedulerTest`/`TenantTtlEndToEndTest` 验证一次调用推进多 Replica/多表、1001 表、有限集合、新绑定下轮、A/B 跨批次回归、无事件不重发及部分失败下轮全核验。
+- 在 `TenantTtlCompactionTaskTest`/`TenantTtlRewriteCoordinatorTest` 验证非终态不关闭、超时关闭、晚到报告不能复活、角色失效及 complete/drop 的互斥提交。
+- 关键 drop/rewrite 锁交错测试必须在取消屏障的代码验收前跑通；失败则修复或暂停，不以 FE 静态推断替代。
+- 退出条件：新生产路径具备全部安全约束，旧状态机及调用入口清理完成，目标 FE 回归通过。
+
+#### 037：补发、并行与恢复专项
+
+建议提交：`test(tenant-ttl): [037] cover resend failover and partition drop races`
+
+- FE 定向测试真实 Tenant-TTL 完成分支与既有 `ReportHandler` 补发：队列移除前/后捕获、重复终态、非终态后真终态、超时后旧回报、新轮新 task ID、未发送本地失败与不确定发送分支。
+- 覆盖 4 类 BLOCKED 的无变化抑制、仅 txn/time/task ID 变化不解锁、相关条件变化恢复、节点启动标识未知、删除/改绑/切主回收；摘要截断不能解除阻塞。
+- 覆盖多 Replica 成功版本取最小值、低版本假成功拒绝、journal 失败不报完成、expected=null 的 drop/publish 竞态、进度 replay 和新 Leader 不复用旧部分集合。
+- BE 在 `be/test/storage/tenant_ttl_tablet_primitives_test.cpp` 和 `engine_tenant_ttl_compaction_task_test.cpp` 使用锁/已有同步测试能力验证 drop-first、commit-first、rewrite 中 drop、输出回收；测试不得新增生产取消语义。
+- 对已存在的普通 Agent、Dictionary/partition retention 相关目标做针对性回归；任何非 Tenant-TTL/社区问题必须独立记录和提交。
+- 退出条件：新增边界有可重复证据；未能运行的集群故障场景明确列为未验收，不用单测冒充真实多 FE 切主。
+
+#### 038：编译与手工闭环验收
+
+建议提交：`test(tenant-ttl): [038] validate bounded scheduling end to end`
+
+- 复用已存在编译容器及 named volume，先检查工具链/CMakeCache/实际目录，仅同步本轮修改；不新建无缓存构建空间、不清理 build/output。
+- FE 跑 Tenant-TTL 相关完整单测、相关 Agent 回归、Checkstyle 和增量 FE 构建；BE 复用匹配 Debug UT 目录构建并跑相关新增测试，无 BE 产品代码变化时不无故重编整套 Release。
+- 使用隔离测试库建立 Primary Key 三列策略表、Dictionary、多个业务表/分区；固定可复测数据验证 DELETE_LIST、KEEP_LIST、NOOP、整分区 DROP 和 NULL 语义。
+- 展示多表/多任务在一次全局轮内连续推进，不再每个任务间隔 600 秒；第二轮无新事件不重复下发，迟到写入/策略变更仍能触发补偿。通过日志/任务记录判断轮次，不只看最终 count。
+- 超时和 30 次边界优先采用确定性故障测试，不为真实集群验收等待 1 小时；需调短测试配置时记录原值并恢复，不把临时值写成产品默认。
+- 输出可重复 mysql 命令、每步期望与实际结果、构建命令/日志/产物路径，以及未验收环境限制。无可用多副本/多 FE 环境时明确指出，不伪造覆盖。
+- 退出条件：本轮目标构建/测试完成，文档与实际行为一致，工作树及提交范围检查通过。
+
+### 19.7 必须保留的测试矩阵
+
+| 维度 | 最低验证 |
+| --- | --- |
+| 次数 | max=1、默认 30、第 30 次成功/失败、不发生第 31 次、前置不可用计数 |
+| 时间 | 单调计时、累计预算跨尝试不重置、10 秒等待计入、3500+10+90、补发不延长、非正配置安全边界 |
+| 结果 | 全错误码、缺失/畸形/身份不符结果、TTL_ALREADY_RUNNING 后真终态、关闭与成功接纳的两种先后 |
+| 进度 | 全 Replica 非 quorum、min version、部分集合释放、下轮重验、无触发不重做、journal/replay 与 drop 竞态 |
+| 生命周期 | 绑定/Schema/拓扑/分区替换、策略语义相同/变化、切主再切回、迟到回报/已捕获补发 |
+| 阻塞 | 原因及轻量身份、条件不变抑制、相关变化恢复、展示截断不解锁、drop/切主回收 |
+| 存储并行 | drop-first、commit-first、rewrite 中 drop、staged 输出与引用生命周期；无 BE 契约变化 |
+| 非目标回归 | 普通 Agent、Dictionary 和 partition_retention_condition；不改变导出指数退避或写入路径 |
+
+### 19.8 交付检查
+
+1. 删除无用对象/接口前用调用点和测试证明已被新结构替代，尤其避免误删 Dictionary 的同名 retry/backoff 逻辑。
+2. 旧 max_tables fe.conf 可读取但不限制扫描；三个有效动态参数按已确认的读取时点生效。
+3. 同步澄清文档、配置注释、SHOW 摘要和测试，不留下同时声称“累计预算”和“每尝试预算”的当前规范。
+4. 每轮独立 commit，实际测试写入提交体；保留用户 `zc-docs/design/`、`zc-docs/path/` 等未跟踪内容。未经请求不 push、不删除编译缓存。
+
+### 19.9 实际实施与验证记录
+
+035 已完成 `TenantTtlExecutionBudget` 和 6 个纯单元测试。复用当前唯一运行且挂载缓存的 `starrocks-tenant-ttl-e2e`（原 `starrocks-tenant-ttl-4.0-build` 已停止），未启动第二个写入容器。已核对缓存 Debug UT 配置为 Debug、MAKE_TEST=ON、USE_AVX2=ON、WITH_STARCACHE=ON、WITH_TENANN=OFF。
+
+实际执行（容器内先加载 `/tenant-ttl-workspace/env.sh`，工作目录 `/tenant-ttl-workspace/fe`）：
+
+```bash
+mvn -pl fe-core -am -Dmaven.clean.skip=true -Dcheckstyle.skip \
+  -Dtest=TenantTtlExecutionBudgetTest -DfailIfNoTests=false \
+  -Dsurefire.failIfNoSpecifiedTests=false -T 1 test
+```
+
+结果：BUILD SUCCESS，6 tests、0 failures、0 errors、0 skipped；日志 `/tenant-ttl-workspace/round035-fe-budget-test.log`。只同步两个新增源文件，未 clean 构建产物；`git diff --check` 通过。尚未运行全量 Tenant-TTL、Checkstyle、BE 或端到端验收，这些按后续轮次执行；035 未接入生产 daemon，不宣称调度修复已生效。
