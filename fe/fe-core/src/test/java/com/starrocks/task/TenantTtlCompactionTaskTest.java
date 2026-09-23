@@ -175,6 +175,56 @@ public class TenantTtlCompactionTaskTest {
                 AgentTaskQueue.getTask(BACKEND_ID, TTaskType.TENANT_TTL_COMPACTION, TASK_ID));
     }
 
+    @Test
+    public void testAlreadyRunningKeepsRegistrationForTheRealCompletion() throws Exception {
+        TenantTtlCompactionTask task = task(TenantTtlPolicyPlanner.FilterMode.DELETE_LIST,
+                Collections.singletonList(TenantTtlByteKey.utf8("a")));
+        AgentTaskQueue.addTask(task);
+        TFinishTaskRequest finish = new TFinishTaskRequest();
+        finish.setTask_status(new TStatus(TStatusCode.OK));
+        finish.setTenant_ttl_compaction_result(emptyResult(TTenantTtlTaskCode.TTL_ALREADY_RUNNING,
+                TStatusCode.RUNTIME_ERROR, true, -1, -1));
+        invokeFinishHandler(new LeaderImpl(), task, finish);
+        Assertions.assertSame(task, AgentTaskQueue.getTask(BACKEND_ID, TTaskType.TENANT_TTL_COMPACTION, TASK_ID));
+        Assertions.assertFalse(task.isFinished());
+        Assertions.assertFalse(task.getResult().isPresent());
+        finish.setTenant_ttl_compaction_result(successResult());
+        invokeFinishHandler(new LeaderImpl(), task, finish);
+        Assertions.assertTrue(task.getResult().isPresent());
+        Assertions.assertNull(AgentTaskQueue.getTask(BACKEND_ID, TTaskType.TENANT_TTL_COMPACTION, TASK_ID));
+    }
+
+    @Test
+    public void testLateOldHandlerCannotRemoveNewAttemptRegistration() throws Exception {
+        TenantTtlCompactionTask old = task(TenantTtlPolicyPlanner.FilterMode.DELETE_LIST,
+                Collections.singletonList(TenantTtlByteKey.utf8("a")));
+        AgentTaskQueue.addTask(old);
+        old.close();
+        old.removeFromQueue();
+        TenantTtlCompactionTask next = task(TenantTtlPolicyPlanner.FilterMode.DELETE_LIST,
+                Collections.singletonList(TenantTtlByteKey.utf8("a")));
+        AgentTaskQueue.addTask(next);
+        TFinishTaskRequest finish = new TFinishTaskRequest();
+        finish.setTask_status(new TStatus(TStatusCode.OK));
+        finish.setTenant_ttl_compaction_result(successResult());
+        invokeFinishHandler(new LeaderImpl(), old, finish);
+        Assertions.assertSame(next, AgentTaskQueue.getTask(BACKEND_ID, TTaskType.TENANT_TTL_COMPACTION, TASK_ID));
+        Assertions.assertFalse(old.getResult().isPresent());
+        Assertions.assertFalse(next.getResult().isPresent());
+    }
+
+    @Test
+    public void testAcceptedSuccessIsNotOverwrittenByDuplicateFailure() {
+        TenantTtlCompactionTask task = task(TenantTtlPolicyPlanner.FilterMode.DELETE_LIST,
+                Collections.singletonList(TenantTtlByteKey.utf8("a")));
+        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.ACCEPTED, task.finish(successResult()));
+        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.ALREADY_FINISHED,
+                task.finish(emptyResult(TTenantTtlTaskCode.TABLET_BUSY, TStatusCode.RUNTIME_ERROR, true, -1, -1)));
+        Assertions.assertEquals(TTenantTtlTaskCode.SUCCESS, task.getResult().orElseThrow().getCode());
+        task.close();
+        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.CLOSED, task.finish(successResult()));
+    }
+
     private static TenantTtlCompactionTask task(TenantTtlPolicyPlanner.FilterMode mode,
                                                 List<TenantTtlByteKey> tenants) {
         return new TenantTtlCompactionTask(BACKEND_ID, DB_ID, TABLE_ID, PARTITION_ID, INDEX_ID,

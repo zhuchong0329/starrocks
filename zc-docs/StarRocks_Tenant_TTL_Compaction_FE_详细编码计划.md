@@ -1198,3 +1198,7 @@ mvn -pl fe-core -am -Dmaven.clean.skip=true -Dcheckstyle.skip \
 ```
 
 结果：BUILD SUCCESS，6 tests、0 failures、0 errors、0 skipped；日志 `/tenant-ttl-workspace/round035-fe-budget-test.log`。只同步两个新增源文件，未 clean 构建产物；`git diff --check` 通过。尚未运行全量 Tenant-TTL、Checkstyle、BE 或端到端验收，这些按后续轮次执行；035 未接入生产 daemon，不宣称调度修复已生效。
+
+036 已接入完整轮次执行、600 秒轮后等待、动态次数/累计预算、Agent 专属关闭、Leader 代际隔离、轻量 BLOCKED 和 Catalog 锁内进度提交；`ReportHandler`、Dictionary 退避和 BE 产品代码未修改。全套 `*TenantTtl*Test` 已运行 102 项（0 failures/errors/skipped），Checkstyle 0 violations，分别见容器 `/tenant-ttl-workspace/round036-fe-full-v2.log`、`round036-checkstyle-v2.log`。新增测试包含 1001 表不截断、同轮双表推进/新绑定下轮处理、完整成功不重发、累计 3600 秒、30 次尝试、未知结果等待、迟到关闭和 expected=null 的 Catalog 写锁排斥。
+
+本轮同时新增 4 个 BE drop/rewrite 交错测试。当前复用 `be/ut_build_Debug`，`cmake --build ... --target engine_tenant_ttl_compaction_task_test -j4` 正在增量编译（日志 `round036-be-build.log`），因缓存早于已有的公共配置头更新，需要较多依赖重编；未 clean、未切换 Release。**036 提交时 BE 新测试尚未运行，移除旧超时删除屏障的最终验收仍以这些测试通过为前提**；专项补发/恢复与真实集群验收继续在 037/038 完成，不将当前 FE 单测冒充 BE 并行验证。

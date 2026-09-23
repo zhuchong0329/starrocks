@@ -20,12 +20,15 @@ import com.starrocks.catalog.Dictionary;
 import com.starrocks.catalog.InternalCatalog;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.TenantTtlDictionaryBinding;
+import com.starrocks.common.Config;
 import com.starrocks.common.jmockit.Deencapsulation;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgress;
+import com.starrocks.tenantttl.scheduler.TenantTtlRewriteCoordinator;
 import com.starrocks.tenantttl.scheduler.TenantTtlScheduler;
+import com.starrocks.thrift.TTenantTtlTaskCode;
 import com.starrocks.utframe.StarRocksAssert;
 import com.starrocks.utframe.UtFrameUtils;
 import org.junit.jupiter.api.AfterAll;
@@ -37,12 +40,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class TenantTtlSchedulerTest {
@@ -115,8 +121,11 @@ public class TenantTtlSchedulerTest {
         long noopPhysicalId = table.getPartition("p_noop").getDefaultPhysicalPartition().getId();
         long rewritePhysicalId = table.getPartition("p_rewrite").getDefaultPhysicalPartition().getId();
         long dropPhysicalId = table.getPartition("p_drop").getDefaultPhysicalPartition().getId();
-        TenantTtlScheduler scheduler = new TenantTtlScheduler();
-        scheduler.setRewriteExecutionView(TenantTtlScheduler.RewriteExecutionView.NONE);
+        AtomicLong clock = new AtomicLong();
+        TenantTtlScheduler scheduler = new TenantTtlScheduler(new TenantTtlRewriteCoordinator(
+                task -> task.finish(TenantTtlRewriteCoordinatorTest.result(
+                        task, TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion())),
+                clock::get, clock::addAndGet));
 
         scheduler.scheduleOnce(state);
 
@@ -131,9 +140,9 @@ public class TenantTtlSchedulerTest {
         Assertions.assertEquals(SNAPSHOT_TXN_ID, noopProgress.getLastSuccessSnapshotTxnId());
         Assertions.assertEquals(TenantTtlScheduler.PartitionState.FE_NOOP,
                 scheduler.getPartitionStatus(noopProgress.key()).orElseThrow(AssertionError::new).getState());
-        Assertions.assertEquals(1, scheduler.getPendingRewritePlans().size());
-        Assertions.assertEquals(rewritePhysicalId, scheduler.getPendingRewritePlans().get(0)
-                .getPartitionPlan().getPhysicalPartitionId());
+        Assertions.assertTrue(scheduler.getPendingRewritePlans().isEmpty());
+        Assertions.assertTrue(state.getTenantTtlPartitionProgressManager().get(
+                new TenantTtlPartitionProgress.ProgressKey(db.getId(), table.getId(), rewritePhysicalId)).isPresent());
         Assertions.assertFalse(scheduler.getNextExpiries().isEmpty());
     }
 
@@ -152,28 +161,16 @@ public class TenantTtlSchedulerTest {
                 "PROPERTIES('replication_num'='1', 'compaction_retention_condition'=\"dictionary_ttl('" +
                 DICTIONARY_NAME + "', '" + TABLE_KEY + "', 180)\")"));
         OlapTable second = (OlapTable) db.getTable(secondTable);
+        fixedSnapshotManager.tableRefs.clear();
         fixedSnapshotManager.addTable(second.getId());
         TenantTtlDictionaryBinding original = second.getTableProperty().getTenantTtlDictionaryBinding();
-        TenantTtlScheduler scheduler = new TenantTtlScheduler();
-        scheduler.setRewriteExecutionView(new TenantTtlScheduler.RewriteExecutionView() {
-            private boolean changed;
-
-            @Override
-            public boolean hasRewriteInFlight(long dbId, long tableId, long logicalPartitionId) {
-                if (tableId == second.getId() && !changed) {
-                    changed = true;
-                    Locker locker = new Locker();
-                    locker.lockDatabase(db.getId(), LockType.WRITE);
-                    try {
-                        second.getTableProperty().setTenantTtlDictionaryBinding(new TenantTtlDictionaryBinding(
-                                original.getDictionaryId(), original.getDictionaryName(), original.getTableKey(),
-                                original.getDefaultDays() + 1));
-                    } finally {
-                        locker.unLockDatabase(db.getId(), LockType.WRITE);
-                    }
-                }
-                return false;
-            }
+        // The injected evaluation clock runs after capture has saved its binding reference.
+        // Change the live binding at this deterministic boundary, before Catalog DROP revalidation.
+        TenantTtlScheduler scheduler = new TenantTtlScheduler(new TenantTtlRewriteCoordinator(), () -> {
+            second.getTableProperty().setTenantTtlDictionaryBinding(new TenantTtlDictionaryBinding(
+                    original.getDictionaryId(), original.getDictionaryName(), original.getTableKey(),
+                    original.getDefaultDays() + 1));
+            return now;
         });
 
         scheduler.scheduleOnce(state);
@@ -185,6 +182,79 @@ public class TenantTtlSchedulerTest {
             second.getTableProperty().setTenantTtlDictionaryBinding(original);
         } finally {
             locker.unLockDatabase(db.getId(), LockType.WRITE);
+        }
+    }
+
+    @Test
+    @Order(3)
+    public void testOneRoundVisitsMoreThanLegacyTableLimit() {
+        int previousLimit = Config.tenant_ttl_scheduler_max_tables_per_cycle;
+        Config.tenant_ttl_scheduler_max_tables_per_cycle = 1;
+        Set<TenantTtlPolicySnapshotManager.TableRef> previousRefs = new HashSet<>(fixedSnapshotManager.tableRefs);
+        fixedSnapshotManager.tableRefs.clear();
+        long firstMissingTable = Long.MAX_VALUE - 2000;
+        for (int index = 0; index < 1001; index++) {
+            fixedSnapshotManager.addTable(firstMissingTable + index);
+        }
+        try {
+            TenantTtlScheduler scheduler = new TenantTtlScheduler();
+            scheduler.scheduleOnce(state);
+            for (int index = 0; index < 1001; index++) {
+                Assertions.assertTrue(scheduler.getTableStatus(db.getId(), firstMissingTable + index).isPresent());
+            }
+        } finally {
+            fixedSnapshotManager.tableRefs.clear();
+            fixedSnapshotManager.tableRefs.addAll(previousRefs);
+            Config.tenant_ttl_scheduler_max_tables_per_cycle = previousLimit;
+        }
+    }
+
+    @Test
+    @Order(4)
+    public void testTwoTablesDrainAllTabletsAndNewBindingWaitsForNextRound() throws Exception {
+        StarRocksAssert starRocksAssert = new StarRocksAssert(UtFrameUtils.createDefaultCtx());
+        starRocksAssert.useDatabase(DB_NAME);
+        long now = System.currentTimeMillis() / 1000L;
+        List<OlapTable> tables = new ArrayList<>();
+        for (String name : List.of("round_a", "round_b", "round_new")) {
+            starRocksAssert.withTable("CREATE TABLE " + DB_NAME + "." + name +
+                    " (tenant VARCHAR(128), recordTimestamp BIGINT NOT NULL) DUPLICATE KEY(tenant, recordTimestamp) " +
+                    "PARTITION BY RANGE(recordTimestamp) (PARTITION p_data VALUES LESS THAN ('" +
+                    (now - 60L * 86400L) + "')) DISTRIBUTED BY HASH(tenant) BUCKETS 2 " +
+                    "PROPERTIES('replication_num'='1', 'compaction_retention_condition'=\"dictionary_ttl('" +
+                    DICTIONARY_NAME + "', '" + TABLE_KEY + "', 180)\")");
+            tables.add((OlapTable) db.getTable(name));
+        }
+        int oldLimit = Config.tenant_ttl_scheduler_max_tables_per_cycle;
+        Config.tenant_ttl_scheduler_max_tables_per_cycle = 1;
+        Set<TenantTtlPolicySnapshotManager.TableRef> previousRefs = new HashSet<>(fixedSnapshotManager.tableRefs);
+        fixedSnapshotManager.tableRefs.clear();
+        fixedSnapshotManager.addTable(tables.get(0).getId());
+        fixedSnapshotManager.addTable(tables.get(1).getId());
+        AtomicLong clock = new AtomicLong();
+        AtomicLong sends = new AtomicLong();
+        TenantTtlScheduler scheduler = new TenantTtlScheduler(new TenantTtlRewriteCoordinator(task -> {
+            sends.incrementAndGet();
+            fixedSnapshotManager.addTable(tables.get(2).getId());
+            task.finish(TenantTtlRewriteCoordinatorTest.result(task,
+                    TTenantTtlTaskCode.NOOP_VERIFIED, task.getObservedMaxVersion()));
+        }, clock::get, clock::addAndGet), () -> now);
+        try {
+            scheduler.scheduleOnce(state);
+            Assertions.assertEquals(4, sends.get());
+            Assertions.assertFalse(scheduler.getTableStatus(db.getId(), tables.get(2).getId()).isPresent());
+            for (OlapTable completed : tables.subList(0, 2)) {
+                Assertions.assertEquals(1,
+                        state.getTenantTtlPartitionProgressManager().countTable(db.getId(), completed.getId()));
+            }
+            scheduler.scheduleOnce(state);
+            Assertions.assertEquals(6, sends.get());
+            scheduler.scheduleOnce(state);
+            Assertions.assertEquals(6, sends.get(), "all three complete tables need no duplicate work");
+        } finally {
+            fixedSnapshotManager.tableRefs.clear();
+            fixedSnapshotManager.tableRefs.addAll(previousRefs);
+            Config.tenant_ttl_scheduler_max_tables_per_cycle = oldLimit;
         }
     }
 

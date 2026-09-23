@@ -42,6 +42,7 @@ import com.starrocks.tenantttl.policy.TenantTtlEvaluationContext.ReplicaTaskSpec
 import com.starrocks.tenantttl.policy.TenantTtlEvaluationContext.ReplicaTopologyEntry;
 import com.starrocks.tenantttl.policy.TenantTtlPolicyPlanner;
 import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshot;
+import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshotManager.TableRef;
 import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgress.ProgressKey;
 import com.starrocks.thrift.TTaskType;
 import com.starrocks.thrift.TTenantTtlCompactionResult;
@@ -51,242 +52,297 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
-import java.util.function.DoubleSupplier;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
-/**
- * Leader-local orchestration for immutable Tenant-TTL Replica tasks.
- *
- * <p>The coordinator deliberately persists only completed partition progress. Partial Replica success and
- * in-flight Agent tasks are fenced by immutable request identity and are rebuilt from durable progress after
- * a Leader change.</p>
- */
-public final class TenantTtlRewriteCoordinator implements TenantTtlScheduler.RewriteExecutionView {
+/** Sequential, round-local execution. Only completed progress and lightweight blocking facts survive a round. */
+public final class TenantTtlRewriteCoordinator {
     private static final Logger LOG = LogManager.getLogger(TenantTtlRewriteCoordinator.class);
-    private static final long INITIAL_RETRY_MILLIS = 10_000L;
-    private static final long MAX_RETRY_MILLIS = 10L * 60L * 1000L;
-    private static final double JITTER_FRACTION = 0.20;
-
-    private final Map<ProgressKey, PartitionExecution> executions = new LinkedHashMap<>();
+    private final Object lifecycleLock = new Object();
+    private final Map<ProgressKey, BlockedPlan> blockedPlans = new ConcurrentHashMap<>();
     private final TaskSubmitter taskSubmitter;
-    private final LongSupplier clockMillis;
-    private final DoubleSupplier randomUnit;
-    private ActiveTask activeTask;
+    private final LongSupplier monotonicMillis;
+    private final TenantTtlExecutionBudget.Waiter waiter;
+    private volatile long generation;
+    private volatile TenantTtlCompactionTask activeTask;
+    private volatile ExecutionStatus activeStatus;
 
     public TenantTtlRewriteCoordinator() {
-        Random random = new Random();
-        this.taskSubmitter = new AgentTaskSubmitter();
-        this.clockMillis = System::currentTimeMillis;
-        this.randomUnit = random::nextDouble;
+        this(new AgentTaskSubmitter(), () -> System.nanoTime() / 1_000_000L, Thread::sleep);
     }
 
-    public TenantTtlRewriteCoordinator(TaskSubmitter taskSubmitter, LongSupplier clockMillis,
-                                       DoubleSupplier randomUnit) {
+    public TenantTtlRewriteCoordinator(TaskSubmitter taskSubmitter, LongSupplier monotonicMillis,
+                                      Waiter waiter) {
         this.taskSubmitter = Objects.requireNonNull(taskSubmitter, "task submitter is null");
-        this.clockMillis = Objects.requireNonNull(clockMillis, "clock is null");
-        this.randomUnit = Objects.requireNonNull(randomUnit, "jitter source is null");
+        this.monotonicMillis = Objects.requireNonNull(monotonicMillis, "monotonic clock is null");
+        Objects.requireNonNull(waiter, "waiter is null");
+        this.waiter = waiter::sleep;
     }
 
-    /** Reconcile retained Leader-local executions with the scheduler's current immutable plans. */
-    public synchronized void reconcile(GlobalStateMgr state,
-                                       List<TenantTtlScheduler.PendingRewritePlan> currentPlans) {
-        Objects.requireNonNull(state, "global state is null");
-        Objects.requireNonNull(currentPlans, "current plans are null");
-        if (!state.isLeader()) {
-            resetForLeadershipLoss();
-            return;
+    /** Caller owns the one scheduler worker; no Catalog or lifecycle lock is held during waits. */
+    public ExecutionStatus executePartition(GlobalStateMgr state, TenantTtlScheduler.PendingRewritePlan pending,
+                                            BooleanSupplier leader, Consumer<ExecutionStatus> observer) {
+        long epoch = generation;
+        BooleanSupplier current = () -> generation == epoch && state.isLeader() && leader.getAsBoolean();
+        ProgressKey key = key(pending);
+        PartitionPlan plan = pending.getPartitionPlan();
+        TenantTtlPartitionProgress expected = state.getTenantTtlPartitionProgressManager().get(key).orElse(null);
+        BlockedPlan blocked = blockedPlans.get(key);
+        if (blocked != null && blocked.stillApplies(state, pending)) {
+            ExecutionStatus status = report(pending, null, ExecutionState.BLOCKED, 0,
+                    blocked.code, blocked.detail, observer);
+            activeStatus = null;
+            return status;
         }
-
-        Map<ProgressKey, TenantTtlScheduler.PendingRewritePlan> current = indexPlans(currentPlans);
-        for (PartitionExecution execution : executions.values()) {
-            TenantTtlScheduler.PendingRewritePlan plan = current.get(execution.key);
-            if (plan == null || !execution.matchesStablePlan(plan)) {
-                execution.invalidated = true;
-                execution.detail = "current binding, policy, boundary, topology, or plan type changed";
+        blockedPlans.remove(key);
+        int successful = 0;
+        long processedThrough = Long.MAX_VALUE;
+        ExecutionStatus failure = null;
+        try {
+            for (ReplicaTaskSpec spec : plan.getReplicaTasks()) {
+                if (!current.getAsBoolean()) {
+                    return report(pending, spec, ExecutionState.REPLAN_REQUIRED, successful, null,
+                            "leadership changed", observer);
+                }
+                ReplicaResult result = executeReplica(state, pending, spec, current, successful, observer);
+                if (result.state == ExecutionState.COMPLETED) {
+                    successful++;
+                    processedThrough = Math.min(processedThrough, result.processedThrough);
+                } else {
+                    failure = report(pending, spec, result.state, successful, result.code, result.detail, observer);
+                    if (result.state == ExecutionState.BLOCKED) {
+                        synchronized (lifecycleLock) {
+                            if (current.getAsBoolean()) {
+                                blockedPlans.put(key, new BlockedPlan(state, pending, spec, result.code, result.detail));
+                            }
+                        }
+                        return failure;
+                    }
+                    if (result.state == ExecutionState.REPLAN_REQUIRED) {
+                        return failure;
+                    }
+                }
             }
+            if (failure != null) {
+                return report(pending, null, failure.state, successful, failure.lastResultCode, failure.detail, observer);
+            }
+            if (successful == 0 || !publishCompleted(state, pending, expected, processedThrough, current)) {
+                return report(pending, null, ExecutionState.REPLAN_REQUIRED, successful, null,
+                        "completed plan changed before progress publication", observer);
+            }
+            return report(pending, null, ExecutionState.COMPLETED, successful, null, "", observer);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return report(pending, null, ExecutionState.REPLAN_REQUIRED, successful, null,
+                    "scheduler interrupted", observer);
+        } catch (RuntimeException e) {
+            LOG.warn("Tenant-TTL partition execution failed. key={}", key, e);
+            return report(pending, null, ExecutionState.FAILED, successful, null, rootMessage(e), observer);
+        } finally {
+            activeStatus = null;
         }
-        discardInactiveInvalidatedExecutions();
-        addMissingExecutions(state, current);
-
-        pollActiveTask(state);
-        discardInactiveInvalidatedExecutions();
-        publishCompletedExecutions(state, current);
     }
 
-    /** Submit at most one Replica task. Explicit terminal retries do not prevent another plan from running. */
-    public synchronized void dispatchNext(GlobalStateMgr state) {
-        Objects.requireNonNull(state, "global state is null");
-        if (!state.isLeader()) {
-            resetForLeadershipLoss();
-            return;
-        }
-        if (activeTask != null || hasUnknownExclusiveExecution()) {
-            PartitionExecution exclusive = unknownExclusiveExecution();
-            if (activeTask != null || exclusive == null || clockMillis.getAsLong() < exclusive.nextAttemptMillis) {
-                return;
-            }
-            dispatch(state, exclusive);
-            return;
-        }
-
-        List<PartitionExecution> candidates = new ArrayList<>(executions.values());
-        candidates.sort(PartitionExecution.ORDER);
-        long now = clockMillis.getAsLong();
-        for (PartitionExecution execution : candidates) {
-            if (execution.invalidated || execution.state == ExecutionState.BLOCKED || execution.allReplicasSucceeded() ||
-                    now < execution.nextAttemptMillis) {
-                continue;
-            }
-            Validation validation = validateCurrentPlanAndTarget(state, execution, execution.nextSpec(), true);
+    private ReplicaResult executeReplica(GlobalStateMgr state, TenantTtlScheduler.PendingRewritePlan pending,
+                                         ReplicaTaskSpec spec, BooleanSupplier current, int successful,
+                                         Consumer<ExecutionStatus> observer) throws InterruptedException {
+        TenantTtlExecutionBudget budget = new TenantTtlExecutionBudget(Config.tenant_ttl_agent_task_max_attempts,
+                Config.tenant_ttl_agent_task_soft_timeout_seconds, monotonicMillis, waiter);
+        String detail = "";
+        TTenantTtlTaskCode lastCode = null;
+        while (current.getAsBoolean() && budget.tryStartAttempt()) {
+            Validation validation = validateCurrentPlanAndTarget(state, pending, spec, true);
             if (validation.type == ValidationType.REPLAN) {
-                execution.invalidated = true;
-                execution.state = ExecutionState.REPLAN_REQUIRED;
-                execution.detail = validation.detail;
-                continue;
+                return ReplicaResult.failure(ExecutionState.REPLAN_REQUIRED, null, validation.detail);
             }
             if (validation.type == ValidationType.WAITING_REPLICA) {
-                scheduleRetry(execution, ExecutionState.WAITING_REPLICA, validation.detail, false);
+                detail = validation.detail;
+                report(pending, spec, ExecutionState.WAITING_REPLICA, successful, null, detail, observer);
+            } else {
+                TenantTtlCompactionTask task = new TenantTtlCompactionTask(spec);
+                try {
+                    synchronized (lifecycleLock) {
+                        if (!current.getAsBoolean() || budget.remainingMillis() == 0) {
+                            break;
+                        }
+                        activeTask = task;
+                        report(pending, spec, ExecutionState.RUNNING, successful, null, "", observer);
+                        try {
+                            taskSubmitter.submit(task);
+                        } catch (RuntimeException e) {
+                            // Delivery may have reached BE. Do not turn this into a second business attempt.
+                            LOG.warn("Tenant-TTL submission outcome unknown. taskId={}", spec.getTaskId(), e);
+                            detail = "submission outcome unknown: " + rootMessage(e);
+                        }
+                    }
+                    while (current.getAsBoolean() && budget.remainingMillis() > 0) {
+                        Optional<TTenantTtlCompactionResult> result = task.getResult();
+                        if (result.isPresent()) {
+                            TTenantTtlCompactionResult value = result.get();
+                            lastCode = value.getCode();
+                            detail = detail(value);
+                            switch (classifyResult(lastCode)) {
+                                case SUCCESS:
+                                    return new ReplicaResult(ExecutionState.COMPLETED, lastCode, "",
+                                            value.getProcessed_through_version());
+                                case REPLAN:
+                                    return ReplicaResult.failure(ExecutionState.REPLAN_REQUIRED, lastCode, detail);
+                                case BLOCKED:
+                                    return ReplicaResult.failure(ExecutionState.BLOCKED, lastCode, detail);
+                                case DEFINITE_RETRY:
+                                    break;
+                                case WAIT_FOR_RESULT:
+                                    // Defensive: the task adapter normally keeps this out of terminal results.
+                                    budget.await(TenantTtlExecutionBudget.POLL_MILLIS, current);
+                                    continue;
+                                default:
+                                    throw new IllegalStateException("unclassified Tenant-TTL result " + lastCode);
+                            }
+                            break;
+                        }
+                        budget.await(TenantTtlExecutionBudget.POLL_MILLIS, current);
+                    }
+                } finally {
+                    task.close();
+                    synchronized (lifecycleLock) {
+                        removeQueuedTask(task);
+                        if (activeTask == task) {
+                            activeTask = null;
+                        }
+                    }
+                }
+            }
+            if (!current.getAsBoolean() || budget.remainingMillis() == 0 || !budget.hasAttemptsRemaining()) {
+                break;
+            }
+            report(pending, spec, ExecutionState.RETRY_BACKOFF, successful, lastCode, detail, observer);
+            budget.await(TenantTtlExecutionBudget.RETRY_MILLIS, current);
+        }
+        if (!current.getAsBoolean()) {
+            return ReplicaResult.failure(ExecutionState.REPLAN_REQUIRED, lastCode, "leadership changed");
+        }
+        ExecutionState outcome = budget.remainingMillis() == 0 ? ExecutionState.TIMED_OUT :
+                ExecutionState.ATTEMPTS_EXHAUSTED;
+        return ReplicaResult.failure(outcome, lastCode, outcome + " after " + budget.getAttempts() +
+                " attempt(s)" + (detail.isEmpty() ? "" : ": " + detail));
+    }
+
+    /** Catalog -> lifecycle -> progress is the lock order, shared with DROP and FE NOOP publication. */
+    private boolean publishCompleted(GlobalStateMgr state, TenantTtlScheduler.PendingRewritePlan pending,
+                                     TenantTtlPartitionProgress expected, long processedThrough,
+                                     BooleanSupplier current) {
+        TenantTtlEvaluationContext context = pending.getContext();
+        PartitionPlan plan = pending.getPartitionPlan();
+        Database db = state.getLocalMetastore().getDb(context.getDbId());
+        if (db == null) {
+            return false;
+        }
+        Locker locker = new Locker();
+        locker.lockDatabase(db.getId(), LockType.READ);
+        try {
+            if (validateCurrentPlanAndTarget(state, pending, null, false).type != ValidationType.CURRENT) {
+                return false;
+            }
+            TenantTtlPartitionProgress candidate = new TenantTtlPartitionProgress(context.getDbId(),
+                    context.getTableId(), plan.getPhysicalPartitionId(), context.getTableBindingFingerprint(),
+                    plan.getPolicyPlan().getTablePolicyFingerprint(), plan.getBoundaryFingerprint(),
+                    plan.getPolicyPlan().getCompletedExpiryCursorEpochSeconds(), processedThrough,
+                    context.getSnapshotTxnId(), context.getEvaluationTimeEpochSeconds());
+            synchronized (lifecycleLock) {
+                if (!current.getAsBoolean()) {
+                    return false;
+                }
+                TenantTtlPartitionProgressManager.AdvanceResult result = state.getTenantTtlPartitionProgressManager()
+                        .compareAndAdvanceCompletedPlan(expected, candidate);
+                return result == TenantTtlPartitionProgressManager.AdvanceResult.ADVANCED ||
+                        result == TenantTtlPartitionProgressManager.AdvanceResult.UNCHANGED;
+            }
+        } finally {
+            locker.unLockDatabase(db.getId(), LockType.READ);
+        }
+    }
+
+    boolean runIfCurrent(GlobalStateMgr state, BooleanSupplier current, Runnable action) {
+        synchronized (lifecycleLock) {
+            if (!state.isLeader() || !current.getAsBoolean()) {
+                return false;
+            }
+            action.run();
+            return true;
+        }
+    }
+
+    public void resetForLeadershipLoss() {
+        synchronized (lifecycleLock) {
+            generation++;
+            if (activeTask != null) {
+                activeTask.close();
+                removeQueuedTask(activeTask);
+            }
+            activeTask = null;
+            activeStatus = null;
+            blockedPlans.clear();
+        }
+    }
+
+    /** Cleanup consults the Catalog, never treats an unscanned batch as deleted. */
+    public void discardOrphanedBlocks(GlobalStateMgr state, Set<TableRef> tables) {
+        for (ProgressKey key : blockedPlans.keySet()) {
+            Database db = state.getLocalMetastore().getDb(key.getDbId());
+            if (db == null || !tables.contains(new TableRef(key.getDbId(), key.getTableId()))) {
+                blockedPlans.remove(key);
                 continue;
             }
-            dispatch(state, execution);
-            return;
-        }
-        discardInactiveInvalidatedExecutions();
-    }
-
-    private void dispatch(GlobalStateMgr state, PartitionExecution execution) {
-        if (!state.isLeader() || execution.invalidated && !execution.unknownExclusive) {
-            return;
-        }
-        ReplicaTaskSpec spec = execution.nextSpec();
-        if (spec == null) {
-            return;
-        }
-        Validation validation = execution.unknownExclusive ? validateUnknownRetryBackend(state, spec) :
-                validateCurrentPlanAndTarget(state, execution, spec, true);
-        if (validation.type != ValidationType.CURRENT) {
-            if (validation.type == ValidationType.WAITING_REPLICA && !execution.unknownExclusive) {
-                scheduleRetry(execution, ExecutionState.WAITING_REPLICA, validation.detail, false);
-            } else if (!execution.unknownExclusive) {
-                execution.invalidated = true;
-                execution.state = ExecutionState.REPLAN_REQUIRED;
-                execution.detail = validation.detail;
+            Locker locker = new Locker();
+            locker.lockDatabase(db.getId(), LockType.READ);
+            try {
+                Table table = db.getTable(key.getTableId());
+                if (!(table instanceof OlapTable) ||
+                        ((OlapTable) table).getPhysicalPartition(key.getPhysicalPartitionId()) == null) {
+                    blockedPlans.remove(key);
+                }
+            } finally {
+                locker.unLockDatabase(db.getId(), LockType.READ);
             }
-            return;
-        }
-
-        TenantTtlCompactionTask task = execution.currentTask;
-        if (task == null || task.getSignature() != spec.getTaskId()) {
-            task = new TenantTtlCompactionTask(spec);
-            execution.currentTask = task;
-        } else {
-            task.prepareForRetry();
-        }
-        execution.unknownExclusive = false;
-        execution.state = ExecutionState.RUNNING;
-        execution.detail = "";
-        execution.nextAttemptMillis = 0;
-        activeTask = new ActiveTask(execution, spec, task, clockMillis.getAsLong(), task.getFailedTimes());
-        try {
-            taskSubmitter.submit(task);
-        } catch (RuntimeException e) {
-            LOG.warn("Tenant-TTL Agent task submission became unknown. backendId={}, tabletId={}, taskId={}",
-                    spec.getBackendId(), spec.getTabletId(), spec.getTaskId(), e);
-            activeTask = null;
-            scheduleRetry(execution, ExecutionState.UNKNOWN_RETRY,
-                    "Agent task submission outcome is unknown: " + rootMessage(e), true);
         }
     }
 
-    private static Validation validateUnknownRetryBackend(GlobalStateMgr state, ReplicaTaskSpec spec) {
-        ComputeNode backend = state.getNodeMgr().getClusterInfo().getBackendOrComputeNode(spec.getBackendId());
-        return backend != null && backend.isAlive() && !backend.isDecommissioned() ? Validation.current() :
-                Validation.waiting("backend for an unknown prior request is unavailable");
+    public void forgetPartition(ProgressKey key) {
+        blockedPlans.remove(key);
     }
 
-    private void pollActiveTask(GlobalStateMgr state) {
-        if (activeTask == null) {
-            return;
-        }
-        ActiveTask active = activeTask;
-        PartitionExecution execution = active.execution;
-        Optional<TTenantTtlCompactionResult> result = active.task.getResult();
-        if (result.isPresent()) {
-            activeTask = null;
-            handleBusinessResult(state, execution, active.spec, result.get());
-            return;
-        }
-
-        long elapsed = Math.max(0, clockMillis.getAsLong() - active.sentAtMillis);
-        long softTimeout = Math.multiplyExact(
-                (long) Math.max(1, Config.tenant_ttl_agent_task_soft_timeout_seconds), 1000L);
-        if (active.task.getFailedTimes() > active.observedFailedTimes || elapsed >= softTimeout) {
-            activeTask = null;
-            String detail = active.task.getFailedTimes() > active.observedFailedTimes ?
-                    "Agent task transport failed without a business result: " + active.task.getErrorMsg() :
-                    "Agent task exceeded the soft timeout without a confirmed result";
-            scheduleRetry(execution, ExecutionState.UNKNOWN_RETRY, detail, true);
-        }
+    public List<ExecutionStatus> getExecutionStatuses() {
+        ExecutionStatus status = activeStatus;
+        return status == null ? Collections.emptyList() : Collections.singletonList(status);
     }
 
-    private void handleBusinessResult(GlobalStateMgr state, PartitionExecution execution, ReplicaTaskSpec spec,
-                                      TTenantTtlCompactionResult result) {
-        TTenantTtlTaskCode code = result.getCode();
-        execution.lastResultCode = code;
-        execution.detail = detail(result);
-        switch (classifyResult(code)) {
-            case SUCCESS:
-                execution.currentTask = null;
-                execution.retryAttempt = 0;
-                execution.unknownExclusive = false;
-                if (execution.invalidated) {
-                    executions.remove(execution.key);
-                    return;
-                }
-                execution.successVersions.put(spec.getTaskId(), result.getProcessed_through_version());
-                execution.state = ExecutionState.READY;
-                if (execution.allReplicasSucceeded()) {
-                    publishCompletedExecution(state, execution);
-                }
-                break;
-            case DEFINITE_RETRY:
-                if (execution.invalidated) {
-                    executions.remove(execution.key);
-                } else {
-                    scheduleRetry(execution, ExecutionState.RETRY_BACKOFF, execution.detail, false);
-                }
-                break;
-            case UNKNOWN_RETRY:
-                scheduleRetry(execution, ExecutionState.UNKNOWN_RETRY, execution.detail, true);
-                break;
-            case REPLAN:
-                execution.currentTask = null;
-                execution.invalidated = true;
-                execution.state = ExecutionState.REPLAN_REQUIRED;
-                executions.remove(execution.key);
-                break;
-            case BLOCKED:
-                execution.currentTask = null;
-                execution.unknownExclusive = false;
-                execution.state = ExecutionState.BLOCKED;
-                break;
-            default:
-                throw new IllegalStateException("unclassified Tenant-TTL result disposition");
-        }
+    public Optional<TenantTtlCompactionTask> getActiveTask() {
+        return Optional.ofNullable(activeTask);
+    }
+
+    private ExecutionStatus report(TenantTtlScheduler.PendingRewritePlan pending, ReplicaTaskSpec spec,
+                                   ExecutionState state, int successful, TTenantTtlTaskCode code, String detail,
+                                   Consumer<ExecutionStatus> observer) {
+        ExecutionStatus status = new ExecutionStatus(key(pending), state, spec == null ? 0 : spec.getTaskId(),
+                successful, pending.getPartitionPlan().getReplicaTasks().size(), code, detail);
+        activeStatus = status;
+        observer.accept(status);
+        return status;
+    }
+
+    private static void removeQueuedTask(TenantTtlCompactionTask task) {
+        task.removeFromQueue();
     }
 
     public static ResultDisposition classifyResult(TTenantTtlTaskCode code) {
-        Objects.requireNonNull(code, "Tenant-TTL result code is null");
-        switch (code) {
+        switch (Objects.requireNonNull(code, "Tenant-TTL result code is null")) {
             case SUCCESS:
             case NOOP_VERIFIED:
                 return ResultDisposition.SUCCESS;
@@ -296,7 +352,7 @@ public final class TenantTtlRewriteCoordinator implements TenantTtlScheduler.Rew
             case CANCELLED:
                 return ResultDisposition.DEFINITE_RETRY;
             case TTL_ALREADY_RUNNING:
-                return ResultDisposition.UNKNOWN_RETRY;
+                return ResultDisposition.WAIT_FOR_RESULT;
             case SCHEMA_CHANGED:
             case TABLET_NOT_FOUND:
                 return ResultDisposition.REPLAN;
@@ -306,69 +362,14 @@ public final class TenantTtlRewriteCoordinator implements TenantTtlScheduler.Rew
             case INTERNAL_ERROR:
                 return ResultDisposition.BLOCKED;
             default:
-                throw new IllegalArgumentException("unrecognized Tenant-TTL result code: " + code);
+                throw new IllegalArgumentException("unrecognized Tenant-TTL result code " + code);
         }
     }
 
-    private void publishCompletedExecutions(GlobalStateMgr state,
-                                            Map<ProgressKey, TenantTtlScheduler.PendingRewritePlan> current) {
-        List<PartitionExecution> completed = new ArrayList<>();
-        for (PartitionExecution execution : executions.values()) {
-            if (execution.allReplicasSucceeded() && !execution.invalidated) {
-                TenantTtlScheduler.PendingRewritePlan plan = current.get(execution.key);
-                if (plan == null || !execution.matchesStablePlan(plan)) {
-                    execution.invalidated = true;
-                } else {
-                    completed.add(execution);
-                }
-            }
-        }
-        completed.sort(PartitionExecution.ORDER);
-        for (PartitionExecution execution : completed) {
-            publishCompletedExecution(state, execution);
-        }
-    }
-
-    private void publishCompletedExecution(GlobalStateMgr state, PartitionExecution execution) {
-        Validation validation = validateCurrentPlanAndTarget(state, execution, null, false);
-        if (validation.type != ValidationType.CURRENT) {
-            execution.invalidated = true;
-            execution.state = ExecutionState.REPLAN_REQUIRED;
-            execution.detail = validation.detail;
-            executions.remove(execution.key);
-            return;
-        }
-        long processedThrough = Long.MAX_VALUE;
-        for (Long version : execution.successVersions.values()) {
-            processedThrough = Math.min(processedThrough, version);
-        }
-        if (processedThrough == Long.MAX_VALUE) {
-            throw new IllegalStateException("completed Tenant-TTL execution has no Replica result");
-        }
-        TenantTtlEvaluationContext context = execution.plan.getContext();
-        PartitionPlan plan = execution.plan.getPartitionPlan();
-        TenantTtlPartitionProgress candidate = new TenantTtlPartitionProgress(
-                context.getDbId(), context.getTableId(), plan.getPhysicalPartitionId(),
-                context.getTableBindingFingerprint(), plan.getPolicyPlan().getTablePolicyFingerprint(),
-                plan.getBoundaryFingerprint(), plan.getPolicyPlan().getCompletedExpiryCursorEpochSeconds(),
-                processedThrough, context.getSnapshotTxnId(), context.getEvaluationTimeEpochSeconds());
-        TenantTtlPartitionProgressManager.AdvanceResult advance = state.getTenantTtlPartitionProgressManager()
-                .compareAndAdvanceCompletedPlan(execution.expectedProgress, candidate);
-        if (advance == TenantTtlPartitionProgressManager.AdvanceResult.ADVANCED ||
-                advance == TenantTtlPartitionProgressManager.AdvanceResult.UNCHANGED) {
-            execution.state = ExecutionState.COMPLETED;
-            execution.detail = "";
-        } else {
-            execution.state = ExecutionState.REPLAN_REQUIRED;
-            execution.detail = "partition progress changed before publication: " + advance;
-        }
-        executions.remove(execution.key);
-    }
-
-    private Validation validateCurrentPlanAndTarget(GlobalStateMgr state, PartitionExecution execution,
+    private Validation validateCurrentPlanAndTarget(GlobalStateMgr state, TenantTtlScheduler.PendingRewritePlan pending,
                                                     ReplicaTaskSpec target, boolean requireAvailableReplica) {
-        TenantTtlEvaluationContext context = execution.plan.getContext();
-        PartitionPlan oldPlan = execution.plan.getPartitionPlan();
+        TenantTtlEvaluationContext context = pending.getContext();
+        PartitionPlan oldPlan = pending.getPartitionPlan();
         Database db = state.getLocalMetastore().getDb(context.getDbId());
         if (db == null) {
             return Validation.replan("database disappeared");
@@ -469,153 +470,16 @@ public final class TenantTtlRewriteCoordinator implements TenantTtlScheduler.Rew
                 left.getTenants().equals(right.getTenants());
     }
 
-    private void scheduleRetry(PartitionExecution execution, ExecutionState state, String detail,
-                               boolean unknownExclusive) {
-        execution.retryAttempt++;
-        execution.state = state;
-        execution.detail = detail == null ? "" : detail;
-        execution.unknownExclusive = unknownExclusive;
-        execution.nextAttemptMillis = saturatedAdd(clockMillis.getAsLong(), retryDelay(execution.retryAttempt));
-    }
 
-    private long retryDelay(int attempt) {
-        long base = INITIAL_RETRY_MILLIS;
-        for (int i = 1; i < attempt && base < MAX_RETRY_MILLIS; ++i) {
-            base = Math.min(MAX_RETRY_MILLIS, base * 2);
-        }
-        double unit = Math.max(0, Math.min(1, randomUnit.getAsDouble()));
-        double factor = 1.0 - JITTER_FRACTION + 2.0 * JITTER_FRACTION * unit;
-        return Math.max(1, Math.round(base * factor));
-    }
-
-    private static long saturatedAdd(long left, long right) {
-        try {
-            return Math.addExact(left, right);
-        } catch (ArithmeticException e) {
-            return Long.MAX_VALUE;
-        }
-    }
-
-    private void addMissingExecutions(GlobalStateMgr state,
-                                      Map<ProgressKey, TenantTtlScheduler.PendingRewritePlan> current) {
-        for (Map.Entry<ProgressKey, TenantTtlScheduler.PendingRewritePlan> entry : current.entrySet()) {
-            if (!executions.containsKey(entry.getKey())) {
-                TenantTtlPartitionProgress expected = state.getTenantTtlPartitionProgressManager()
-                        .get(entry.getKey()).orElse(null);
-                executions.put(entry.getKey(), new PartitionExecution(entry.getKey(), entry.getValue(), expected));
-            }
-        }
-    }
-
-    private static Map<ProgressKey, TenantTtlScheduler.PendingRewritePlan> indexPlans(
-            List<TenantTtlScheduler.PendingRewritePlan> plans) {
-        List<TenantTtlScheduler.PendingRewritePlan> sorted = new ArrayList<>(plans);
-        sorted.sort(Comparator.comparingLong((TenantTtlScheduler.PendingRewritePlan plan) ->
-                        plan.getContext().getDbId())
-                .thenComparingLong(plan -> plan.getContext().getTableId())
-                .thenComparingLong(plan -> plan.getPartitionPlan().getPhysicalPartitionId()));
-        Map<ProgressKey, TenantTtlScheduler.PendingRewritePlan> result = new LinkedHashMap<>();
-        for (TenantTtlScheduler.PendingRewritePlan plan : sorted) {
-            ProgressKey key = key(plan);
-            if (result.put(key, plan) != null) {
-                throw new IllegalArgumentException("duplicate Tenant-TTL rewrite plan for " + key);
-            }
-        }
-        return result;
-    }
-
-    private void discardInactiveInvalidatedExecutions() {
-        Iterator<Map.Entry<ProgressKey, PartitionExecution>> iterator = executions.entrySet().iterator();
-        while (iterator.hasNext()) {
-            PartitionExecution execution = iterator.next().getValue();
-            if (execution.invalidated && !execution.unknownExclusive &&
-                    (activeTask == null || activeTask.execution != execution)) {
-                removeQueuedTask(execution.currentTask);
-                iterator.remove();
-            }
-        }
-    }
-
-    public synchronized void resetForLeadershipLoss() {
-        if (activeTask != null) {
-            removeQueuedTask(activeTask.task);
-        }
-        for (PartitionExecution execution : executions.values()) {
-            removeQueuedTask(execution.currentTask);
-        }
-        activeTask = null;
-        executions.clear();
-    }
-
-    private static void removeQueuedTask(TenantTtlCompactionTask task) {
-        if (task != null) {
-            AgentTaskQueue.removeTask(task.getBackendId(), TTaskType.TENANT_TTL_COMPACTION, task.getSignature());
-        }
-    }
-
-    @Override
-    public synchronized boolean isRetryPending(ProgressKey key) {
-        PartitionExecution execution = executions.get(key);
-        return execution != null && (execution.state == ExecutionState.RETRY_BACKOFF ||
-                execution.state == ExecutionState.UNKNOWN_RETRY || execution.state == ExecutionState.WAITING_REPLICA);
-    }
-
-    @Override
-    public synchronized boolean hasRewriteInFlight(long dbId, long tableId, long logicalPartitionId) {
-        if (activeTask != null && activeTask.execution.matchesLogicalPartition(dbId, tableId, logicalPartitionId)) {
-            return true;
-        }
-        PartitionExecution exclusive = unknownExclusiveExecution();
-        return exclusive != null && exclusive.matchesLogicalPartition(dbId, tableId, logicalPartitionId);
-    }
-
-    @Override
-    public synchronized boolean hasDestructiveExecutionInFlight() {
-        return activeTask != null || hasUnknownExclusiveExecution();
-    }
-
-    public synchronized List<ExecutionStatus> getExecutionStatuses() {
-        List<ExecutionStatus> statuses = new ArrayList<>(executions.size());
-        for (PartitionExecution execution : executions.values()) {
-            ReplicaTaskSpec spec = execution.nextSpec();
-            statuses.add(new ExecutionStatus(execution.key, execution.plan.getPartitionPlan().getLogicalPartitionId(),
-                    execution.state, spec == null ? 0 : spec.getTaskId(), spec == null ? 0 : spec.getTabletId(),
-                    spec == null ? 0 : spec.getBackendId(), execution.successVersions.size(),
-                    execution.plan.getPartitionPlan().getReplicaTasks().size(), execution.nextAttemptMillis,
-                    execution.lastResultCode, execution.detail));
-        }
-        statuses.sort(Comparator.comparing(ExecutionStatus::getKey));
-        return Collections.unmodifiableList(statuses);
-    }
-
-    public synchronized Optional<TenantTtlCompactionTask> getActiveTask() {
-        return activeTask == null ? Optional.empty() : Optional.of(activeTask.task);
-    }
-
-    private boolean hasUnknownExclusiveExecution() {
-        return unknownExclusiveExecution() != null;
-    }
-
-    private PartitionExecution unknownExclusiveExecution() {
-        for (PartitionExecution execution : executions.values()) {
-            if (execution.unknownExclusive) {
-                return execution;
-            }
-        }
-        return null;
-    }
-
-    private static ProgressKey key(TenantTtlScheduler.PendingRewritePlan plan) {
-        return new ProgressKey(plan.getContext().getDbId(), plan.getContext().getTableId(),
-                plan.getPartitionPlan().getPhysicalPartitionId());
+    private static ProgressKey key(TenantTtlScheduler.PendingRewritePlan pending) {
+        return new ProgressKey(pending.getContext().getDbId(), pending.getContext().getTableId(),
+                pending.getPartitionPlan().getPhysicalPartitionId());
     }
 
     private static String detail(TTenantTtlCompactionResult result) {
-        if (result.getDetail_status() == null || result.getDetail_status().getError_msgs() == null ||
-                result.getDetail_status().getError_msgs().isEmpty()) {
-            return result.getCode().name();
-        }
-        return String.join("; ", result.getDetail_status().getError_msgs());
+        return result.getDetail_status().getError_msgs() == null ||
+                result.getDetail_status().getError_msgs().isEmpty() ? result.getCode().name() :
+                String.join("; ", result.getDetail_status().getError_msgs());
     }
 
     private static String rootMessage(Throwable throwable) {
@@ -626,198 +490,150 @@ public final class TenantTtlRewriteCoordinator implements TenantTtlScheduler.Rew
         return current.getMessage() == null ? current.getClass().getSimpleName() : current.getMessage();
     }
 
+    @FunctionalInterface
     public interface TaskSubmitter {
         void submit(TenantTtlCompactionTask task);
+    }
+
+    @FunctionalInterface
+    public interface Waiter {
+        void sleep(long millis) throws InterruptedException;
     }
 
     private static final class AgentTaskSubmitter implements TaskSubmitter {
         @Override
         public void submit(TenantTtlCompactionTask task) {
-            AgentTask existing = AgentTaskQueue.getTask(
-                    task.getBackendId(), TTaskType.TENANT_TTL_COMPACTION, task.getSignature());
-            if (existing != null && existing != task) {
-                throw new IllegalStateException("Tenant-TTL task ID collides with another Agent task");
-            }
-            if (existing == null && !AgentTaskQueue.addTask(task)) {
-                throw new IllegalStateException("failed to register Tenant-TTL Agent task");
+            synchronized (AgentTaskQueue.class) {
+                AgentTask existing = AgentTaskQueue.getTask(
+                        task.getBackendId(), TTaskType.TENANT_TTL_COMPACTION, task.getSignature());
+                if (existing != null || !AgentTaskQueue.addTask(task)) {
+                    throw new IllegalStateException("Tenant-TTL task ID registration collision");
+                }
             }
             AgentTaskExecutor.submit(new AgentBatchTask(task));
         }
     }
 
     public enum ExecutionState {
-        READY,
-        RUNNING,
-        WAITING_REPLICA,
-        RETRY_BACKOFF,
-        UNKNOWN_RETRY,
-        BLOCKED,
-        REPLAN_REQUIRED,
-        COMPLETED
+        RUNNING, WAITING_REPLICA, RETRY_BACKOFF, BLOCKED, REPLAN_REQUIRED, COMPLETED,
+        TIMED_OUT, ATTEMPTS_EXHAUSTED, FAILED
     }
 
     public enum ResultDisposition {
-        SUCCESS,
-        DEFINITE_RETRY,
-        UNKNOWN_RETRY,
-        REPLAN,
-        BLOCKED
+        SUCCESS, DEFINITE_RETRY, WAIT_FOR_RESULT, REPLAN, BLOCKED
     }
 
     public static final class ExecutionStatus {
         private final ProgressKey key;
-        private final long logicalPartitionId;
         private final ExecutionState state;
         private final long taskId;
-        private final long tabletId;
-        private final long backendId;
         private final int successfulReplicas;
         private final int requiredReplicas;
-        private final long nextAttemptMillis;
         private final TTenantTtlTaskCode lastResultCode;
         private final String detail;
 
-        private ExecutionStatus(ProgressKey key, long logicalPartitionId, ExecutionState state, long taskId,
-                                long tabletId, long backendId, int successfulReplicas, int requiredReplicas,
-                                long nextAttemptMillis, TTenantTtlTaskCode lastResultCode, String detail) {
+        private ExecutionStatus(ProgressKey key, ExecutionState state, long taskId, int successfulReplicas,
+                                int requiredReplicas, TTenantTtlTaskCode lastResultCode, String detail) {
             this.key = key;
-            this.logicalPartitionId = logicalPartitionId;
             this.state = state;
             this.taskId = taskId;
-            this.tabletId = tabletId;
-            this.backendId = backendId;
             this.successfulReplicas = successfulReplicas;
             this.requiredReplicas = requiredReplicas;
-            this.nextAttemptMillis = nextAttemptMillis;
             this.lastResultCode = lastResultCode;
-            this.detail = detail == null ? "" : detail;
+            this.detail = detail;
         }
 
         public ProgressKey getKey() {
             return key;
         }
-
-        public long getLogicalPartitionId() {
-            return logicalPartitionId;
-        }
-
         public ExecutionState getState() {
             return state;
         }
-
         public long getTaskId() {
             return taskId;
         }
-
-        public long getTabletId() {
-            return tabletId;
-        }
-
-        public long getBackendId() {
-            return backendId;
-        }
-
         public int getSuccessfulReplicas() {
             return successfulReplicas;
         }
-
         public int getRequiredReplicas() {
             return requiredReplicas;
         }
-
-        public long getNextAttemptMillis() {
-            return nextAttemptMillis;
-        }
-
         public TTenantTtlTaskCode getLastResultCode() {
             return lastResultCode;
         }
-
         public String getDetail() {
             return detail;
         }
     }
 
-    private static final class PartitionExecution {
-        private static final Comparator<PartitionExecution> ORDER =
-                Comparator.comparing(execution -> execution.key);
+    private static final class ReplicaResult {
+        private final ExecutionState state;
+        private final TTenantTtlTaskCode code;
+        private final String detail;
+        private final long processedThrough;
 
-        private final ProgressKey key;
-        private final TenantTtlScheduler.PendingRewritePlan plan;
-        private final TenantTtlPartitionProgress expectedProgress;
-        private final Map<Long, Long> successVersions = new HashMap<>();
-        private TenantTtlCompactionTask currentTask;
-        private ExecutionState state = ExecutionState.READY;
-        private TTenantTtlTaskCode lastResultCode;
-        private int retryAttempt;
-        private long nextAttemptMillis;
-        private boolean unknownExclusive;
-        private boolean invalidated;
-        private String detail = "";
-
-        private PartitionExecution(ProgressKey key, TenantTtlScheduler.PendingRewritePlan plan,
-                                   TenantTtlPartitionProgress expectedProgress) {
-            this.key = key;
-            this.plan = plan;
-            this.expectedProgress = expectedProgress;
+        private ReplicaResult(ExecutionState state, TTenantTtlTaskCode code, String detail, long processedThrough) {
+            this.state = state;
+            this.code = code;
+            this.detail = detail;
+            this.processedThrough = processedThrough;
         }
 
-        private boolean matchesStablePlan(TenantTtlScheduler.PendingRewritePlan current) {
-            TenantTtlEvaluationContext oldContext = plan.getContext();
-            TenantTtlEvaluationContext newContext = current.getContext();
-            PartitionPlan oldPlan = plan.getPartitionPlan();
-            PartitionPlan newPlan = current.getPartitionPlan();
-            return oldPlan.getType() == TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE &&
-                    newPlan.getType() == TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE &&
-                    oldContext.getTableBindingFingerprint().equals(newContext.getTableBindingFingerprint()) &&
-                    oldPlan.getPolicyPlan().getTablePolicyFingerprint()
-                            .equals(newPlan.getPolicyPlan().getTablePolicyFingerprint()) &&
-                    oldPlan.getBoundaryFingerprint().equals(newPlan.getBoundaryFingerprint()) &&
-                    oldPlan.getTopologyFingerprint().equals(newPlan.getTopologyFingerprint());
+        private static ReplicaResult failure(ExecutionState state, TTenantTtlTaskCode code, String detail) {
+            return new ReplicaResult(state, code, detail, -1);
+        }
+    }
+
+    /** No task/context/filter reference: only the identity needed to suppress an unchanged bad plan. */
+    private static final class BlockedPlan {
+        private final String identity;
+        private final long backendId;
+        private final long backendStartTime;
+        private final long observedVersion;
+        private final TTenantTtlTaskCode code;
+        private final String detail;
+
+        private BlockedPlan(GlobalStateMgr state, TenantTtlScheduler.PendingRewritePlan pending,
+                            ReplicaTaskSpec spec, TTenantTtlTaskCode code, String detail) {
+            this.identity = identity(pending);
+            this.backendId = spec.getBackendId();
+            this.backendStartTime = backendStartTime(state, backendId);
+            this.observedVersion = pending.getPartitionPlan().getObservedVisibleVersion();
+            this.code = code;
+            this.detail = detail;
         }
 
-        private ReplicaTaskSpec nextSpec() {
-            for (ReplicaTaskSpec spec : plan.getPartitionPlan().getReplicaTasks()) {
-                if (!successVersions.containsKey(spec.getTaskId())) {
-                    return spec;
+        private boolean stillApplies(GlobalStateMgr state, TenantTtlScheduler.PendingRewritePlan pending) {
+            if (!identity.equals(identity(pending))) {
+                return false;
+            }
+            if (code == TTenantTtlTaskCode.DATA_INVARIANT_VIOLATION || code == TTenantTtlTaskCode.INTERNAL_ERROR) {
+                if (observedVersion != pending.getPartitionPlan().getObservedVisibleVersion()) {
+                    return false;
                 }
             }
-            return null;
+            long currentStart = backendStartTime(state, backendId);
+            return code == TTenantTtlTaskCode.INVALID_ARGUMENT || backendStartTime <= 0 ||
+                    currentStart <= backendStartTime;
         }
 
-        private boolean allReplicasSucceeded() {
-            List<ReplicaTaskSpec> tasks = plan.getPartitionPlan().getReplicaTasks();
-            return !tasks.isEmpty() && successVersions.size() == tasks.size();
+        private static long backendStartTime(GlobalStateMgr state, long backendId) {
+            ComputeNode node = state.getNodeMgr().getClusterInfo().getBackendOrComputeNode(backendId);
+            return node == null ? 0 : node.getLastStartTime();
         }
 
-        private boolean matchesLogicalPartition(long dbId, long tableId, long logicalPartitionId) {
-            return key.getDbId() == dbId && key.getTableId() == tableId &&
-                    plan.getPartitionPlan().getLogicalPartitionId() == logicalPartitionId;
-        }
-    }
-
-    private static final class ActiveTask {
-        private final PartitionExecution execution;
-        private final ReplicaTaskSpec spec;
-        private final TenantTtlCompactionTask task;
-        private final long sentAtMillis;
-        private final int observedFailedTimes;
-
-        private ActiveTask(PartitionExecution execution, ReplicaTaskSpec spec, TenantTtlCompactionTask task,
-                           long sentAtMillis, int observedFailedTimes) {
-            this.execution = execution;
-            this.spec = spec;
-            this.task = task;
-            this.sentAtMillis = sentAtMillis;
-            this.observedFailedTimes = observedFailedTimes;
+        private static String identity(TenantTtlScheduler.PendingRewritePlan pending) {
+            TenantTtlEvaluationContext context = pending.getContext();
+            PartitionPlan plan = pending.getPartitionPlan();
+            return context.getTableBindingFingerprint() + ":" + context.getSchemaId() + ":" +
+                    context.getSchemaVersion() + ":" + plan.getBoundaryFingerprint() + ":" +
+                    plan.getTopologyFingerprint() + ":" + plan.getPolicyPlan().getTablePolicyFingerprint() + ":" +
+                    plan.getPolicyPlan().getFilterMode() + ":" +
+                    plan.getPolicyPlan().getCompletedExpiryCursorEpochSeconds();
         }
     }
 
-    private enum ValidationType {
-        CURRENT,
-        WAITING_REPLICA,
-        REPLAN
-    }
+    private enum ValidationType { CURRENT, WAITING_REPLICA, REPLAN }
 
     private static final class Validation {
         private final ValidationType type;
@@ -831,11 +647,9 @@ public final class TenantTtlRewriteCoordinator implements TenantTtlScheduler.Rew
         private static Validation current() {
             return new Validation(ValidationType.CURRENT, "");
         }
-
         private static Validation waiting(String detail) {
             return new Validation(ValidationType.WAITING_REPLICA, detail);
         }
-
         private static Validation replan(String detail) {
             return new Validation(ValidationType.REPLAN, detail);
         }

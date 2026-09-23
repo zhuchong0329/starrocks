@@ -34,7 +34,6 @@ import com.starrocks.tenantttl.policy.TenantTtlByteKey;
 import com.starrocks.tenantttl.policy.TenantTtlEvaluationContext;
 import com.starrocks.tenantttl.policy.TenantTtlPolicyPlanner;
 import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshot;
-import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshotManager;
 import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshotManager.TableRef;
 import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgress.ProgressKey;
 import org.apache.logging.log4j.LogManager;
@@ -44,14 +43,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 
 /** Leader-only planner and FE/Catalog execution half of Tenant-TTL scheduling. */
@@ -61,161 +63,157 @@ public final class TenantTtlScheduler extends FrontendDaemon {
 
     private final Map<ProgressKey, PartitionRuntimeStatus> partitionStatuses = new ConcurrentHashMap<>();
     private final Map<TableRef, TableRuntimeStatus> tableStatuses = new ConcurrentHashMap<>();
-    private final AtomicBoolean catalogDropRunning = new AtomicBoolean();
+    private final AtomicBoolean scheduling = new AtomicBoolean();
+    private final AtomicLong leadershipGeneration = new AtomicLong();
     private final TenantTtlRewriteCoordinator rewriteCoordinator;
     private final LongSupplier evaluationTimeEpochSecondsSupplier;
-    private volatile RewriteExecutionView rewriteExecutionView;
     private volatile List<PendingRewritePlan> pendingRewritePlans = Collections.emptyList();
-    private volatile List<NextExpiry> nextExpiries = Collections.emptyList();
     private volatile boolean leadershipEnabled = true;
-    private int tableScanOffset;
 
     public TenantTtlScheduler() {
         this(new TenantTtlRewriteCoordinator(), () -> System.currentTimeMillis() / 1000L);
     }
 
-    TenantTtlScheduler(TenantTtlRewriteCoordinator rewriteCoordinator) {
+    public TenantTtlScheduler(TenantTtlRewriteCoordinator rewriteCoordinator) {
         this(rewriteCoordinator, () -> System.currentTimeMillis() / 1000L);
     }
 
-    TenantTtlScheduler(TenantTtlRewriteCoordinator rewriteCoordinator,
+    public TenantTtlScheduler(TenantTtlRewriteCoordinator rewriteCoordinator,
                        LongSupplier evaluationTimeEpochSecondsSupplier) {
         super("tenant-ttl-scheduler", configuredIntervalMs());
         this.rewriteCoordinator = Objects.requireNonNull(rewriteCoordinator, "rewrite coordinator is null");
         this.evaluationTimeEpochSecondsSupplier = Objects.requireNonNull(
                 evaluationTimeEpochSecondsSupplier, "evaluation clock is null");
-        this.rewriteExecutionView = rewriteCoordinator;
     }
 
     @Override
     protected void runAfterCatalogReady() {
-        setInterval(configuredIntervalMs());
-        GlobalStateMgr state = GlobalStateMgr.getCurrentState();
-        if (!leadershipEnabled || !state.isLeader()) {
-            rewriteCoordinator.resetForLeadershipLoss();
-            return;
+        try {
+            scheduleOnce(GlobalStateMgr.getCurrentState());
+        } finally {
+            // Daemon sleeps after the complete round, never between Replica tasks.
+            setInterval(configuredIntervalMs());
         }
-        scheduleOnce(state);
     }
 
-    public synchronized void scheduleOnce(GlobalStateMgr state) {
+    public void scheduleOnce(GlobalStateMgr state) {
         Objects.requireNonNull(state, "global state is null");
-        if (!leadershipEnabled || !state.isLeader()) {
-            rewriteCoordinator.resetForLeadershipLoss();
+        if (!scheduling.compareAndSet(false, true)) {
             return;
         }
-        TenantTtlPolicySnapshotManager snapshotManager = state.getTenantTtlPolicySnapshotManager();
-        TenantTtlPartitionProgressManager progressManager = state.getTenantTtlPartitionProgressManager();
-        List<TableRef> tableRefs = new ArrayList<>(snapshotManager.getAllReferencedTables());
-        tableRefs.sort(Comparator.comparingLong(TableRef::getDbId).thenComparingLong(TableRef::getTableId));
-        int tableLimit = Math.max(1, Config.tenant_ttl_scheduler_max_tables_per_cycle);
-        if (tableRefs.size() > tableLimit) {
-            List<TableRef> selected = new ArrayList<>(tableLimit);
-            int start = Math.floorMod(tableScanOffset, tableRefs.size());
-            for (int i = 0; i < tableLimit; ++i) {
-                selected.add(tableRefs.get((start + i) % tableRefs.size()));
+        long epoch = leadershipGeneration.get();
+        BooleanSupplier current = () -> leadershipEnabled && state.isLeader() &&
+                leadershipGeneration.get() == epoch && !Thread.currentThread().isInterrupted();
+        Set<ProgressKey> visited = new HashSet<>();
+        try {
+            if (!current.getAsBoolean()) {
+                return;
             }
-            tableScanOffset = (start + tableLimit) % tableRefs.size();
-            tableRefs = selected;
-        } else {
-            tableScanOffset = 0;
-        }
-
-        List<PendingRewritePlan> rewrites = new ArrayList<>();
-        List<CatalogDropCandidate> drops = new ArrayList<>();
-        PriorityQueue<NextExpiry> expiryQueue = new PriorityQueue<>(NextExpiry.ORDER);
-        for (TableRef tableRef : tableRefs) {
-            TenantTtlEvaluationContext.CaptureResult capture = TenantTtlEvaluationContext.capture(
-                    state, tableRef.getDbId(), tableRef.getTableId(),
-                    evaluationTimeEpochSecondsSupplier, state::getNextId);
-            if (!capture.isSuccess()) {
-                tableStatuses.put(tableRef, TableRuntimeStatus.captureFailure(capture));
-                continue;
+            Set<TableRef> referenced = state.getTenantTtlPolicySnapshotManager().getAllReferencedTables();
+            List<TableRef> tables = new ArrayList<>(referenced);
+            tables.sort(Comparator.comparingLong(TableRef::getDbId).thenComparingLong(TableRef::getTableId));
+            tableStatuses.keySet().retainAll(referenced);
+            rewriteCoordinator.discardOrphanedBlocks(state, referenced);
+            for (TableRef tableRef : tables) {
+                if (!current.getAsBoolean()) {
+                    return;
+                }
+                try {
+                    TenantTtlEvaluationContext.CaptureResult capture = TenantTtlEvaluationContext.capture(
+                            state, tableRef.getDbId(), tableRef.getTableId(),
+                            evaluationTimeEpochSecondsSupplier, state::getNextId);
+                    if (!capture.isSuccess()) {
+                        tableStatuses.put(tableRef, TableRuntimeStatus.captureFailure(capture));
+                        continue;
+                    }
+                    TenantTtlEvaluationContext context = capture.getContext();
+                    tableStatuses.put(tableRef, TableRuntimeStatus.active(context));
+                    for (TenantTtlEvaluationContext.PartitionPlan plan : context.getPartitionPlans()) {
+                        visited.add(key(context, plan));
+                    }
+                    List<PendingRewritePlan> rewrites = new ArrayList<>();
+                    List<CatalogDropCandidate> drops = new ArrayList<>();
+                    evaluateTable(state, current, context, state.getTenantTtlPartitionProgressManager(),
+                            rewrites, drops);
+                    drops.sort(CatalogDropCandidate.ORDER);
+                    for (CatalogDropCandidate drop : drops) {
+                        if (!current.getAsBoolean()) {
+                            return;
+                        }
+                        executeCatalogDrop(state, drop, current);
+                    }
+                    rewrites.sort(PendingRewritePlan.ORDER);
+                    for (int index = 0; index < rewrites.size(); index++) {
+                        if (!current.getAsBoolean()) {
+                            return;
+                        }
+                        pendingRewritePlans = Collections.unmodifiableList(
+                                rewrites.subList(index, rewrites.size()));
+                        rewriteCoordinator.executePartition(state, rewrites.get(index), current,
+                                this::applyCoordinatorStatus);
+                    }
+                } catch (RuntimeException e) {
+                    LOG.warn("Tenant-TTL table round failed. dbId={}, tableId={}",
+                            tableRef.getDbId(), tableRef.getTableId(), e);
+                } finally {
+                    pendingRewritePlans = Collections.emptyList();
+                }
             }
-            TenantTtlEvaluationContext context = capture.getContext();
-            tableStatuses.put(tableRef, TableRuntimeStatus.active(context));
-            evaluateTable(context, progressManager, rewrites, drops, expiryQueue);
-        }
-
-        rewrites.sort(PendingRewritePlan.ORDER);
-        pendingRewritePlans = Collections.unmodifiableList(new ArrayList<>(rewrites));
-        List<NextExpiry> sortedExpiries = new ArrayList<>(expiryQueue.size());
-        while (!expiryQueue.isEmpty()) {
-            sortedExpiries.add(expiryQueue.remove());
-        }
-        nextExpiries = Collections.unmodifiableList(sortedExpiries);
-
-        drops.sort(CatalogDropCandidate.ORDER);
-        boolean coordinatorEnabled = rewriteExecutionView == rewriteCoordinator;
-        if (coordinatorEnabled) {
-            rewriteCoordinator.reconcile(state, pendingRewritePlans);
-            refreshPendingRewritePlansAfterReconcile(progressManager);
-        }
-        if (!drops.isEmpty()) {
-            executeFirstCatalogDrop(state, drops.get(0));
-        } else if (coordinatorEnabled) {
-            rewriteCoordinator.dispatchNext(state);
-        }
-        if (coordinatorEnabled) {
-            applyCoordinatorStatuses(rewriteCoordinator.getExecutionStatuses());
+            if (current.getAsBoolean()) {
+                partitionStatuses.keySet().retainAll(visited);
+            }
+        } finally {
+            pendingRewritePlans = Collections.emptyList();
+            scheduling.set(false);
         }
     }
 
-    private void refreshPendingRewritePlansAfterReconcile(TenantTtlPartitionProgressManager progressManager) {
-        List<PendingRewritePlan> remaining = new ArrayList<>(pendingRewritePlans.size());
-        for (PendingRewritePlan pending : pendingRewritePlans) {
-            ProgressKey key = key(pending.getContext(), pending.getPartitionPlan());
-            TenantTtlScheduleDecision.Decision refreshed = TenantTtlScheduleDecision.decide(
-                    pending.getContext(), pending.getPartitionPlan(), progressManager.get(key).orElse(null),
-                    rewriteCoordinator.isRetryPending(key));
-            if (refreshed.shouldEvaluate()) {
-                remaining.add(pending);
-            } else {
-                updateStatus(pending.getContext(), pending.getPartitionPlan(), PartitionState.IDLE, refreshed, "");
-            }
+    private void applyCoordinatorStatus(TenantTtlRewriteCoordinator.ExecutionStatus status) {
+        PartitionRuntimeStatus previous = partitionStatuses.get(status.getKey());
+        PartitionState state;
+        switch (status.getState()) {
+            case RUNNING:
+                state = PartitionState.REWRITE_RUNNING;
+                break;
+            case WAITING_REPLICA:
+                state = PartitionState.WAITING_REPLICA;
+                break;
+            case RETRY_BACKOFF:
+                state = PartitionState.RETRY_PENDING;
+                break;
+            case BLOCKED:
+                state = PartitionState.BLOCKED;
+                break;
+            case REPLAN_REQUIRED:
+                state = PartitionState.REPLAN_REQUIRED;
+                break;
+            case TIMED_OUT:
+                state = PartitionState.TIMED_OUT;
+                break;
+            case ATTEMPTS_EXHAUSTED:
+                state = PartitionState.ATTEMPTS_EXHAUSTED;
+                break;
+            case FAILED:
+                state = PartitionState.FAILED;
+                break;
+            case COMPLETED:
+            default:
+                state = PartitionState.IDLE;
+                break;
         }
-        pendingRewritePlans = Collections.unmodifiableList(remaining);
+        partitionStatuses.put(status.getKey(), new PartitionRuntimeStatus(state,
+                previous == null ? null : previous.getTriggerReason(),
+                previous == null ? 0 : previous.getSnapshotTxnId(),
+                previous == null ? 0 : previous.getEvaluationTimeEpochSeconds(),
+                previous == null ? 0 : previous.getNextExpiryEpochSeconds(),
+                status.getDetail(), System.currentTimeMillis()));
     }
 
-    private void applyCoordinatorStatuses(List<TenantTtlRewriteCoordinator.ExecutionStatus> statuses) {
-        for (TenantTtlRewriteCoordinator.ExecutionStatus status : statuses) {
-            PartitionRuntimeStatus previous = partitionStatuses.get(status.getKey());
-            PartitionState state;
-            switch (status.getState()) {
-                case RUNNING:
-                    state = PartitionState.REWRITE_RUNNING;
-                    break;
-                case WAITING_REPLICA:
-                    state = PartitionState.WAITING_REPLICA;
-                    break;
-                case RETRY_BACKOFF:
-                case UNKNOWN_RETRY:
-                    state = PartitionState.RETRY_PENDING;
-                    break;
-                case BLOCKED:
-                    state = PartitionState.BLOCKED;
-                    break;
-                case REPLAN_REQUIRED:
-                    state = PartitionState.REPLAN_REQUIRED;
-                    break;
-                default:
-                    state = PartitionState.WAITING_REWRITE;
-                    break;
-            }
-            partitionStatuses.put(status.getKey(), new PartitionRuntimeStatus(state,
-                    previous == null ? null : previous.getTriggerReason(),
-                    previous == null ? 0 : previous.getSnapshotTxnId(),
-                    previous == null ? 0 : previous.getEvaluationTimeEpochSeconds(),
-                    previous == null ? 0 : previous.getNextExpiryEpochSeconds(),
-                    status.getDetail(), System.currentTimeMillis()));
-        }
-    }
-
-    private void evaluateTable(TenantTtlEvaluationContext context,
+    private void evaluateTable(GlobalStateMgr state, BooleanSupplier current,
+                               TenantTtlEvaluationContext context,
                                TenantTtlPartitionProgressManager progressManager,
                                List<PendingRewritePlan> rewrites,
-                               List<CatalogDropCandidate> drops,
-                               PriorityQueue<NextExpiry> expiryQueue) {
+                               List<CatalogDropCandidate> drops) {
         Map<Long, List<TenantTtlEvaluationContext.PartitionPlan>> plansByLogicalPartition =
                 new LinkedHashMap<>();
         Map<Long, TenantTtlScheduleDecision.Decision> decisions = new HashMap<>();
@@ -225,11 +223,8 @@ public final class TenantTtlScheduler extends FrontendDaemon {
             ProgressKey key = key(context, plan);
             TenantTtlPartitionProgress progress = progressManager.get(key).orElse(null);
             TenantTtlScheduleDecision.Decision decision = TenantTtlScheduleDecision.decide(
-                    context, plan, progress, rewriteExecutionView.isRetryPending(key));
+                    context, plan, progress, false);
             decisions.put(plan.getPhysicalPartitionId(), decision);
-            if (plan.getPolicyPlan() != null && plan.getPolicyPlan().getNextExpiryEpochSeconds() > 0) {
-                expiryQueue.add(new NextExpiry(key, plan.getPolicyPlan().getNextExpiryEpochSeconds()));
-            }
         }
 
         for (List<TenantTtlEvaluationContext.PartitionPlan> logicalPlans : plansByLogicalPartition.values()) {
@@ -257,7 +252,7 @@ public final class TenantTtlScheduler extends FrontendDaemon {
                         break;
                     case FE_NOOP:
                         if (decision.shouldEvaluate()) {
-                            completeFeNoop(context, plan, progressManager, decision);
+                            completeFeNoop(state, current, context, plan, progressManager, decision);
                         } else {
                             updateStatus(context, plan, PartitionState.IDLE, decision, "");
                         }
@@ -281,61 +276,95 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         }
     }
 
-    private void completeFeNoop(TenantTtlEvaluationContext context,
+    private void completeFeNoop(GlobalStateMgr state, BooleanSupplier current,
+                                TenantTtlEvaluationContext context,
                                 TenantTtlEvaluationContext.PartitionPlan plan,
                                 TenantTtlPartitionProgressManager progressManager,
                                 TenantTtlScheduleDecision.Decision decision) {
-        ProgressKey key = key(context, plan);
-        TenantTtlPartitionProgress expected = progressManager.get(key).orElse(null);
-        long processedThrough = expected == null ? 0 : expected.getProcessedThroughVersion();
-        long completedCursor = plan.getPolicyPlan().getCompletedExpiryCursorEpochSeconds();
-        if (expected != null && expected.hasSamePlanIdentity(new TenantTtlPartitionProgress(
-                context.getDbId(), context.getTableId(), plan.getPhysicalPartitionId(),
-                context.getTableBindingFingerprint(), plan.getPolicyPlan().getTablePolicyFingerprint(),
-                plan.getBoundaryFingerprint(), completedCursor, processedThrough,
-                context.getSnapshotTxnId(), context.getEvaluationTimeEpochSeconds()))) {
-            completedCursor = Math.max(completedCursor, expected.getCompletedExpiryCursorEpochSeconds());
-        }
-        TenantTtlPartitionProgress candidate = new TenantTtlPartitionProgress(
-                context.getDbId(), context.getTableId(), plan.getPhysicalPartitionId(),
-                context.getTableBindingFingerprint(), plan.getPolicyPlan().getTablePolicyFingerprint(),
-                plan.getBoundaryFingerprint(), completedCursor, processedThrough,
-                context.getSnapshotTxnId(), context.getEvaluationTimeEpochSeconds());
-        TenantTtlPartitionProgressManager.AdvanceResult result =
-                progressManager.compareAndAdvanceCompletedPlan(expected, candidate);
-        if (result == TenantTtlPartitionProgressManager.AdvanceResult.ADVANCED ||
-                result == TenantTtlPartitionProgressManager.AdvanceResult.UNCHANGED) {
-            updateStatus(context, plan, PartitionState.FE_NOOP, decision, "");
-        } else {
-            updateStatus(context, plan, PartitionState.RETRY_PENDING, decision,
-                    "FE NOOP progress publication lost a concurrent metadata race: " + result);
-        }
-    }
-
-    private void executeFirstCatalogDrop(GlobalStateMgr state, CatalogDropCandidate candidate) {
-        if (rewriteExecutionView.hasDestructiveExecutionInFlight() ||
-                rewriteExecutionView.hasRewriteInFlight(candidate.context.getDbId(), candidate.context.getTableId(),
-                        candidate.logicalPartitionId) || !catalogDropRunning.compareAndSet(false, true)) {
-            markDrop(candidate, PartitionState.DROP_SKIPPED_REWRITE_IN_FLIGHT,
-                    "a Tenant-TTL destructive execution is already in flight");
+        Database db = state.getLocalMetastore().getDb(context.getDbId());
+        if (db == null) {
             return;
         }
+        Locker locker = new Locker();
+        locker.lockDatabase(db.getId(), LockType.READ);
         try {
-            CatalogDropResult result = dropLogicalPartition(state, candidate);
-            if (result.success) {
-                for (TenantTtlEvaluationContext.PartitionPlan plan : candidate.physicalPlans) {
-                    partitionStatuses.remove(key(candidate.context, plan));
-                }
-            } else {
-                markDrop(candidate, result.retryable ? PartitionState.RETRY_PENDING : PartitionState.FAIL_CLOSED,
-                        result.detail);
+            Table raw = db.getTable(context.getTableId());
+            if (!(raw instanceof OlapTable)) {
+                return;
             }
+            OlapTable table = (OlapTable) raw;
+            PhysicalPartition physical = table.getPhysicalPartition(plan.getPhysicalPartitionId());
+            if (table.getState() != OlapTable.OlapTableState.NORMAL || physical == null ||
+                    !context.validateTableBindingLocked(db, table)) {
+                return;
+            }
+            TenantTtlPartitionBoundResolver.Resolution bound = TenantTtlPartitionBoundResolver.resolve(
+                    table, physical, table.getTableProperty().getTenantTtlTableBinding());
+            if (!bound.isProvable() || !plan.getBoundaryFingerprint().equals(
+                    TenantTtlEvaluationContext.partitionBoundaryFingerprint(
+                            physical.getParentId(), physical.getId(), bound))) {
+                return;
+            }
+            Optional<TenantTtlPolicySnapshot> snapshot = state.getTenantTtlPolicySnapshotManager()
+                    .getCurrentSnapshot(context.getDictionaryId());
+            if (!snapshot.isPresent()) {
+                return;
+            }
+            TenantTtlDictionaryBinding binding = table.getTableProperty().getTenantTtlDictionaryBinding();
+            TenantTtlPolicyPlanner.Plan policy = TenantTtlPolicyPlanner.fromConfig().plan(snapshot.get(),
+                    TenantTtlByteKey.utf8(binding.getTableKey()), binding.getDefaultDays(),
+                    bound.getPartitionUpperEpochSecond(), context.getEvaluationTimeEpochSeconds());
+            if (policy.getType() != TenantTtlPolicyPlanner.PlanType.FE_NOOP ||
+                    !policy.getTablePolicyFingerprint().equals(plan.getPolicyPlan().getTablePolicyFingerprint())) {
+                return;
+            }
+            ProgressKey key = key(context, plan);
+            TenantTtlPartitionProgress expected = progressManager.get(key).orElse(null);
+            long processedThrough = expected == null ? 0 : expected.getProcessedThroughVersion();
+            long cursor = plan.getPolicyPlan().getCompletedExpiryCursorEpochSeconds();
+            if (expected != null && context.getTableBindingFingerprint().equals(expected.getTableBindingFingerprint()) &&
+                    plan.getBoundaryFingerprint().equals(expected.getPartitionBoundaryFingerprint()) &&
+                    policy.getTablePolicyFingerprint().equals(expected.getTablePolicyFingerprint())) {
+                cursor = Math.max(cursor, expected.getCompletedExpiryCursorEpochSeconds());
+            }
+            TenantTtlPartitionProgress candidate = new TenantTtlPartitionProgress(
+                    context.getDbId(), context.getTableId(), plan.getPhysicalPartitionId(),
+                    context.getTableBindingFingerprint(), policy.getTablePolicyFingerprint(),
+                    plan.getBoundaryFingerprint(), cursor, processedThrough,
+                    context.getSnapshotTxnId(), context.getEvaluationTimeEpochSeconds());
+            rewriteCoordinator.runIfCurrent(state, current, () -> {
+                TenantTtlPartitionProgressManager.AdvanceResult result =
+                        progressManager.compareAndAdvanceCompletedPlan(expected, candidate);
+                boolean success = result == TenantTtlPartitionProgressManager.AdvanceResult.ADVANCED ||
+                        result == TenantTtlPartitionProgressManager.AdvanceResult.UNCHANGED;
+                updateStatus(context, plan, success ? PartitionState.FE_NOOP : PartitionState.REPLAN_REQUIRED,
+                        decision, success ? "" : "FE NOOP progress changed: " + result);
+                rewriteCoordinator.forgetPartition(key);
+            });
+        } catch (DdlException e) {
+            updateStatus(context, plan, PartitionState.REPLAN_REQUIRED, decision, rootMessage(e));
         } finally {
-            catalogDropRunning.set(false);
+            locker.unLockDatabase(db.getId(), LockType.READ);
         }
     }
 
-    private CatalogDropResult dropLogicalPartition(GlobalStateMgr state, CatalogDropCandidate candidate) {
+    private void executeCatalogDrop(GlobalStateMgr state, CatalogDropCandidate candidate,
+                                    BooleanSupplier current) {
+        CatalogDropResult result = dropLogicalPartition(state, candidate, current);
+        if (result.success) {
+            for (TenantTtlEvaluationContext.PartitionPlan plan : candidate.physicalPlans) {
+                ProgressKey key = key(candidate.context, plan);
+                partitionStatuses.remove(key);
+                rewriteCoordinator.forgetPartition(key);
+            }
+        } else {
+            markDrop(candidate, result.retryable ? PartitionState.RETRY_PENDING : PartitionState.FAIL_CLOSED,
+                    result.detail);
+        }
+    }
+
+    private CatalogDropResult dropLogicalPartition(GlobalStateMgr state, CatalogDropCandidate candidate,
+                                                   BooleanSupplier currentLeader) {
         Database db = state.getLocalMetastore().getDb(candidate.context.getDbId());
         if (db == null) {
             return CatalogDropResult.retry("database disappeared before Tenant-TTL Catalog drop");
@@ -368,10 +397,6 @@ public final class TenantTtlScheduler extends FrontendDaemon {
             if (!currentPhysicalIds.equals(candidate.physicalPartitionIds)) {
                 return CatalogDropResult.retry("Physical Partition membership changed before Catalog drop");
             }
-            if (rewriteExecutionView.hasRewriteInFlight(candidate.context.getDbId(), candidate.context.getTableId(),
-                    candidate.logicalPartitionId)) {
-                return CatalogDropResult.retry("a Rowset Rewrite became in flight before Catalog drop");
-            }
             CatalogDropResult validation = validateDropPoliciesLocked(state, db, table, candidate);
             if (!validation.success) {
                 return validation;
@@ -381,7 +406,21 @@ public final class TenantTtlScheduler extends FrontendDaemon {
             // LocalMetastore consumes the analyzer-resolved names. Tenant-TTL constructs the clause
             // internally, so resolve the already revalidated logical partition explicitly.
             dropClause.setResolvedPartitionNames(Collections.singletonList(candidate.logicalPartitionName));
-            state.getLocalMetastore().dropPartition(db, table, dropClause);
+            // Catalog -> lifecycle; role callbacks never acquire a Catalog lock.
+            final DdlException[] failure = new DdlException[1];
+            boolean applied = rewriteCoordinator.runIfCurrent(state, currentLeader, () -> {
+                try {
+                    state.getLocalMetastore().dropPartition(db, table, dropClause);
+                } catch (DdlException e) {
+                    failure[0] = e;
+                }
+            });
+            if (!applied) {
+                return CatalogDropResult.retry("leadership changed before Catalog drop");
+            }
+            if (failure[0] != null) {
+                throw failure[0];
+            }
             LOG.info("Tenant-TTL dropped logical partition. dbId={}, tableId={}, partitionId={}, partitionName={}",
                     db.getId(), table.getId(), partition.getId(), partition.getName());
             return CatalogDropResult.success();
@@ -476,7 +515,14 @@ public final class TenantTtlScheduler extends FrontendDaemon {
     }
 
     public List<NextExpiry> getNextExpiries() {
-        return nextExpiries;
+        List<NextExpiry> expiries = new ArrayList<>();
+        for (Map.Entry<ProgressKey, PartitionRuntimeStatus> entry : partitionStatuses.entrySet()) {
+            if (entry.getValue().getNextExpiryEpochSeconds() > 0) {
+                expiries.add(new NextExpiry(entry.getKey(), entry.getValue().getNextExpiryEpochSeconds()));
+            }
+        }
+        expiries.sort(NextExpiry.ORDER);
+        return Collections.unmodifiableList(expiries);
     }
 
     public Optional<PartitionRuntimeStatus> getPartitionStatus(ProgressKey key) {
@@ -503,40 +549,21 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         return Optional.ofNullable(tableStatuses.get(new TableRef(dbId, tableId)));
     }
 
-    public void setRewriteExecutionView(RewriteExecutionView rewriteExecutionView) {
-        this.rewriteExecutionView = rewriteExecutionView == null ? RewriteExecutionView.NONE : rewriteExecutionView;
-    }
-
     public TenantTtlRewriteCoordinator getRewriteCoordinator() {
         return rewriteCoordinator;
     }
 
     /** Called synchronously from the FE role transition before this former Leader serves as a Follower. */
-    public synchronized void onLeadershipLost() {
+    public void onLeadershipLost() {
         leadershipEnabled = false;
+        leadershipGeneration.incrementAndGet();
         rewriteCoordinator.resetForLeadershipLoss();
     }
 
-    public synchronized void onLeadershipGained() {
+    public void onLeadershipGained() {
+        leadershipGeneration.incrementAndGet();
         rewriteCoordinator.resetForLeadershipLoss();
         leadershipEnabled = true;
-    }
-
-    public interface RewriteExecutionView {
-        RewriteExecutionView NONE = new RewriteExecutionView() {
-        };
-
-        default boolean isRetryPending(ProgressKey key) {
-            return false;
-        }
-
-        default boolean hasRewriteInFlight(long dbId, long tableId, long logicalPartitionId) {
-            return false;
-        }
-
-        default boolean hasDestructiveExecutionInFlight() {
-            return false;
-        }
     }
 
     public enum PartitionState {
@@ -547,10 +574,12 @@ public final class TenantTtlScheduler extends FrontendDaemon {
         WAITING_REPLICA,
         WAITING_LOGICAL_PARTITION,
         WAITING_CATALOG_DROP,
-        DROP_SKIPPED_REWRITE_IN_FLIGHT,
         RETRY_PENDING,
         REPLAN_REQUIRED,
         BLOCKED,
+        TIMED_OUT,
+        ATTEMPTS_EXHAUSTED,
+        FAILED,
         FAIL_CLOSED
     }
 

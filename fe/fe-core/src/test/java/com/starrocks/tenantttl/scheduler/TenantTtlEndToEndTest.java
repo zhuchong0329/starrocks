@@ -123,34 +123,20 @@ public class TenantTtlEndToEndTest {
     public void testBindingThroughSchedulingAndReplicaCompletion() {
         RecordingSubmitter submitter = new RecordingSubmitter();
         TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(
-                submitter, () -> 1_000_000L, () -> 0.5);
+                submitter, () -> 1_000_000L, millis -> Assertions.fail("synchronous completion must not wait"));
         TenantTtlScheduler scheduler = new TenantTtlScheduler(coordinator, () -> EVALUATION_TIME);
         long rewritePhysicalId = table.getPartition("p_rewrite").getDefaultPhysicalPartition().getId();
         long noopPhysicalId = table.getPartition("p_noop").getDefaultPhysicalPartition().getId();
 
         scheduler.scheduleOnce(state);
         Assertions.assertNull(table.getPartition("p_drop"));
-        Assertions.assertEquals(1, scheduler.getPendingRewritePlans().size());
-        Assertions.assertTrue(submitter.tasks.isEmpty());
+        Assertions.assertTrue(scheduler.getPendingRewritePlans().isEmpty());
+        Assertions.assertEquals(2, submitter.tasks.size());
         Assertions.assertTrue(state.getTenantTtlPartitionProgressManager().get(
                 new TenantTtlPartitionProgress.ProgressKey(db.getId(), table.getId(), noopPhysicalId)).isPresent());
-
+        Assertions.assertNotEquals(submitter.tasks.get(0).getSignature(), submitter.tasks.get(1).getSignature());
         scheduler.scheduleOnce(state);
-        TenantTtlCompactionTask first = coordinator.getActiveTask().orElseThrow(AssertionError::new);
-        assertFrozenRequest(first);
-        Assertions.assertEquals(1, submitter.tasks.size());
-        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.ACCEPTED,
-                first.finish(success(first)));
-
-        scheduler.scheduleOnce(state);
-        TenantTtlCompactionTask second = coordinator.getActiveTask().orElseThrow(AssertionError::new);
-        assertFrozenRequest(second);
-        Assertions.assertNotEquals(first.getSignature(), second.getSignature());
-        Assertions.assertEquals(2, submitter.tasks.size());
-        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.ACCEPTED,
-                second.finish(success(second)));
-
-        scheduler.scheduleOnce(state);
+        Assertions.assertEquals(2, submitter.tasks.size(), "no new event must not re-dispatch completed Replicas");
         TenantTtlPartitionProgress progress = state.getTenantTtlPartitionProgressManager().get(
                 new TenantTtlPartitionProgress.ProgressKey(db.getId(), table.getId(), rewritePhysicalId))
                 .orElseThrow(AssertionError::new);
@@ -253,6 +239,8 @@ public class TenantTtlEndToEndTest {
         @Override
         public void submit(TenantTtlCompactionTask task) {
             tasks.add(task);
+            assertFrozenRequest(task);
+            task.finish(success(task));
         }
     }
 

@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <future>
 #include <mutex>
 #include <set>
 
@@ -665,6 +666,80 @@ TEST_F(EngineTenantTtlCompactionTaskTest, RowsetIdChangeBeforeCommitRejectsAndCl
     EXPECT_EQ(Version(0, 3), active[0].version);
     EXPECT_EQ(competing->rowset_id(), active[0].rowset_id);
     expect_all_guards_released(sources);
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, DropBeforeExecutionDoesNotRewriteDetachedTablet) {
+    ASSERT_NE(nullptr, create_tablet());
+    ASSERT_NE(nullptr, add_rowset(Version(2, 2), {{{1, "delete", 10}, {2, "keep", 20}}}));
+    const auto before_files = tablet_files();
+    ASSERT_OK(_engine->tablet_manager()->drop_tablet(_tablet_id, kDeleteFiles));
+    const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}));
+    EXPECT_EQ(TenantTtlTaskCode::TABLET_NOT_FOUND, result.code);
+    EXPECT_EQ(TABLET_SHUTDOWN, _tablet->tablet_state());
+    EXPECT_EQ(before_files, tablet_files()); // The held Tablet reference protects existing files.
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, DropAfterOutputStagingRejectsCommitAndCleansOutput) {
+    ASSERT_NE(nullptr, create_tablet());
+    ASSERT_NE(nullptr, add_rowset(Version(2, 2), {{{1, "delete", 10}, {2, "keep", 20}}}));
+    const auto sources = active_rowsets();
+    const auto before_rowsets = snapshot_active_rowsets();
+    const auto before_files = tablet_files();
+    int drops = 0;
+    SyncPoint::GetInstance()->SetCallBack("EngineTenantTtlCompactionTask::output_staged", [&](void*) {
+        if (drops++ == 0) {
+            EXPECT_OK(_engine->tablet_manager()->drop_tablet(_tablet_id, kDeleteFiles));
+        }
+    });
+    SyncPoint::GetInstance()->EnableProcessing();
+    const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}));
+    EXPECT_GT(drops, 0);
+    EXPECT_EQ(TenantTtlTaskCode::NOT_SUPPORTED, result.code);
+    EXPECT_EQ(TABLET_SHUTDOWN, _tablet->tablet_state());
+    EXPECT_EQ(before_rowsets, snapshot_active_rowsets());
+    EXPECT_EQ(before_files, tablet_files());
+    expect_all_guards_released(sources);
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, DropImmediatelyBeforeCommitRejectsReplacement) {
+    ASSERT_NE(nullptr, create_tablet());
+    ASSERT_NE(nullptr, add_rowset(Version(2, 2), {{{1, "delete", 10}, {2, "keep", 20}}}));
+    const auto sources = active_rowsets();
+    const auto before_files = tablet_files();
+    SyncPoint::GetInstance()->SetCallBack("EngineTenantTtlCompactionTask::before_commit", [&](void*) {
+        EXPECT_OK(_engine->tablet_manager()->drop_tablet(_tablet_id, kDeleteFiles));
+    });
+    SyncPoint::GetInstance()->EnableProcessing();
+    const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}));
+    EXPECT_EQ(TenantTtlTaskCode::NOT_SUPPORTED, result.code);
+    EXPECT_EQ(before_files, tablet_files());
+    expect_all_guards_released(sources);
+}
+
+TEST_F(EngineTenantTtlCompactionTaskTest, CommitHoldingHeaderLockFinishesBeforeConcurrentDrop) {
+    ASSERT_NE(nullptr, create_tablet());
+    ASSERT_NE(nullptr, add_rowset(Version(2, 2), {{{1, "delete", 10}, {2, "keep", 20}}}));
+    std::future<Status> drop;
+    std::promise<void> drop_started;
+    auto started = drop_started.get_future();
+    SyncPoint::GetInstance()->SetCallBack("Tablet::commit_tenant_ttl_rowsets:before_save_meta", [&](void*) {
+        drop = std::async(std::launch::async, [&] {
+            drop_started.set_value();
+            return _engine->tablet_manager()->drop_tablet(_tablet_id, kDeleteFiles);
+        });
+        started.wait();
+        EXPECT_EQ(std::future_status::timeout, drop.wait_for(std::chrono::milliseconds(0)));
+    });
+    SyncPoint::GetInstance()->EnableProcessing();
+    const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}));
+    ASSERT_TRUE(drop.valid());
+    ASSERT_OK(drop.get());
+    EXPECT_EQ(TenantTtlTaskCode::SUCCESS, result.code);
+    EXPECT_EQ(TABLET_SHUTDOWN, _tablet->tablet_state());
+    EXPECT_EQ(nullptr, _engine->tablet_manager()->get_tablet(_tablet_id, false));
+    const auto rows = read_tablet_rows();
+    ASSERT_EQ(1, rows.size());
+    EXPECT_EQ("keep", rows[0].tenant.value());
 }
 
 } // namespace starrocks

@@ -55,6 +55,7 @@ public final class TenantTtlCompactionTask extends AgentTask {
     private final String requestFingerprint;
 
     private TTenantTtlCompactionResult result;
+    private boolean closed;
 
     public TenantTtlCompactionTask(TenantTtlEvaluationContext.ReplicaTaskSpec spec) {
         this(spec.getBackendId(), spec.getDbId(), spec.getTableId(), spec.getPhysicalPartitionId(),
@@ -172,6 +173,9 @@ public final class TenantTtlCompactionTask extends AgentTask {
 
     /** Accepts a complete business result only after its envelope and accounting have been verified. */
     public synchronized FinishResult finish(TTenantTtlCompactionResult candidate) {
+        if (closed) {
+            return FinishResult.CLOSED;
+        }
         if (!isWellFormed(candidate)) {
             return FinishResult.MALFORMED_RESULT;
         }
@@ -184,6 +188,12 @@ public final class TenantTtlCompactionTask extends AgentTask {
                 (candidate.getProcessed_through_version() < observedMaxVersion ||
                         candidate.getSnapshot_end_version() < candidate.getProcessed_through_version())) {
             return FinishResult.MALFORMED_RESULT;
+        }
+        if (result != null) {
+            return FinishResult.ALREADY_FINISHED;
+        }
+        if (candidate.getCode() == TTenantTtlTaskCode.TTL_ALREADY_RUNNING) {
+            return FinishResult.STILL_RUNNING;
         }
         result = new TTenantTtlCompactionResult(candidate);
         setFinished(true);
@@ -230,13 +240,18 @@ public final class TenantTtlCompactionTask extends AgentTask {
         return result == null ? Optional.empty() : Optional.of(new TTenantTtlCompactionResult(result));
     }
 
-    /** Reset only mutable delivery/result state; all request fields and the task ID remain immutable. */
-    public synchronized void prepareForRetry() {
-        result = null;
-        isFinished = false;
-        isFailed = false;
-        failedTimes = 0;
-        errorMsg = null;
+    /** Closing the FE attempt does not cancel, stop or roll back BE execution. */
+    public synchronized void close() {
+        closed = true;
+    }
+
+    /** A delayed handler for an old attempt must not remove a newer registration with the same signature. */
+    public void removeFromQueue() {
+        synchronized (AgentTaskQueue.class) {
+            if (AgentTaskQueue.getTask(getBackendId(), getTaskType(), getSignature()) == this) {
+                AgentTaskQueue.removeTask(getBackendId(), getTaskType(), getSignature());
+            }
+        }
     }
 
     public long getReplicaId() {
@@ -269,6 +284,9 @@ public final class TenantTtlCompactionTask extends AgentTask {
 
     public enum FinishResult {
         ACCEPTED,
+        ALREADY_FINISHED,
+        STILL_RUNNING,
+        CLOSED,
         IDENTITY_MISMATCH,
         MALFORMED_RESULT
     }

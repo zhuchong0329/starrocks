@@ -23,9 +23,12 @@ import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Replica;
 import com.starrocks.common.Config;
 import com.starrocks.common.jmockit.Deencapsulation;
+import com.starrocks.common.util.concurrent.lock.LockType;
+import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.task.TenantTtlCompactionTask;
 import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgress;
+import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgressManager;
 import com.starrocks.tenantttl.scheduler.TenantTtlRewriteCoordinator;
 import com.starrocks.tenantttl.scheduler.TenantTtlScheduleDecision;
 import com.starrocks.tenantttl.scheduler.TenantTtlScheduler;
@@ -35,26 +38,24 @@ import com.starrocks.thrift.TTenantTtlCompactionResult;
 import com.starrocks.thrift.TTenantTtlTaskCode;
 import com.starrocks.utframe.StarRocksAssert;
 import com.starrocks.utframe.UtFrameUtils;
+import mockit.Invocation;
+import mockit.Mock;
+import mockit.MockUp;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongSupplier;
 
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class TenantTtlRewriteCoordinatorTest {
     private static final String DB_NAME = "tenant_ttl_coordinator_test";
     private static final String TABLE_NAME = "event_log";
@@ -111,257 +112,303 @@ public class TenantTtlRewriteCoordinatorTest {
         }
     }
 
+    private int originalAttempts;
+    private int originalTimeout;
+
+    @org.junit.jupiter.api.BeforeEach
+    public void resetProgress() {
+        originalAttempts = Config.tenant_ttl_agent_task_max_attempts;
+        originalTimeout = Config.tenant_ttl_agent_task_soft_timeout_seconds;
+        state.getTenantTtlPartitionProgressManager().removeTable(db.getId(), table.getId());
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    public void restoreConfig() {
+        Config.tenant_ttl_agent_task_max_attempts = originalAttempts;
+        Config.tenant_ttl_agent_task_soft_timeout_seconds = originalTimeout;
+    }
+
+    private static TenantTtlRewriteCoordinator.ExecutionStatus run(TenantTtlRewriteCoordinator coordinator,
+                                                                   TenantTtlScheduler.PendingRewritePlan plan) {
+        return coordinator.executePartition(state, plan, () -> true, status -> { });
+    }
+
     @Test
-    @Order(1)
-    public void testAllTabletReplicasCompleteBeforeProgressAdvances() {
+    public void testAllTabletReplicasCompleteInOneCallAndUseMinimumVersion() {
         TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_first", 97000);
-        Assertions.assertEquals(2, plan.getPartitionPlan().getReplicaTasks().size());
-        MutableClock clock = new MutableClock(1_000_000L);
-        RecordingSubmitter submitter = new RecordingSubmitter();
-        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(submitter, clock, () -> 0.5);
-
-        coordinator.reconcile(state, Collections.singletonList(plan));
-        coordinator.dispatchNext(state);
-        TenantTtlCompactionTask first = coordinator.getActiveTask().orElseThrow(AssertionError::new);
-        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.ACCEPTED,
-                first.finish(result(first, TTenantTtlTaskCode.NOOP_VERIFIED,
-                        first.getObservedMaxVersion() + 5)));
-        coordinator.reconcile(state, Collections.singletonList(plan));
-        Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(plan)).isPresent());
-
-        coordinator.dispatchNext(state);
-        TenantTtlCompactionTask second = coordinator.getActiveTask().orElseThrow(AssertionError::new);
-        Assertions.assertNotEquals(first.getSignature(), second.getSignature());
-        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.ACCEPTED,
-                second.finish(result(second, TTenantTtlTaskCode.SUCCESS,
-                        second.getObservedMaxVersion() + 3)));
-        coordinator.reconcile(state, Collections.singletonList(plan));
-
-        TenantTtlPartitionProgress progress = state.getTenantTtlPartitionProgressManager().get(progressKey(plan))
-                .orElseThrow(AssertionError::new);
+        AtomicLong clock = new AtomicLong();
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(plan)).isPresent());
+            sent.add(task);
+            task.finish(result(task, TTenantTtlTaskCode.SUCCESS,
+                    task.getObservedMaxVersion() + (sent.size() == 1 ? 5 : 3)));
+        }, clock::get, clock::addAndGet);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.COMPLETED, run(coordinator, plan).getState());
+        Assertions.assertEquals(2, sent.size());
+        Assertions.assertNotEquals(sent.get(0).getSignature(), sent.get(1).getSignature());
         Assertions.assertEquals(plan.getPartitionPlan().getObservedVisibleVersion() + 3,
-                progress.getProcessedThroughVersion());
-        Assertions.assertEquals(2, submitter.tasks.size());
+                state.getTenantTtlPartitionProgressManager().get(progressKey(plan)).orElseThrow().getProcessedThroughVersion());
         Assertions.assertFalse(coordinator.getActiveTask().isPresent());
     }
 
     @Test
-    @Order(2)
-    public void testDefiniteRetryReusesTaskIdAndReleasesGlobalSlot() {
+    public void testThirtiethAttemptCanSucceedWithoutChangingRequest() {
         TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 98000);
-        MutableClock clock = new MutableClock(2_000_000L);
-        RecordingSubmitter submitter = new RecordingSubmitter();
-        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(submitter, clock, () -> 0.5);
-
-        coordinator.reconcile(state, Collections.singletonList(plan));
-        coordinator.dispatchNext(state);
-        TenantTtlCompactionTask firstAttempt = coordinator.getActiveTask().orElseThrow(AssertionError::new);
-        long taskId = firstAttempt.getSignature();
-        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.ACCEPTED,
-                firstAttempt.finish(result(firstAttempt, TTenantTtlTaskCode.TABLET_BUSY, -1)));
-        coordinator.reconcile(state, Collections.singletonList(plan));
-
-        Assertions.assertFalse(coordinator.hasDestructiveExecutionInFlight());
-        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.RETRY_BACKOFF,
-                coordinator.getExecutionStatuses().get(0).getState());
-        coordinator.dispatchNext(state);
-        Assertions.assertEquals(1, submitter.tasks.size());
-        clock.advance(10_000L);
-        coordinator.dispatchNext(state);
-        TenantTtlCompactionTask secondAttempt = coordinator.getActiveTask().orElseThrow(AssertionError::new);
-        Assertions.assertSame(firstAttempt, secondAttempt);
-        Assertions.assertEquals(taskId, secondAttempt.getSignature());
-        Assertions.assertEquals(2, submitter.tasks.size());
-        coordinator.resetForLeadershipLoss();
+        AtomicLong clock = new AtomicLong();
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sent.add(task);
+            boolean success = sent.size() >= 30;
+            task.finish(result(task, success ? TTenantTtlTaskCode.NOOP_VERIFIED : TTenantTtlTaskCode.TABLET_BUSY,
+                    success ? task.getObservedMaxVersion() : -1));
+        }, clock::get, clock::addAndGet);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.COMPLETED, run(coordinator, plan).getState());
+        Assertions.assertEquals(31, sent.size()); // Thirty for the first Replica, one for the second.
+        Assertions.assertEquals(290_000L, clock.get());
+        for (int index = 1; index < 30; index++) {
+            Assertions.assertEquals(sent.get(0).toThrift(), sent.get(index).toThrift());
+        }
     }
 
     @Test
-    @Order(3)
-    public void testAlreadyRunningKeepsExclusiveSlotUntilSameRequestConverges() {
+    public void testAttemptExhaustionContinuesOtherReplicas() {
+        Config.tenant_ttl_agent_task_max_attempts = 3;
         TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 99000);
-        MutableClock clock = new MutableClock(3_000_000L);
-        RecordingSubmitter submitter = new RecordingSubmitter();
-        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(submitter, clock, () -> 0.5);
-
-        coordinator.reconcile(state, Collections.singletonList(plan));
-        coordinator.dispatchNext(state);
-        TenantTtlCompactionTask firstAttempt = coordinator.getActiveTask().orElseThrow(AssertionError::new);
-        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.ACCEPTED,
-                firstAttempt.finish(result(firstAttempt, TTenantTtlTaskCode.TTL_ALREADY_RUNNING, -1)));
-        coordinator.reconcile(state, Collections.singletonList(plan));
-
-        Assertions.assertTrue(coordinator.hasDestructiveExecutionInFlight());
-        coordinator.dispatchNext(state);
-        Assertions.assertEquals(1, submitter.tasks.size());
-        clock.advance(10_000L);
-        coordinator.dispatchNext(state);
-        Assertions.assertEquals(firstAttempt.getSignature(),
-                coordinator.getActiveTask().orElseThrow(AssertionError::new).getSignature());
-        Assertions.assertEquals(2, submitter.tasks.size());
-        coordinator.resetForLeadershipLoss();
+        AtomicLong clock = new AtomicLong();
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sent.add(task);
+            task.finish(result(task, TTenantTtlTaskCode.TABLET_BUSY, -1));
+        }, clock::get, clock::addAndGet);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.ATTEMPTS_EXHAUSTED,
+                run(coordinator, plan).getState());
+        Assertions.assertEquals(6, sent.size());
+        Assertions.assertEquals(40_000L, clock.get());
+        Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(plan)).isPresent());
     }
 
     @Test
-    @Order(4)
-    public void testUnavailableReplicaWaitsWithoutTakingGlobalSlot() {
+    public void testTimeoutDoesNotRetryOrKeepAnExclusiveSlot() {
+        Config.tenant_ttl_agent_task_soft_timeout_seconds = 2;
         TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 100000);
+        AtomicLong clock = new AtomicLong();
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sent.add(task);
+            if (sent.size() > 1) {
+                task.finish(result(task, TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion()));
+            }
+        }, clock::get, clock::addAndGet);
+        TenantTtlRewriteCoordinator.ExecutionStatus status = run(coordinator, plan);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.TIMED_OUT, status.getState());
+        Assertions.assertEquals(1, status.getSuccessfulReplicas());
+        Assertions.assertEquals(2, sent.size());
+        Assertions.assertEquals(2000L, clock.get());
+        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.CLOSED,
+                sent.get(0).finish(result(sent.get(0), TTenantTtlTaskCode.SUCCESS, sent.get(0).getObservedMaxVersion())));
+        Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(plan)).isPresent());
+    }
+
+    @Test
+    public void testCumulativeDeadlineDoesNotGrantAnotherHour() {
+        TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 101000);
+        AtomicLong clock = new AtomicLong();
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sent.add(task);
+            if (sent.size() == 1) {
+                clock.addAndGet(3_500_000L);
+                task.finish(result(task, TTenantTtlTaskCode.STALE_ROWSET, -1));
+            } else if (sent.size() > 2) {
+                task.finish(result(task, TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion()));
+            }
+        }, clock::get, clock::addAndGet);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.TIMED_OUT, run(coordinator, plan).getState());
+        Assertions.assertEquals(3, sent.size());
+        Assertions.assertEquals(sent.get(0).toThrift(), sent.get(1).toThrift());
+        Assertions.assertEquals(3_600_000L, clock.get());
+    }
+
+    @Test
+    public void testUnavailablePreflightConsumesAttemptsWithoutSending() {
+        Config.tenant_ttl_agent_task_max_attempts = 3;
+        TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 102000);
         TenantTtlEvaluationContext.ReplicaTaskSpec spec = plan.getPartitionPlan().getReplicaTasks().get(0);
         LocalTablet tablet = (LocalTablet) table.getPhysicalPartition(plan.getPartitionPlan().getPhysicalPartitionId())
                 .getBaseIndex().getTablet(spec.getTabletId());
         Replica replica = tablet.getReplicaById(spec.getReplicaId());
-        MutableClock clock = new MutableClock(4_000_000L);
-        RecordingSubmitter submitter = new RecordingSubmitter();
-        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(submitter, clock, () -> 0.5);
-
+        AtomicLong clock = new AtomicLong();
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sent.add(task);
+            task.finish(result(task, TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion()));
+        }, clock::get, clock::addAndGet);
         replica.setBad(true);
         try {
-            coordinator.reconcile(state, Collections.singletonList(plan));
-            coordinator.dispatchNext(state);
-            Assertions.assertFalse(coordinator.getActiveTask().isPresent());
-            Assertions.assertFalse(coordinator.hasDestructiveExecutionInFlight());
-            Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.WAITING_REPLICA,
-                    coordinator.getExecutionStatuses().get(0).getState());
-            Assertions.assertTrue(submitter.tasks.isEmpty());
+            Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.ATTEMPTS_EXHAUSTED,
+                    run(coordinator, plan).getState());
+            Assertions.assertEquals(1, sent.size());
+            Assertions.assertEquals(20_000L, clock.get());
         } finally {
             replica.setBad(false);
         }
-        clock.advance(10_000L);
-        coordinator.dispatchNext(state);
-        Assertions.assertTrue(coordinator.getActiveTask().isPresent());
-        coordinator.resetForLeadershipLoss();
     }
 
     @Test
-    @Order(5)
-    public void testPermanentBusinessErrorBlocksWithoutAdvancingProgress() {
-        TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 101000);
-        RecordingSubmitter submitter = new RecordingSubmitter();
-        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(
-                submitter, new MutableClock(5_000_000L), () -> 0.5);
-
-        coordinator.reconcile(state, Collections.singletonList(plan));
-        coordinator.dispatchNext(state);
-        TenantTtlCompactionTask task = coordinator.getActiveTask().orElseThrow(AssertionError::new);
-        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.ACCEPTED,
-                task.finish(result(task, TTenantTtlTaskCode.DATA_INVARIANT_VIOLATION, -1)));
-        coordinator.reconcile(state, Collections.singletonList(plan));
-
-        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.BLOCKED,
-                coordinator.getExecutionStatuses().get(0).getState());
-        Assertions.assertFalse(coordinator.hasDestructiveExecutionInFlight());
-        Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(plan)).isPresent());
-        coordinator.dispatchNext(state);
-        Assertions.assertEquals(1, submitter.tasks.size());
-        coordinator.resetForLeadershipLoss();
-    }
-
-    @Test
-    @Order(6)
-    public void testLateSuccessForInvalidatedPlanIsFenced() {
-        TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 102000);
-        RecordingSubmitter submitter = new RecordingSubmitter();
-        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(
-                submitter, new MutableClock(6_000_000L), () -> 0.5);
-
-        coordinator.reconcile(state, Collections.singletonList(plan));
-        coordinator.dispatchNext(state);
-        TenantTtlCompactionTask task = coordinator.getActiveTask().orElseThrow(AssertionError::new);
-        coordinator.reconcile(state, Collections.emptyList());
-        Assertions.assertTrue(coordinator.hasDestructiveExecutionInFlight());
-        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.ACCEPTED,
-                task.finish(result(task, TTenantTtlTaskCode.NOOP_VERIFIED, task.getObservedMaxVersion())));
-        coordinator.reconcile(state, Collections.emptyList());
-
-        Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(plan)).isPresent());
-        Assertions.assertTrue(coordinator.getExecutionStatuses().isEmpty());
-        Assertions.assertFalse(coordinator.hasDestructiveExecutionInFlight());
-    }
-
-    @Test
-    @Order(7)
-    public void testResultClassificationIsExhaustive() {
-        Map<TTenantTtlTaskCode, TenantTtlRewriteCoordinator.ResultDisposition> expected =
-                new EnumMap<>(TTenantTtlTaskCode.class);
-        expected.put(TTenantTtlTaskCode.SUCCESS, TenantTtlRewriteCoordinator.ResultDisposition.SUCCESS);
-        expected.put(TTenantTtlTaskCode.NOOP_VERIFIED, TenantTtlRewriteCoordinator.ResultDisposition.SUCCESS);
-        expected.put(TTenantTtlTaskCode.TABLET_BUSY,
-                TenantTtlRewriteCoordinator.ResultDisposition.DEFINITE_RETRY);
-        expected.put(TTenantTtlTaskCode.REPLICA_NOT_CAUGHT_UP,
-                TenantTtlRewriteCoordinator.ResultDisposition.DEFINITE_RETRY);
-        expected.put(TTenantTtlTaskCode.STALE_ROWSET,
-                TenantTtlRewriteCoordinator.ResultDisposition.DEFINITE_RETRY);
-        expected.put(TTenantTtlTaskCode.CANCELLED,
-                TenantTtlRewriteCoordinator.ResultDisposition.DEFINITE_RETRY);
-        expected.put(TTenantTtlTaskCode.TTL_ALREADY_RUNNING,
-                TenantTtlRewriteCoordinator.ResultDisposition.UNKNOWN_RETRY);
-        expected.put(TTenantTtlTaskCode.SCHEMA_CHANGED, TenantTtlRewriteCoordinator.ResultDisposition.REPLAN);
-        expected.put(TTenantTtlTaskCode.TABLET_NOT_FOUND, TenantTtlRewriteCoordinator.ResultDisposition.REPLAN);
-        expected.put(TTenantTtlTaskCode.INVALID_ARGUMENT, TenantTtlRewriteCoordinator.ResultDisposition.BLOCKED);
-        expected.put(TTenantTtlTaskCode.NOT_SUPPORTED, TenantTtlRewriteCoordinator.ResultDisposition.BLOCKED);
-        expected.put(TTenantTtlTaskCode.DATA_INVARIANT_VIOLATION,
-                TenantTtlRewriteCoordinator.ResultDisposition.BLOCKED);
-        expected.put(TTenantTtlTaskCode.INTERNAL_ERROR, TenantTtlRewriteCoordinator.ResultDisposition.BLOCKED);
-
-        Assertions.assertEquals(TTenantTtlTaskCode.values().length, expected.size());
-        for (TTenantTtlTaskCode code : TTenantTtlTaskCode.values()) {
-            Assertions.assertEquals(expected.get(code), TenantTtlRewriteCoordinator.classifyResult(code),
-                    code.name());
-        }
-    }
-
-    @Test
-    @Order(8)
-    public void testSoftTimeoutKeepsExclusiveSlotAndRetriesImmutableRequest() {
+    public void testAlreadyRunningWaitsForRealCompletionWithoutBusinessRetry() {
         TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 103000);
-        MutableClock clock = new MutableClock(7_000_000L);
-        RecordingSubmitter submitter = new RecordingSubmitter();
-        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(submitter, clock, () -> 0.5);
-        int previousTimeout = Config.tenant_ttl_agent_task_soft_timeout_seconds;
-        try {
-            Config.tenant_ttl_agent_task_soft_timeout_seconds = 1;
-            coordinator.reconcile(state, Collections.singletonList(plan));
-            coordinator.dispatchNext(state);
-            TenantTtlCompactionTask firstAttempt = coordinator.getActiveTask().orElseThrow(AssertionError::new);
-            clock.advance(1_000L);
-            coordinator.reconcile(state, Collections.singletonList(plan));
-            Assertions.assertFalse(coordinator.getActiveTask().isPresent());
-            Assertions.assertTrue(coordinator.hasDestructiveExecutionInFlight());
-            Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.UNKNOWN_RETRY,
-                    coordinator.getExecutionStatuses().get(0).getState());
+        AtomicLong clock = new AtomicLong();
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sent.add(task);
+            if (sent.size() == 1) {
+                Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.STILL_RUNNING,
+                        task.finish(result(task, TTenantTtlTaskCode.TTL_ALREADY_RUNNING, -1)));
+            } else {
+                task.finish(result(task, TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion()));
+            }
+        }, clock::get, millis -> {
+            clock.addAndGet(millis);
+            TenantTtlCompactionTask task = sent.get(0);
+            task.finish(result(task, TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion()));
+        });
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.COMPLETED, run(coordinator, plan).getState());
+        Assertions.assertEquals(2, sent.size());
+        Assertions.assertEquals(1000L, clock.get());
+    }
 
-            clock.advance(10_000L);
-            coordinator.dispatchNext(state);
-            Assertions.assertSame(firstAttempt,
-                    coordinator.getActiveTask().orElseThrow(AssertionError::new));
-            Assertions.assertEquals(2, submitter.tasks.size());
-        } finally {
-            Config.tenant_ttl_agent_task_soft_timeout_seconds = previousTimeout;
+    @Test
+    public void testUncertainSubmissionWaitsUntilDeadline() {
+        Config.tenant_ttl_agent_task_soft_timeout_seconds = 2;
+        TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 104000);
+        AtomicLong clock = new AtomicLong();
+        AtomicLong sends = new AtomicLong();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sends.incrementAndGet();
+            throw new IllegalStateException("response lost");
+        }, clock::get, clock::addAndGet);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.TIMED_OUT, run(coordinator, plan).getState());
+        Assertions.assertEquals(2, sends.get());
+        Assertions.assertEquals(4000L, clock.get());
+    }
+
+    @Test
+    public void testBlockedPlanDoesNotRetryWithNewTaskIds() {
+        for (TTenantTtlTaskCode code : List.of(TTenantTtlTaskCode.INVALID_ARGUMENT, TTenantTtlTaskCode.NOT_SUPPORTED,
+                TTenantTtlTaskCode.DATA_INVARIANT_VIOLATION, TTenantTtlTaskCode.INTERNAL_ERROR)) {
+            AtomicLong clock = new AtomicLong();
+            AtomicLong sends = new AtomicLong();
+            TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+                sends.incrementAndGet();
+                task.finish(result(task, code, -1));
+            }, clock::get, clock::addAndGet);
+            Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.BLOCKED,
+                    run(coordinator, pendingPlan("p_retry", 105000)).getState());
+            clock.addAndGet(600_000L);
+            Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.BLOCKED,
+                    run(coordinator, pendingPlan("p_retry", 106000)).getState());
+            Assertions.assertEquals(1, sends.get(), code.name());
             coordinator.resetForLeadershipLoss();
+            run(coordinator, pendingPlan("p_retry", 107000));
+            Assertions.assertEquals(2, sends.get(), code.name());
         }
     }
 
     @Test
-    @Order(9)
-    public void testLeaderLocalStateIsDiscardedAndNewPlanUsesNewTaskId() {
-        TenantTtlScheduler.PendingRewritePlan oldPlan = pendingPlan("p_retry", 104000);
-        RecordingSubmitter oldSubmitter = new RecordingSubmitter();
-        TenantTtlRewriteCoordinator oldCoordinator = new TenantTtlRewriteCoordinator(
-                oldSubmitter, new MutableClock(8_000_000L), () -> 0.5);
-        oldCoordinator.reconcile(state, Collections.singletonList(oldPlan));
-        oldCoordinator.dispatchNext(state);
-        long oldTaskId = oldCoordinator.getActiveTask().orElseThrow(AssertionError::new).getSignature();
-        oldCoordinator.resetForLeadershipLoss();
-        Assertions.assertTrue(oldCoordinator.getExecutionStatuses().isEmpty());
+    public void testLeadershipLossClosesAttemptAndStopsRemainingTasks() {
+        AtomicLong clock = new AtomicLong();
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        TenantTtlRewriteCoordinator[] holder = new TenantTtlRewriteCoordinator[1];
+        holder[0] = new TenantTtlRewriteCoordinator(sent::add, clock::get, millis -> {
+            clock.addAndGet(millis);
+            holder[0].resetForLeadershipLoss();
+        });
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.REPLAN_REQUIRED,
+                run(holder[0], pendingPlan("p_retry", 108000)).getState());
+        Assertions.assertEquals(1, sent.size());
+        Assertions.assertFalse(holder[0].getActiveTask().isPresent());
+        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.CLOSED,
+                sent.get(0).finish(result(sent.get(0), TTenantTtlTaskCode.SUCCESS, sent.get(0).getObservedMaxVersion())));
+    }
 
-        TenantTtlScheduler.PendingRewritePlan newPlan = pendingPlan("p_retry", 105000);
-        RecordingSubmitter newSubmitter = new RecordingSubmitter();
-        TenantTtlRewriteCoordinator newCoordinator = new TenantTtlRewriteCoordinator(
-                newSubmitter, new MutableClock(9_000_000L), () -> 0.5);
-        newCoordinator.reconcile(state, Collections.singletonList(newPlan));
-        newCoordinator.dispatchNext(state);
-        Assertions.assertNotEquals(oldTaskId,
-                newCoordinator.getActiveTask().orElseThrow(AssertionError::new).getSignature());
-        newCoordinator.resetForLeadershipLoss();
+    @Test
+    public void testPartialSuccessIsRecheckedNextRoundWithNewIds() {
+        Config.tenant_ttl_agent_task_max_attempts = 1;
+        AtomicLong clock = new AtomicLong();
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sent.add(task);
+            boolean fail = sent.size() == 2;
+            task.finish(result(task, fail ? TTenantTtlTaskCode.TABLET_BUSY : TTenantTtlTaskCode.NOOP_VERIFIED,
+                    fail ? -1 : task.getObservedMaxVersion()));
+        }, clock::get, clock::addAndGet);
+        TenantTtlScheduler.PendingRewritePlan first = pendingPlan("p_retry", 109000);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.ATTEMPTS_EXHAUSTED,
+                run(coordinator, first).getState());
+        Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(first)).isPresent());
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.COMPLETED,
+                run(coordinator, pendingPlan("p_retry", 110000)).getState());
+        Assertions.assertEquals(4, sent.size());
+        Assertions.assertNotEquals(sent.get(0).getSignature(), sent.get(2).getSignature());
+    }
+
+    @Test
+    public void testSchemaChangedRequiresReplanWithoutRetry() {
+        AtomicLong clock = new AtomicLong();
+        AtomicLong sends = new AtomicLong();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sends.incrementAndGet();
+            task.finish(result(task, TTenantTtlTaskCode.SCHEMA_CHANGED, -1));
+        }, clock::get, clock::addAndGet);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.REPLAN_REQUIRED,
+                run(coordinator, pendingPlan("p_retry", 111000)).getState());
+        Assertions.assertEquals(1, sends.get());
+    }
+
+    @Test
+    public void testEveryBusinessCodeIsClassified() {
+        for (TTenantTtlTaskCode code : TTenantTtlTaskCode.values()) {
+            Assertions.assertNotNull(TenantTtlRewriteCoordinator.classifyResult(code));
+        }
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ResultDisposition.WAIT_FOR_RESULT,
+                TenantTtlRewriteCoordinator.classifyResult(TTenantTtlTaskCode.TTL_ALREADY_RUNNING));
+    }
+
+    @Test
+    public void testCatalogReadLockCoversInitialProgressPublication() {
+        TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 112000);
+        AtomicLong publications = new AtomicLong();
+        new MockUp<TenantTtlPartitionProgressManager>() {
+            @Mock
+            public TenantTtlPartitionProgressManager.AdvanceResult compareAndAdvanceCompletedPlan(
+                    Invocation invocation, TenantTtlPartitionProgress expected, TenantTtlPartitionProgress candidate)
+                    throws Exception {
+                if (candidate.key().equals(progressKey(plan))) {
+                    Assertions.assertNull(expected);
+                    FutureTask<Boolean> conflictingDdl = new FutureTask<>(() -> {
+                        Locker locker = new Locker();
+                        boolean acquired = locker.tryLockDatabase(db.getId(), LockType.WRITE, 50, TimeUnit.MILLISECONDS);
+                        if (acquired) {
+                            locker.unLockDatabase(db.getId(), LockType.WRITE);
+                        }
+                        return acquired;
+                    });
+                    Thread thread = new Thread(conflictingDdl, "tenant-ttl-progress-ddl-race");
+                    thread.start();
+                    Assertions.assertFalse(conflictingDdl.get(5, TimeUnit.SECONDS),
+                            "Catalog DROP/rebind must not pass between validation and progress journal");
+                    publications.incrementAndGet();
+                }
+                return invocation.proceed(expected, candidate);
+            }
+        };
+        AtomicLong clock = new AtomicLong();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task ->
+                task.finish(result(task, TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion())),
+                clock::get, clock::addAndGet);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.COMPLETED, run(coordinator, plan).getState());
+        Assertions.assertEquals(1, publications.get());
     }
 
     private static TenantTtlScheduler.PendingRewritePlan pendingPlan(String partitionName, long firstTaskId) {
@@ -385,7 +432,7 @@ public class TenantTtlRewriteCoordinatorTest {
                 plan.getPartitionPlan().getPhysicalPartitionId());
     }
 
-    private static TTenantTtlCompactionResult result(TenantTtlCompactionTask task, TTenantTtlTaskCode code,
+    static TTenantTtlCompactionResult result(TenantTtlCompactionTask task, TTenantTtlTaskCode code,
                                                       long processedVersion) {
         boolean success = code == TTenantTtlTaskCode.SUCCESS || code == TTenantTtlTaskCode.NOOP_VERIFIED;
         TTenantTtlCompactionResult result = new TTenantTtlCompactionResult();
@@ -432,29 +479,4 @@ public class TenantTtlRewriteCoordinatorTest {
         }
     }
 
-    private static final class RecordingSubmitter implements TenantTtlRewriteCoordinator.TaskSubmitter {
-        private final List<TenantTtlCompactionTask> tasks = new ArrayList<>();
-
-        @Override
-        public void submit(TenantTtlCompactionTask task) {
-            tasks.add(task);
-        }
-    }
-
-    private static final class MutableClock implements LongSupplier {
-        private long now;
-
-        private MutableClock(long now) {
-            this.now = now;
-        }
-
-        private void advance(long millis) {
-            now += millis;
-        }
-
-        @Override
-        public long getAsLong() {
-            return now;
-        }
-    }
 }

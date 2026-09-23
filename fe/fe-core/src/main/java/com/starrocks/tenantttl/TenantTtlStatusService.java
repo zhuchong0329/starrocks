@@ -365,8 +365,10 @@ public final class TenantTtlStatusService {
                     return 90;
                 case RETRY_PENDING:
                     return 80;
-                case DROP_SKIPPED_REWRITE_IN_FLIGHT:
-                    return 75;
+                case TIMED_OUT:
+                case ATTEMPTS_EXHAUSTED:
+                case FAILED:
+                    return 85;
                 case REWRITE_RUNNING:
                     return 70;
                 case WAITING_REPLICA:

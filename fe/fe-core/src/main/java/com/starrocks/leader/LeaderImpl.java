@@ -475,10 +475,18 @@ public class LeaderImpl {
         TenantTtlCompactionTask tenantTtlTask = (TenantTtlCompactionTask) task;
         TenantTtlCompactionTask.FinishResult finishResult =
                 tenantTtlTask.finish(request.getTenant_ttl_compaction_result());
+        if (finishResult == TenantTtlCompactionTask.FinishResult.STILL_RUNNING) {
+            return;
+        }
+        if (finishResult == TenantTtlCompactionTask.FinishResult.CLOSED ||
+                finishResult == TenantTtlCompactionTask.FinishResult.ALREADY_FINISHED) {
+            tenantTtlTask.removeFromQueue();
+            return;
+        }
         if (finishResult != TenantTtlCompactionTask.FinishResult.ACCEPTED) {
             throw new IllegalArgumentException("invalid Tenant-TTL business result: " + finishResult);
         }
-        AgentTaskQueue.removeTask(task.getBackendId(), task.getTaskType(), task.getSignature());
+        tenantTtlTask.removeFromQueue();
     }
 
     private void finishRemoteSnapshotTask(AgentTask task, TFinishTaskRequest request) throws MetaNotFoundException {
