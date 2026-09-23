@@ -16,6 +16,7 @@ package com.starrocks.task;
 
 import com.google.common.collect.ImmutableList;
 import com.starrocks.leader.LeaderImpl;
+import com.starrocks.leader.ReportHandler;
 import com.starrocks.tenantttl.policy.TenantTtlByteKey;
 import com.starrocks.tenantttl.policy.TenantTtlPolicyPlanner;
 import com.starrocks.thrift.TAgentTaskRequest;
@@ -27,6 +28,8 @@ import com.starrocks.thrift.TTenantTtlCompactionResult;
 import com.starrocks.thrift.TTenantTtlRowsetAction;
 import com.starrocks.thrift.TTenantTtlRowsetResult;
 import com.starrocks.thrift.TTenantTtlTaskCode;
+import mockit.Mock;
+import mockit.MockUp;
 import org.apache.thrift.TDeserializer;
 import org.apache.thrift.TSerializer;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -40,6 +43,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class TenantTtlCompactionTaskTest {
     private static final long BACKEND_ID = 101;
@@ -223,6 +227,37 @@ public class TenantTtlCompactionTaskTest {
         Assertions.assertEquals(TTenantTtlTaskCode.SUCCESS, task.getResult().orElseThrow().getCode());
         task.close();
         Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.CLOSED, task.finish(successResult()));
+    }
+
+    @Test
+    public void testExistingReportHandlerResendsUntilRegistrationIsRemoved() throws Exception {
+        List<AgentBatchTask> batches = new ArrayList<>();
+        new MockUp<AgentTaskExecutor>() {
+            @Mock
+            public void submit(AgentBatchTask batch) {
+                batches.add(batch);
+            }
+        };
+        TenantTtlCompactionTask task = task(TenantTtlPolicyPlanner.FilterMode.DELETE_LIST,
+                Collections.singletonList(TenantTtlByteKey.utf8("a")));
+        AgentTaskQueue.addTask(task);
+        Method taskReport = ReportHandler.class.getDeclaredMethod("taskReport", long.class, Map.class);
+        taskReport.setAccessible(true);
+        taskReport.invoke(null, BACKEND_ID, Collections.emptyMap());
+        taskReport.invoke(null, BACKEND_ID, Collections.emptyMap());
+        Assertions.assertEquals(2, batches.size());
+        Assertions.assertSame(task, batches.get(0).getAllTasks().get(0));
+        Assertions.assertEquals(AgentBatchTask.toAgentTaskRequest(task),
+                AgentBatchTask.toAgentTaskRequest(batches.get(1).getAllTasks().get(0)));
+        task.close();
+        task.removeFromQueue();
+        taskReport.invoke(null, BACKEND_ID, Collections.emptyMap());
+        Assertions.assertEquals(2, batches.size());
+        // A captured batch can still serialize/send; its late completion must not revive the FE attempt.
+        Assertions.assertEquals(TASK_ID, AgentBatchTask.toAgentTaskRequest(
+                batches.get(0).getAllTasks().get(0)).getSignature());
+        Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.CLOSED, task.finish(successResult()));
+        Assertions.assertFalse(task.getResult().isPresent());
     }
 
     private static TenantTtlCompactionTask task(TenantTtlPolicyPlanner.FilterMode mode,

@@ -20,12 +20,14 @@ import com.starrocks.catalog.Dictionary;
 import com.starrocks.catalog.InternalCatalog;
 import com.starrocks.catalog.LocalTablet;
 import com.starrocks.catalog.OlapTable;
+import com.starrocks.catalog.PhysicalPartition;
 import com.starrocks.catalog.Replica;
 import com.starrocks.common.Config;
 import com.starrocks.common.jmockit.Deencapsulation;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.server.GlobalStateMgr;
+import com.starrocks.system.ComputeNode;
 import com.starrocks.task.TenantTtlCompactionTask;
 import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgress;
 import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgressManager;
@@ -48,6 +50,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -126,6 +129,7 @@ public class TenantTtlRewriteCoordinatorTest {
     public void restoreConfig() {
         Config.tenant_ttl_agent_task_max_attempts = originalAttempts;
         Config.tenant_ttl_agent_task_soft_timeout_seconds = originalTimeout;
+        fixedSnapshotManager.snapshot = snapshot();
     }
 
     private static TenantTtlRewriteCoordinator.ExecutionStatus run(TenantTtlRewriteCoordinator coordinator,
@@ -411,6 +415,215 @@ public class TenantTtlRewriteCoordinatorTest {
         Assertions.assertEquals(1, publications.get());
     }
 
+    @Test
+    public void testSamePolicyNewTransactionDoesNotInvalidateFrozenRequest() {
+        TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 113000);
+        AtomicLong clock = new AtomicLong();
+        AtomicLong sends = new AtomicLong();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sends.incrementAndGet();
+            fixedSnapshotManager.snapshot = snapshot(SNAPSHOT_TXN_ID + 1, 30);
+            Assertions.assertEquals(SNAPSHOT_TXN_ID, task.toThrift().getPolicy_watermark().getDictionary_txn_id());
+            task.finish(result(task, TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion()));
+        }, clock::get, clock::addAndGet);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.COMPLETED, run(coordinator, plan).getState());
+        Assertions.assertEquals(2, sends.get());
+        Assertions.assertEquals(SNAPSHOT_TXN_ID, state.getTenantTtlPartitionProgressManager()
+                .get(progressKey(plan)).orElseThrow().getLastSuccessSnapshotTxnId());
+    }
+
+    @Test
+    public void testPolicyChangeAfterLastSuccessCannotPublishOldProgress() {
+        TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 114000);
+        AtomicLong clock = new AtomicLong();
+        AtomicLong sends = new AtomicLong();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            if (sends.incrementAndGet() == plan.getPartitionPlan().getReplicaTasks().size()) {
+                fixedSnapshotManager.snapshot = snapshot(SNAPSHOT_TXN_ID + 1, 45);
+            }
+            task.finish(result(task, TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion()));
+        }, clock::get, clock::addAndGet);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.REPLAN_REQUIRED,
+                run(coordinator, plan).getState());
+        Assertions.assertEquals(2, sends.get());
+        Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(plan)).isPresent());
+    }
+
+    @Test
+    public void testBlockedRecoveryUsesSemanticsNotTransactionOrClock() {
+        for (TTenantTtlTaskCode code : List.of(TTenantTtlTaskCode.INVALID_ARGUMENT, TTenantTtlTaskCode.NOT_SUPPORTED,
+                TTenantTtlTaskCode.DATA_INVARIANT_VIOLATION, TTenantTtlTaskCode.INTERNAL_ERROR)) {
+            fixedSnapshotManager.snapshot = snapshot();
+            AtomicLong clock = new AtomicLong();
+            AtomicLong sends = new AtomicLong();
+            TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+                sends.incrementAndGet();
+                task.finish(result(task, code, -1));
+            }, clock::get, clock::addAndGet);
+            run(coordinator, pendingPlan("p_retry", 115000));
+            fixedSnapshotManager.snapshot = snapshot(SNAPSHOT_TXN_ID + 1, 30);
+            long originalEvaluationTime = evaluationTime;
+            try {
+                evaluationTime += 60;
+                run(coordinator, pendingPlan("p_retry", 116000));
+            } finally {
+                evaluationTime = originalEvaluationTime;
+            }
+            Assertions.assertEquals(1, sends.get(), code.name());
+            Assertions.assertTrue(coordinator.getExecutionStatuses().isEmpty());
+            fixedSnapshotManager.snapshot = snapshot(SNAPSHOT_TXN_ID + 2, 31);
+            run(coordinator, pendingPlan("p_retry", 117000));
+            Assertions.assertEquals(2, sends.get(), code.name());
+            coordinator.discardOrphanedBlocks(state, Collections.emptySet());
+            run(coordinator, pendingPlan("p_retry", 118000));
+            Assertions.assertEquals(3, sends.get(), code.name());
+        }
+    }
+
+    @Test
+    public void testBlockedRecoveryRequiresTrustedBackendRestart() {
+        long backendId = pendingPlan("p_retry", 119000).getPartitionPlan().getReplicaTasks().get(0).getBackendId();
+        ComputeNode backend = state.getNodeMgr().getClusterInfo().getBackendOrComputeNode(backendId);
+        long originalStart = backend.getLastStartTime();
+        try {
+            for (TTenantTtlTaskCode code : List.of(TTenantTtlTaskCode.INVALID_ARGUMENT, TTenantTtlTaskCode.NOT_SUPPORTED,
+                    TTenantTtlTaskCode.DATA_INVARIANT_VIOLATION, TTenantTtlTaskCode.INTERNAL_ERROR)) {
+                backend.setLastStartTime(100);
+                AtomicLong clock = new AtomicLong();
+                AtomicLong sends = new AtomicLong();
+                TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+                    sends.incrementAndGet();
+                    task.finish(result(task, code, -1));
+                }, clock::get, clock::addAndGet);
+                run(coordinator, pendingPlan("p_retry", 120000));
+                backend.setLastStartTime(0);
+                run(coordinator, pendingPlan("p_retry", 121000));
+                Assertions.assertEquals(1, sends.get(), "unknown start is not recovery");
+                backend.setLastStartTime(200);
+                run(coordinator, pendingPlan("p_retry", 122000));
+                Assertions.assertEquals(code == TTenantTtlTaskCode.INVALID_ARGUMENT ? 1 : 2, sends.get(), code.name());
+            }
+        } finally {
+            backend.setLastStartTime(originalStart);
+        }
+    }
+
+    @Test
+    public void testDataVersionOnlyUnlocksDataAndInternalErrors() {
+        PhysicalPartition physical = table.getPartition("p_retry").getDefaultPhysicalPartition();
+        long originalVersion = physical.getVisibleVersion();
+        long originalVersionTime = physical.getVisibleVersionTime();
+        List<Replica> replicas = new ArrayList<>();
+        Map<Replica, Long> versions = new HashMap<>();
+        physical.getBaseIndex().getTablets().forEach(tablet ->
+                replicas.addAll(((LocalTablet) tablet).getImmutableReplicas()));
+        replicas.forEach(replica -> versions.put(replica, replica.getVersion()));
+        try {
+            for (TTenantTtlTaskCode code : List.of(TTenantTtlTaskCode.INVALID_ARGUMENT, TTenantTtlTaskCode.NOT_SUPPORTED,
+                    TTenantTtlTaskCode.DATA_INVARIANT_VIOLATION, TTenantTtlTaskCode.INTERNAL_ERROR)) {
+                physical.setVisibleVersion(originalVersion, originalVersionTime);
+                AtomicLong clock = new AtomicLong();
+                AtomicLong sends = new AtomicLong();
+                TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+                    sends.incrementAndGet();
+                    task.finish(result(task, code, -1));
+                }, clock::get, clock::addAndGet);
+                run(coordinator, pendingPlan("p_retry", 123000));
+                physical.setVisibleVersion(originalVersion + 1, originalVersionTime + 1);
+                replicas.forEach(replica -> Deencapsulation.setField(replica, "version", originalVersion + 1));
+                run(coordinator, pendingPlan("p_retry", 124000));
+                boolean dataError = code == TTenantTtlTaskCode.DATA_INVARIANT_VIOLATION ||
+                        code == TTenantTtlTaskCode.INTERNAL_ERROR;
+                Assertions.assertEquals(dataError ? 2 : 1, sends.get(), code.name());
+            }
+        } finally {
+            physical.setVisibleVersion(originalVersion, originalVersionTime);
+            versions.forEach((replica, version) -> Deencapsulation.setField(replica, "version", version));
+        }
+    }
+
+    @Test
+    public void testDynamicBudgetChangesOnlyAffectTheNextReplica() {
+        Config.tenant_ttl_agent_task_max_attempts = 2;
+        Config.tenant_ttl_agent_task_soft_timeout_seconds = 30;
+        AtomicLong clock = new AtomicLong();
+        AtomicLong sends = new AtomicLong();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            long index = sends.incrementAndGet();
+            Config.tenant_ttl_agent_task_max_attempts = 1;
+            Config.tenant_ttl_agent_task_soft_timeout_seconds = 1;
+            if (index <= 2) {
+                task.finish(result(task, index == 1 ? TTenantTtlTaskCode.TABLET_BUSY : TTenantTtlTaskCode.SUCCESS,
+                        index == 1 ? -1 : task.getObservedMaxVersion()));
+            }
+        }, clock::get, clock::addAndGet);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.TIMED_OUT,
+                run(coordinator, pendingPlan("p_retry", 125000)).getState());
+        Assertions.assertEquals(3, sends.get());
+        Assertions.assertEquals(11_000L, clock.get());
+    }
+
+    @Test
+    public void testJournalFailureDoesNotBecomeCompleteProgress() {
+        AtomicLong publications = new AtomicLong();
+        new MockUp<TenantTtlPartitionProgressManager>() {
+            @Mock
+            public TenantTtlPartitionProgressManager.AdvanceResult compareAndAdvanceCompletedPlan(
+                    Invocation invocation, TenantTtlPartitionProgress expected, TenantTtlPartitionProgress candidate) {
+                if (publications.incrementAndGet() == 1) {
+                    throw new IllegalStateException("injected journal failure");
+                }
+                return invocation.proceed(expected, candidate);
+            }
+        };
+        AtomicLong clock = new AtomicLong();
+        AtomicLong sends = new AtomicLong();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sends.incrementAndGet();
+            task.finish(result(task, TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion()));
+        }, clock::get, clock::addAndGet);
+        TenantTtlScheduler.PendingRewritePlan first = pendingPlan("p_retry", 126000);
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.FAILED, run(coordinator, first).getState());
+        Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(first)).isPresent());
+        Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.COMPLETED,
+                run(coordinator, pendingPlan("p_retry", 127000)).getState());
+        Assertions.assertEquals(4, sends.get());
+    }
+
+    @Test
+    public void testEveryCatalogReplicaIsRequiredNotAQuorum() throws Exception {
+        UtFrameUtils.addMockBackend(12002);
+        UtFrameUtils.addMockBackend(12003);
+        PhysicalPartition physical = table.getPartition("p_retry").getDefaultPhysicalPartition();
+        LocalTablet tablet = (LocalTablet) physical.getBaseIndex().getTablets().get(0);
+        Replica second = new Replica(130002, 12002, Replica.ReplicaState.NORMAL, physical.getVisibleVersion(), 0);
+        Replica third = new Replica(130003, 12003, Replica.ReplicaState.NORMAL, physical.getVisibleVersion(), 0);
+        tablet.addReplica(second, true);
+        tablet.addReplica(third, true);
+        Config.tenant_ttl_agent_task_max_attempts = 1;
+        try {
+            AtomicLong clock = new AtomicLong();
+            AtomicLong sends = new AtomicLong();
+            TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+                sends.incrementAndGet();
+                boolean fail = task.getReplicaId() == third.getId();
+                task.finish(result(task, fail ? TTenantTtlTaskCode.TABLET_BUSY : TTenantTtlTaskCode.SUCCESS,
+                        fail ? -1 : task.getObservedMaxVersion()));
+            }, clock::get, clock::addAndGet);
+            TenantTtlScheduler.PendingRewritePlan plan = pendingPlan("p_retry", 128000);
+            TenantTtlRewriteCoordinator.ExecutionStatus status = run(coordinator, plan);
+            Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.ATTEMPTS_EXHAUSTED, status.getState());
+            Assertions.assertEquals(4, sends.get()); // Three on the first Tablet, one on the second.
+            Assertions.assertEquals(3, status.getSuccessfulReplicas());
+            Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(plan)).isPresent());
+        } finally {
+            tablet.deleteReplica(second);
+            tablet.deleteReplica(third);
+            state.getNodeMgr().getClusterInfo().dropBackend(12002L);
+            state.getNodeMgr().getClusterInfo().dropBackend(12003L);
+        }
+    }
+
     private static TenantTtlScheduler.PendingRewritePlan pendingPlan(String partitionName, long firstTaskId) {
         AtomicLong ids = new AtomicLong(firstTaskId);
         TenantTtlEvaluationContext.CaptureResult capture = TenantTtlEvaluationContext.capture(
@@ -458,16 +671,20 @@ public class TenantTtlRewriteCoordinatorTest {
     }
 
     private static TenantTtlPolicySnapshot snapshot() {
+        return snapshot(SNAPSHOT_TXN_ID, 30);
+    }
+
+    private static TenantTtlPolicySnapshot snapshot(long txnId, int days) {
         Map<TenantTtlByteKey, Integer> overrides = new HashMap<>();
-        overrides.put(TenantTtlByteKey.utf8("tenant_a"), 30);
+        overrides.put(TenantTtlByteKey.utf8("tenant_a"), days);
         Map<TenantTtlByteKey, TablePolicy> policies = new HashMap<>();
         policies.put(TenantTtlByteKey.utf8(TABLE_KEY), new TablePolicy(null, overrides));
-        return new TenantTtlPolicySnapshot(DICTIONARY_ID, DICTIONARY_NAME, SNAPSHOT_TXN_ID, Instant.EPOCH,
+        return new TenantTtlPolicySnapshot(DICTIONARY_ID, DICTIONARY_NAME, txnId, Instant.EPOCH,
                 0, 0, 0, policies);
     }
 
     private static final class FixedSnapshotManager extends TenantTtlPolicySnapshotManager {
-        private final TenantTtlPolicySnapshot snapshot;
+        private TenantTtlPolicySnapshot snapshot;
 
         private FixedSnapshotManager(TenantTtlPolicySnapshot snapshot) {
             this.snapshot = snapshot;

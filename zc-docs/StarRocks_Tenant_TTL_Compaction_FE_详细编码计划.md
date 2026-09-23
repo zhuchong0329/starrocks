@@ -1202,3 +1202,7 @@ mvn -pl fe-core -am -Dmaven.clean.skip=true -Dcheckstyle.skip \
 036 已接入完整轮次执行、600 秒轮后等待、动态次数/累计预算、Agent 专属关闭、Leader 代际隔离、轻量 BLOCKED 和 Catalog 锁内进度提交；`ReportHandler`、Dictionary 退避和 BE 产品代码未修改。全套 `*TenantTtl*Test` 已运行 102 项（0 failures/errors/skipped），Checkstyle 0 violations，分别见容器 `/tenant-ttl-workspace/round036-fe-full-v2.log`、`round036-checkstyle-v2.log`。新增测试包含 1001 表不截断、同轮双表推进/新绑定下轮处理、完整成功不重发、累计 3600 秒、30 次尝试、未知结果等待、迟到关闭和 expected=null 的 Catalog 写锁排斥。
 
 本轮同时新增 4 个 BE drop/rewrite 交错测试。当前复用 `be/ut_build_Debug`，`cmake --build ... --target engine_tenant_ttl_compaction_task_test -j4` 正在增量编译（日志 `round036-be-build.log`），因缓存早于已有的公共配置头更新，需要较多依赖重编；未 clean、未切换 Release。**036 提交时 BE 新测试尚未运行，移除旧超时删除屏障的最终验收仍以这些测试通过为前提**；专项补发/恢复与真实集群验收继续在 037/038 完成，不将当前 FE 单测冒充 BE 并行验证。
+
+037 增加 11 个专项 FE 测试方法：真实 ReportHandler 的相同请求补发与移除后不再捕获、四类 BLOCKED 对语义/数据/可信节点重启的区别、纯 txn/time/task ID 变化不解锁、孤儿阻塞回收、语义不变快照刷新保留旧请求、发布前策略变化拒绝旧进度、完整 Catalog 副本非 quorum、journal 失败无完成事实、动态 Replica 预算、切主再切回的代际失效以及轮后读取动态间隔。首次新增多副本用例未同步倒排索引导致清理失败，已修正测试构造；不修改生产行为来迁就测试。
+
+最终命令将 `*TenantTtl*Test` 与 `ReportHandlerTest,LeaderImplTest,DictionaryMgrTest,AgentTaskTest,AgentTaskQueueSignatureCollisionTest,DynamicPartitionSchedulerTest` 一起执行；158 项全部通过（0 failures/errors/skipped），Checkstyle 0 violations。日志 `round037-fe-full.log`、`round037-checkstyle.log`；两处 036 最后清理改动也已纳入本次全套回归。BE 构建仍在继续，真实集群和最终存储竞态验收转入 038；不宣称已通过多 FE/多 BE 集群故障测试。

@@ -25,6 +25,7 @@ import com.starrocks.common.jmockit.Deencapsulation;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.server.GlobalStateMgr;
+import com.starrocks.task.TenantTtlCompactionTask;
 import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgress;
 import com.starrocks.tenantttl.scheduler.TenantTtlRewriteCoordinator;
 import com.starrocks.tenantttl.scheduler.TenantTtlScheduler;
@@ -266,6 +267,75 @@ public class TenantTtlSchedulerTest {
         policies.put(TenantTtlByteKey.utf8(TABLE_KEY), new TablePolicy(null, overrides));
         return new TenantTtlPolicySnapshot(DICTIONARY_ID, DICTIONARY_NAME, SNAPSHOT_TXN_ID, Instant.EPOCH,
                 0, 0, 0, policies);
+    }
+
+    @Test
+    @Order(5)
+    public void testRoleLossAndRegainInvalidatesOldRoundBeforeNextRound() {
+        Set<TenantTtlPolicySnapshotManager.TableRef> saved = new HashSet<>(fixedSnapshotManager.tableRefs);
+        fixedSnapshotManager.tableRefs.clear();
+        fixedSnapshotManager.addTable(table.getId());
+        state.getTenantTtlPartitionProgressManager().removeTable(db.getId(), table.getId());
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        AtomicLong clock = new AtomicLong();
+        TenantTtlScheduler[] holder = new TenantTtlScheduler[1];
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            sent.add(task);
+            if (sent.size() > 1) {
+                task.finish(TenantTtlRewriteCoordinatorTest.result(task,
+                        TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion()));
+            }
+        }, clock::get, millis -> {
+            clock.addAndGet(millis);
+            holder[0].onLeadershipLost();
+            holder[0].onLeadershipGained();
+        });
+        holder[0] = new TenantTtlScheduler(coordinator);
+        try {
+            holder[0].scheduleOnce(state);
+            Assertions.assertEquals(1, sent.size());
+            Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.CLOSED,
+                    sent.get(0).finish(TenantTtlRewriteCoordinatorTest.result(sent.get(0),
+                            TTenantTtlTaskCode.SUCCESS, sent.get(0).getObservedMaxVersion())));
+            holder[0].scheduleOnce(state);
+            Assertions.assertEquals(2, sent.size());
+            Assertions.assertNotEquals(sent.get(0).getSignature(), sent.get(1).getSignature());
+            holder[0].scheduleOnce(state);
+            Assertions.assertEquals(2, sent.size());
+        } finally {
+            fixedSnapshotManager.tableRefs.clear();
+            fixedSnapshotManager.tableRefs.addAll(saved);
+        }
+    }
+
+    @Test
+    @Order(6)
+    public void testDaemonReadsDynamicDelayAfterCompletingWholeRound() {
+        int savedInterval = Config.tenant_ttl_scheduler_interval_seconds;
+        Set<TenantTtlPolicySnapshotManager.TableRef> saved = new HashSet<>(fixedSnapshotManager.tableRefs);
+        fixedSnapshotManager.tableRefs.clear();
+        fixedSnapshotManager.addTable(table.getId());
+        state.getTenantTtlPartitionProgressManager().removeTable(db.getId(), table.getId());
+        AtomicLong clock = new AtomicLong();
+        AtomicLong sends = new AtomicLong();
+        Config.tenant_ttl_scheduler_interval_seconds = 600;
+        TenantTtlScheduler scheduler = new TenantTtlScheduler(new TenantTtlRewriteCoordinator(task -> {
+            sends.incrementAndGet();
+            Config.tenant_ttl_scheduler_interval_seconds = 17;
+            task.finish(TenantTtlRewriteCoordinatorTest.result(task,
+                    TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion()));
+        }, clock::get, clock::addAndGet));
+        try {
+            Assertions.assertEquals(600_000L, scheduler.getInterval());
+            Deencapsulation.invoke(scheduler, "runAfterCatalogReady");
+            Assertions.assertEquals(1, sends.get());
+            Assertions.assertEquals(17_000L, scheduler.getInterval());
+            Assertions.assertEquals(0, clock.get()); // No scheduler-period sleep between tasks.
+        } finally {
+            Config.tenant_ttl_scheduler_interval_seconds = savedInterval;
+            fixedSnapshotManager.tableRefs.clear();
+            fixedSnapshotManager.tableRefs.addAll(saved);
+        }
     }
 
     private static final class FixedSnapshotManager extends TenantTtlPolicySnapshotManager {
