@@ -3867,8 +3867,9 @@ public class Config extends ConfigBase {
     @ConfField(mutable = true)
     public static int tenant_ttl_policy_snapshot_export_rpc_timeout_ms = 60000;
 
+    // Keep the BE tenant_ttl_policy_export_max_rows default in sync. Byte and memory limits still apply.
     @ConfField(mutable = true)
-    public static long tenant_ttl_policy_snapshot_export_max_rows = 100000;
+    public static long tenant_ttl_policy_snapshot_export_max_rows = 1000000;
 
     @ConfField(mutable = true)
     public static long tenant_ttl_policy_snapshot_export_max_uncompressed_bytes = 64L * 1024 * 1024;
@@ -3879,8 +3880,9 @@ public class Config extends ConfigBase {
     @ConfField(mutable = true)
     public static long tenant_ttl_policy_snapshot_builder_max_memory_bytes = 128L * 1024 * 1024;
 
+    // The independent serialized-byte limit also applies to both DELETE_LIST and KEEP_LIST.
     @ConfField(mutable = true)
-    public static long tenant_ttl_filter_max_tenants = 10000;
+    public static long tenant_ttl_filter_max_tenants = 100000;
 
     @ConfField(mutable = true)
     public static long tenant_ttl_filter_max_serialized_bytes = 8L * 1024 * 1024;

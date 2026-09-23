@@ -16,6 +16,7 @@ package com.starrocks.tenantttl.policy;
 
 import com.baidu.bjf.remoting.protobuf.Codec;
 import com.baidu.bjf.remoting.protobuf.ProtobufProxy;
+import com.starrocks.common.Config;
 import com.starrocks.proto.CompressionTypePB;
 import com.starrocks.proto.PCompressedTenantTtlPolicyBatchPB;
 import com.starrocks.proto.PDictionaryCacheExportOutcome;
@@ -238,6 +239,43 @@ public class TenantTtlPolicySnapshotBuilderTest {
         assertEquals(100000,
                 snapshot.getTablePolicy("business.http_log").orElseThrow().getTenantOverrides().size());
         assertFailure(builder(99999, 64L * 1024 * 1024, 64L * 1024 * 1024, 128L * 1024 * 1024), response,
+                TENANT_TTL_POLICY_LIMIT_EXCEEDED, DETERMINISTIC);
+    }
+
+    @Test
+    public void testRaisedDefaultRowLimitKeepsResourceGuards() throws Exception {
+        assertEquals(1000000, Config.tenant_ttl_policy_snapshot_export_max_rows);
+        assertEquals(64L * 1024 * 1024, Config.tenant_ttl_policy_snapshot_export_max_uncompressed_bytes);
+        assertEquals(64L * 1024 * 1024, Config.tenant_ttl_policy_snapshot_export_max_response_bytes);
+        assertEquals(128L * 1024 * 1024, Config.tenant_ttl_policy_snapshot_builder_max_memory_bytes);
+
+        List<List<PTenantTtlPolicyEntryPB>> batches = new ArrayList<>();
+        for (int start = 0; start < 100001; start += 5000) {
+            List<PTenantTtlPolicyEntryPB> entries = new ArrayList<>();
+            for (int row = start; row < Math.min(start + 5000, 100001); ++row) {
+                entries.add(entry("tenant-" + row, "business.http_log", 30));
+            }
+            batches.add(entries);
+        }
+        PExportDictionaryCacheResult response = response(batches, true);
+        TenantTtlPolicySnapshot snapshot = new TenantTtlPolicySnapshotBuilder()
+                .build(DICTIONARY_ID, "ttl_dict", TXN_ID, SNAPSHOT_TIME, response);
+        assertEquals(100001, snapshot.getTablePolicy("business.http_log").orElseThrow()
+                .getTenantOverrides().size());
+        assertTrue(snapshot.getBuildPeakMemoryBytes() <= Config.tenant_ttl_policy_snapshot_builder_max_memory_bytes);
+
+        // Raising the row ceiling must not bypass the independent byte or memory budgets.
+        assertFailure(builder(1000000, response.totalUncompressedBytes - 1, 64L * 1024 * 1024,
+                128L * 1024 * 1024), response, TENANT_TTL_POLICY_LIMIT_EXCEEDED, DETERMINISTIC);
+        assertFailure(builder(1000000, 64L * 1024 * 1024, response.totalPayloadBytes - 1,
+                128L * 1024 * 1024), response, TENANT_TTL_POLICY_LIMIT_EXCEEDED, DETERMINISTIC);
+        assertFailure(builder(1000000, 64L * 1024 * 1024, 64L * 1024 * 1024,
+                snapshot.getBuildPeakMemoryBytes() - 1), response,
+                TENANT_TTL_POLICY_LIMIT_EXCEEDED, DETERMINISTIC);
+
+        // Reject an over-limit envelope before decoding/allocating its claimed rows.
+        response.totalRowCount = 1000001L;
+        assertFailure(new TenantTtlPolicySnapshotBuilder(), response,
                 TENANT_TTL_POLICY_LIMIT_EXCEEDED, DETERMINISTIC);
     }
 

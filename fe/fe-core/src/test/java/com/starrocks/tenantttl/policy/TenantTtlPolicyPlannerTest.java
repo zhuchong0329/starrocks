@@ -14,6 +14,7 @@
 
 package com.starrocks.tenantttl.policy;
 
+import com.starrocks.common.Config;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -160,6 +161,63 @@ public class TenantTtlPolicyPlannerTest {
         Assertions.assertEquals(TenantTtlPolicyPlanner.FilterMode.DELETE_LIST, byteLimited.getFilterMode());
         Assertions.assertEquals(TenantTtlPolicyPlanner.FailReason.FILTER_BYTE_LIMIT, byteLimited.getFailReason());
         Assertions.assertTrue(byteLimited.getTenants().isEmpty());
+    }
+
+    @Test
+    public void testRaisedDefaultTenantLimitForBothFilterModes() {
+        Assertions.assertEquals(100000, Config.tenant_ttl_filter_max_tenants);
+        Assertions.assertEquals(8L * 1024 * 1024, Config.tenant_ttl_filter_max_serialized_bytes);
+        Map<String, Integer> overrides = new HashMap<>();
+        for (int i = 0; i < 100000; ++i) {
+            overrides.put("tenant-" + i, 30);
+        }
+        TenantTtlPolicyPlanner planner = TenantTtlPolicyPlanner.fromConfig();
+        TenantTtlPolicySnapshot snapshot = snapshot(17, null, overrides);
+        for (int defaultDays : new int[] {180, 1}) {
+            long evaluationTime = defaultDays == 180 ? atDay(30) : atDay(1);
+            TenantTtlPolicyPlanner.FilterMode mode = defaultDays == 180 ?
+                    TenantTtlPolicyPlanner.FilterMode.DELETE_LIST : TenantTtlPolicyPlanner.FilterMode.KEEP_LIST;
+            TenantTtlPolicyPlanner.Plan plan = planner.plan(snapshot, TABLE_KEY, defaultDays, UPPER, evaluationTime);
+            assertPlan(plan, TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE, mode);
+            Assertions.assertEquals(100000, plan.getTenants().size());
+            Assertions.assertTrue(plan.getRequiredSerializedBytes() <= Config.tenant_ttl_filter_max_serialized_bytes);
+        }
+
+        overrides.put("one-more-tenant", 30);
+        snapshot = snapshot(18, null, overrides);
+        for (int defaultDays : new int[] {180, 1}) {
+            long evaluationTime = defaultDays == 180 ? atDay(30) : atDay(1);
+            TenantTtlPolicyPlanner.FilterMode mode = defaultDays == 180 ?
+                    TenantTtlPolicyPlanner.FilterMode.DELETE_LIST : TenantTtlPolicyPlanner.FilterMode.KEEP_LIST;
+            TenantTtlPolicyPlanner.Plan plan = planner.plan(snapshot, TABLE_KEY, defaultDays, UPPER, evaluationTime);
+            Assertions.assertEquals(TenantTtlPolicyPlanner.PlanType.FAIL_CLOSED, plan.getType());
+            Assertions.assertEquals(mode, plan.getFilterMode());
+            Assertions.assertEquals(TenantTtlPolicyPlanner.FailReason.FILTER_ROW_LIMIT, plan.getFailReason());
+            Assertions.assertEquals(100001, plan.getRequiredTenantCount());
+            Assertions.assertTrue(plan.getTenants().isEmpty());
+        }
+    }
+
+    @Test
+    public void testRaisedDefaultTenantLimitStillChecksBytesForBothFilterModes() {
+        Map<String, Integer> overrides = new HashMap<>();
+        for (int i = 0; i < 100000; ++i) {
+            overrides.put("x".repeat(80) + i, 30);
+        }
+        TenantTtlPolicySnapshot snapshot = snapshot(19, null, overrides);
+        for (int defaultDays : new int[] {180, 1}) {
+            long evaluationTime = defaultDays == 180 ? atDay(30) : atDay(1);
+            TenantTtlPolicyPlanner.FilterMode mode = defaultDays == 180 ?
+                    TenantTtlPolicyPlanner.FilterMode.DELETE_LIST : TenantTtlPolicyPlanner.FilterMode.KEEP_LIST;
+            TenantTtlPolicyPlanner.Plan plan = TenantTtlPolicyPlanner.fromConfig()
+                    .plan(snapshot, TABLE_KEY, defaultDays, UPPER, evaluationTime);
+            Assertions.assertEquals(TenantTtlPolicyPlanner.PlanType.FAIL_CLOSED, plan.getType());
+            Assertions.assertEquals(mode, plan.getFilterMode());
+            Assertions.assertEquals(TenantTtlPolicyPlanner.FailReason.FILTER_BYTE_LIMIT, plan.getFailReason());
+            Assertions.assertEquals(100000, plan.getRequiredTenantCount());
+            Assertions.assertTrue(plan.getRequiredSerializedBytes() > Config.tenant_ttl_filter_max_serialized_bytes);
+            Assertions.assertTrue(plan.getTenants().isEmpty());
+        }
     }
 
     @Test
