@@ -724,11 +724,15 @@ TEST_F(EngineTenantTtlCompactionTaskTest, CommitHoldingHeaderLockFinishesBeforeC
     auto started = drop_started.get_future();
     SyncPoint::GetInstance()->SetCallBack("Tablet::commit_tenant_ttl_rowsets:before_save_meta", [&](void*) {
         drop = std::async(std::launch::async, [&] {
+            {
+                std::unique_lock probe(_tablet->get_header_lock(), std::try_to_lock);
+                EXPECT_FALSE(probe.owns_lock()); // Commit must still own the header lock in this callback.
+            }
             drop_started.set_value();
             return _engine->tablet_manager()->drop_tablet(_tablet_id, kDeleteFiles);
         });
         started.wait();
-        EXPECT_EQ(std::future_status::timeout, drop.wait_for(std::chrono::milliseconds(0)));
+        EXPECT_EQ(std::future_status::timeout, drop.wait_for(std::chrono::milliseconds(50)));
     });
     SyncPoint::GetInstance()->EnableProcessing();
     const auto result = execute(request(TenantFilterMode::DELETE_LIST, {"delete"}));

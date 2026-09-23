@@ -6,7 +6,7 @@
 
 建立日期：2026-09-11
 
-当前状态：第 017～034 轮已完成；2026-09-23 调度修复需求已全部确认，基线为 `3cbaf979c`。用户已授权完成文档后直接实施第 19 节的编码、增量编译和测试验收；不等待单独批准，但重大契约变化仍需先确认。
+当前状态：第 017～037 轮已完成；第 038 轮的编译和自动化回归已完成，真实 SQL 闭环因自动权限审核超时仍待确认后执行，不记为全轮验收完成。2026-09-23 调度修复需求已全部确认，基线为 `3cbaf979c`。用户已授权完成文档后直接实施第 19 节的编码、增量编译和测试验收；不等待单独批准，但重大契约变化仍需先确认。
 
 阅读约定：第 9 节的 017～030 为历史实施拆分，涉及旧调度槽、未知恢复或在途删除屏障的安排已被第 19 节替代，不应按历史步骤重做。第 17 节测试数字只证明当时实现，不证明本次新增并行边界。
 
@@ -1206,3 +1206,9 @@ mvn -pl fe-core -am -Dmaven.clean.skip=true -Dcheckstyle.skip \
 037 增加 11 个专项 FE 测试方法：真实 ReportHandler 的相同请求补发与移除后不再捕获、四类 BLOCKED 对语义/数据/可信节点重启的区别、纯 txn/time/task ID 变化不解锁、孤儿阻塞回收、语义不变快照刷新保留旧请求、发布前策略变化拒绝旧进度、完整 Catalog 副本非 quorum、journal 失败无完成事实、动态 Replica 预算、切主再切回的代际失效以及轮后读取动态间隔。首次新增多副本用例未同步倒排索引导致清理失败，已修正测试构造；不修改生产行为来迁就测试。
 
 最终命令将 `*TenantTtl*Test` 与 `ReportHandlerTest,LeaderImplTest,DictionaryMgrTest,AgentTaskTest,AgentTaskQueueSignatureCollisionTest,DynamicPartitionSchedulerTest` 一起执行；158 项全部通过（0 failures/errors/skipped），Checkstyle 0 violations。日志 `round037-fe-full.log`、`round037-checkstyle.log`；两处 036 最后清理改动也已纳入本次全套回归。BE 构建仍在继续，真实集群和最终存储竞态验收转入 038；不宣称已通过多 FE/多 BE 集群故障测试。
+
+038 已完成 FE Maven package（BUILD SUCCESS），并备份旧 jar、停机元数据后升级保留集群的 FE；BE 未重启。现场确认新默认周期 600 秒、尝试次数 30。BE 继续复用原 Debug UT 目录，完成 engine 测试目标的增量编译；26 项全通过，4 个新增 drop/commit 交错用例另重复 20 轮全通过（80 次执行）。并发测试还增加了另一线程对 header lock 的探测，避免仅凭线程尚未调度就断言删除被锁阻挡。`ReportHandler`、BE 产品代码和协议均未修改。
+
+本轮首次直接运行 BE 测试遗漏 `UDF_RUNTIME_DIR`，在配置初始化阶段退出、未执行测试；补齐测试环境变量后通过，两个日志均保留。新增独立库 SQL 脚本覆盖双表同轮串行、四态分流、无事件重访、迟到写入和策略更新，但 SQL setup 连续两次遇到自动权限审核超时、未执行，已请求用户确认；这些真实 SQL 结果不能记为通过。完整命令、产物备份、测试结果及未验收项见 [轮内调度改造与验收记录](Tenant_TTL_035_038_轮内调度改造与验收记录.md)。
+
+038 后续完成其余四个 BE 目标的增量编译与运行：types 5 项、row filter 10 项、fixture 2 项、tablet primitives 10 项全部通过。含 engine 的 26 项，本次 BE 共 53 个不同用例通过，另有 4 项 × 20 轮重复执行通过。所有日志和 XML 保存在原持久卷；未删除缓存或测试产物。代码实现与自动化验证已完成，真实 SQL 和实际集群故障场景的未验收状态保持明确。
