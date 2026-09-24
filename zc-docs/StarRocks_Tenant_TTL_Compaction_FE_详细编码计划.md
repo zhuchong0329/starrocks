@@ -1,12 +1,12 @@
 # StarRocks Tenant-TTL Compaction FE 详细编码计划
 
-> 本文档把已确认的 FE/BE 契约映射到源码、独立提交轮次、测试和退出条件。第 17/18 节是既往轮次的真实实施记录；第 19 节是本次调度修复计划，未执行的测试不能当作已通过。
+> 本文档把已确认的 FE/BE 契约映射到源码、独立提交轮次、测试和退出条件。第 17/18 节是既往轮次的真实实施记录；第 19 节记录调度修复计划及结果；第 20 节是本次已确认范围内的查询正确性修复计划。未执行的测试不能当作已通过。
 
 源码基线：StarRocks `4.0.11-zc_docs`，commit `0a590df8d`
 
 建立日期：2026-09-11
 
-当前状态：第 017～037 轮已完成；第 038 轮的编译和自动化回归已完成，真实 SQL 闭环因自动权限审核超时仍待确认后执行，不记为全轮验收完成。2026-09-23 调度修复需求已全部确认，基线为 `3cbaf979c`。用户已授权完成文档后直接实施第 19 节的编码、增量编译和测试验收；不等待单独批准，但重大契约变化仍需先确认。
+当前状态：第 039 轮按 FE-QUERY-001 完成限定入口防护，273 项 FE 回归、Checkstyle、FE package 与真实统计滞后窗口 SQL 验收全部通过，第 038 轮续验发现的 FE 聚合常量阻塞已收敛。保留集群仅升级 FE，BE 未改动或重启；没有扩大到其他缓存兼容性、动态恢复或真实多节点故障验证。
 
 阅读约定：第 9 节的 017～030 为历史实施拆分，涉及旧调度槽、未知恢复或在途删除屏障的安排已被第 19 节替代，不应按历史步骤重做。第 17 节测试数字只证明当时实现，不证明本次新增并行边界。
 
@@ -333,7 +333,7 @@ Leader 捕获绑定表 ID 集合，逐表评估、顺序处理其分区和 Repli
 4. 测试只记录实际执行项；未执行的相关测试写明原因。
 5. 每轮开始前检查工作树，保留用户和上游已有修改。
 
-已完成首期的原始拆分如下（当时的前置门槛已由第 13 节给出最终结论）；本次新轮次见第 19 节：
+已完成首期的原始拆分如下（当时的前置门槛已由第 13 节给出最终结论）；第 035～038 轮见第 19 节，第 039 轮查询修复计划见第 20 节：
 
 | 轮次 | 主题 | 主要产物 | 前置依赖 |
 | --- | --- | --- | --- |
@@ -891,6 +891,7 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 3. Dictionary 无 Session 分页导出；每页固定首页事务，版本变化即失败并从头重试。
 4. 百万级策略时评估有序物化或短期 Session，避免 offset 分页重复遍历。
 5. Tenant-TTL 调度历史、分区进度和最近任务的独立历史查询接口。
+6. Tenant-TTL 安全结束后动态恢复 FE 聚合常量替换：讨论方向是独立改写代次、可信 COUNT/MIN/MAX 重建、安全结束证明及多 FE 恢复；具体字段/协议尚未批准，见澄清文档第 12.1 节。不进入第 039 轮，不修改 BE 契约实现自动恢复。
 
 ## 13. 编码前门槛的最终结论
 
@@ -912,6 +913,7 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 3. 无快照、边界不可证明、名单超限、身份变化和未知结果一律 fail-closed。
 4. 全部 Catalog Replica 成功前不推进分区完成水位。
 5. Catalog 删除前完成锁内身份复核；当前计划分流唯一。旧 Rewrite 与 Catalog 删除重叠时，BE shutdown/commit 和 FE 进度发布必须通过专项竞态验收。
+6. 按 FE-QUERY-001，Tenant-TTL 表不能使用 FE 陈旧统计直接返回 COUNT/MIN/MAX 常量；符合原有条件时保留 MetaScan。第 039 轮已完成该项限定验收，详见第 20.8 节。
 
 ### 14.2 可恢复性
 
@@ -936,7 +938,7 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 
 ## 15. 对齐后执行方式
 
-本次用户已授权文档完成后直接编码、编译和测试，按以下节奏执行：
+第 017～038 轮历史执行授权采用以下节奏；第 039 轮文档对齐后用户已明确指示开始编码，按相同轮次纪律实施与验收：
 
 1. 每次只启动一轮，开始前再次列出该轮契约、文件和测试。
 2. 完成代码后先做 diff/review 和目标测试，再形成独立 commit。
@@ -970,6 +972,7 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 | FE-SCHED-008～010 | 035～038 | 跨批次回归、逐表整轮、30 次/累计 3600 秒、600 秒轮后等待 |
 | FE-SCHED-011～012 | 035～038 | ReportHandler 不变、专属任务生命周期、轻量 BLOCKED 恢复 |
 | FE-SCHED-013 | 035～038 | 删除/提交/回报/切主竞态、旧机制清理及编译验收 |
+| FE-QUERY-001 | 039 | TTL 表跳过 FE 缓存 COUNT/MIN/MAX 常量，保留 MetaScan；普通表对照、元数据复制/恢复和统计滞后 SQL 验收 |
 
 该矩阵用于每轮 review 时检查需求覆盖；若实现 diff 触及不属于该轮的条款，优先拆分提交，而不是扩大当轮范围。
 
@@ -1209,6 +1212,116 @@ mvn -pl fe-core -am -Dmaven.clean.skip=true -Dcheckstyle.skip \
 
 038 已完成 FE Maven package（BUILD SUCCESS），并备份旧 jar、停机元数据后升级保留集群的 FE；BE 未重启。现场确认新默认周期 600 秒、尝试次数 30。BE 继续复用原 Debug UT 目录，完成 engine 测试目标的增量编译；26 项全通过，4 个新增 drop/commit 交错用例另重复 20 轮全通过（80 次执行）。并发测试还增加了另一线程对 header lock 的探测，避免仅凭线程尚未调度就断言删除被锁阻挡。`ReportHandler`、BE 产品代码和协议均未修改。
 
-本轮首次直接运行 BE 测试遗漏 `UDF_RUNTIME_DIR`，在配置初始化阶段退出、未执行测试；补齐测试环境变量后通过，两个日志均保留。新增独立库 SQL 脚本覆盖双表同轮串行、四态分流、无事件重访、迟到写入和策略更新，但 SQL setup 连续两次遇到自动权限审核超时、未执行，已请求用户确认；这些真实 SQL 结果不能记为通过。完整命令、产物备份、测试结果及未验收项见 [轮内调度改造与验收记录](Tenant_TTL_035_038_轮内调度改造与验收记录.md)。
+本轮首次直接运行 BE 测试遗漏 `UDF_RUNTIME_DIR`，在配置初始化阶段退出、未执行测试；补齐测试环境变量后通过，两个日志均保留。038 原提交时，独立库 SQL setup 连续两次遇到自动权限审核超时、未执行；该历史阻塞已在 2026-09-24 用户确认后解除。完整命令、产物备份、测试结果及未验收项见 [轮内调度改造与验收记录](Tenant_TTL_035_038_轮内调度改造与验收记录.md)。
 
 038 后续完成其余四个 BE 目标的增量编译与运行：types 5 项、row filter 10 项、fixture 2 项、tablet primitives 10 项全部通过。含 engine 的 26 项，本次 BE 共 53 个不同用例通过，另有 4 项 × 20 轮重复执行通过。所有日志和 XML 保存在原持久卷；未删除缓存或测试产物。代码实现与自动化验证已完成，真实 SQL 和实际集群故障场景的未验收状态保持明确。
+
+2026-09-24 SQL 续验：初始两表各 16→9 行、16 个 Replica 约 15 秒连续完成；完整 600 秒无事件轮次不重发；A 迟到数据 9→10→9，仅新增该分区 4 个任务且处理到版本 3；策略 long=20→3、快照 26→27 后，真实扫描两表各 6 行，新增 8 个任务并删除两表的 15 天分区。
+
+但收尾普通 COUNT 在统计刷新前返回 7，EXPLAIN 明确显示 FE 常量 7；明细/分组/带过滤 COUNT 均为 6。09:37 的统计刷新后普通 COUNT 才恢复为 6。根因是同版本 Tenant-TTL 改写不推进 visibleVersionTime，既有 `RewriteSimpleAggToMetaScanRule.tryReplaceByMetaData()` 仍允许使用旧 Index rowCount。不得将总体 SQL 验收记为通过；问题证据保留在验收文档第 7.5 节，verify 脚本已补充普通 COUNT 交叉检查。2026-09-24 用户已确认 FE-QUERY-001 的限定修复，编码与验收安排转入第 20 节；方案确认不代表旧问题已修复，不扩大为通用优化器重构。
+
+## 20. 第 039 轮：Tenant-TTL 表跳过 FE 聚合常量替换
+
+状态：**已完成：入口防护、273 项 FE 回归、Checkstyle、FE 打包及真实统计滞后窗口 SQL 验收通过。** 以下保留原实施计划，实际结果见第 20.8 节与独立验收记录；未实施范围不计入已完成能力。
+
+需求依据：澄清文档 FE-QUERY-001、第 13.1 节问题证据。规划时 HEAD 为 `b56286d40`（第 038 轮）；开工前重新确认 HEAD、编号与工作树，不覆盖现有验收文档/SQL 改动或用户未跟踪文件。
+
+### 20.1 目标、边界与提交
+
+1. 只修复 Tenant-TTL 同版本删行后 `tryReplaceByMetaData()` 仍使用 FE 旧统计返回精确聚合常量的问题，覆盖 COUNT、MIN/MAX 和混合聚合的部分常量替换。
+2. 依据持久化表配置/绑定持续防护，不依赖任务正在执行、成功进度、Dictionary 是否可用或统计是否刚刷新；不新增配置开关、运行态对象、持久化字段或 Journal 类型。
+3. 保留整个 Rule 原有 `check()` 和 BE MetaScan 准入；普通表和原本不走 MetaScan 的查询行为不变，不禁止 SQL 字面量等与表数据无关的常量折叠。
+4. 不修改 BE、协议、调度、ReportHandler、统计收集周期、ColumnMinMaxMgr 通用缓存实现、`hasDelete()` 或分区版本/时间。不实现澄清文档第 12.1 节的动态恢复，不宣称解决 BE Query Cache、异步 MV 或分布式原子读取问题。
+5. 按一个独立 Tenant-TTL 修复轮次交付，建议提交主题：`fix(tenant-ttl): [039] bypass cached aggregate constants for ttl tables`。提交体保留非空 `Problem`、`Implementation`、`Compatibility`、`Tests`；只记录实际执行结果。独立社区问题另行对齐并拆分提交。
+
+### 20.2 关键调用路径与文件职责
+
+```text
+RewriteSimpleAggToMetaScanRule.check()                 保留原准入
+  → transform()
+    → tryReplaceByMetaData()
+      → 读取查询使用的 OlapTable / TableProperty
+      → Tenant-TTL 已配置/绑定：返回 Optional.empty()
+      → 普通表：原 COUNT 行数 / MIN/MAX 缓存常量路径
+    → 未发生 FE 替换：buildAggMetaScanOperator(input)
+      → 符合原有条件：BE MetaScan
+
+原 check() 不通过的查询：继续原有 Scan/Aggregate 路径
+```
+
+| 文件/函数 | 本轮安排 |
+| --- | --- |
+| `fe/fe-core/src/main/java/com/starrocks/sql/optimizer/rule/transformation/RewriteSimpleAggToMetaScanRule.java`：`tryReplaceByMetaData()`，当前 295～382 行 | 主要产品改动；取到 `OlapTable` 后、访问统计和组装 `constantMap` 前短路。添加注释解释同版本 Rewrite 和保留 MetaScan 的原因 |
+| 同文件：`check()`、`transform()`、`buildAggMetaScanOperator()` | 核查但不因 TTL 禁用整条规则；通过测试证明回退仍保留 MetaScan |
+| `fe/fe-core/src/main/java/com/starrocks/catalog/TableProperty.java`：配置 getter、`copy()`、JSON 恢复；`OlapTable.copyOnlyForQuery()` | 复用现有字段；验证规划副本和恢复对象仍能识别 TTL 配置。无缺口不改产品实现 |
+| `fe/fe-core/src/test/java/com/starrocks/sql/plan/TenantTtlAggregateMetaTest.java`（新增）、`AggregateMetaTest.java`（回归） | 独立测试类复用既有 COUNT/MIN/MAX Mock 思路，TTL 负例与普通表正例成对覆盖；避免污染既有测试表 |
+| `fe/fe-core/src/test/java/com/starrocks/sql/plan/AggregateTest.java`、`MinMaxMonotonicRewriteTest.java` | 回归既有 MetaScan、nullable、过滤、DISTINCT 和 MIN/MAX 表达式行为；遇到独立问题先记录，不顺手重构 |
+| `fe/fe-core/src/test/java/com/starrocks/catalog/TenantTtlPropertyTest.java`、`TenantTtlBindingDdlTest.java`、`OlapTableTest.java` | 复用/补充 CREATE、ALTER、表属性复制、JSON round-trip 及查询副本识别测试 |
+| `zc-docs/tenant_ttl_round039_setup.sql`、`tenant_ttl_round039_bind.sql`、`tenant_ttl_round039_verify.sql`、`Tenant_TTL_039_聚合常量修复与验收记录.md` | 分离准备/预热与绑定，保留 038 原始失败证据，提供独立库、动作、预期值、实测值与日志索引 |
+
+文件行号以规划时源码为准，实施后在验收记录更新，不作为稳定 API。
+
+### 20.3 编码步骤与实现约束
+
+1. **先补失败用例**：沿用 `AggregateMetaTest` 的 Mock，使 `workTimeIsMustAfter()` 返回 true、Index rowCount 和 MIN/MAX 缓存提供可识别的旧值；TTL 表与未绑定对照表保持同等聚合准入条件。先证明旧实现确实会替换，不以缓存未命中或规则本来不适用制造假通过。
+2. **增加入口防护**：建议判定为 `TableProperty` 非空，且非空 `compaction_retention_condition` 或已有 `TenantTtlDictionaryBinding`。复用 getter，不在优化器解析 DDL 表达式或访问 Snapshot Manager/调度器；缺少部分结构化绑定但仍有 TTL 配置时保守跳过。只有其他普通属性或属性对象为空的表仍走原逻辑。是否提取小型 helper 以实际重复程度决定，不新增 Manager。
+3. **统一覆盖缓存替换**：在统计读取前直接返回空，不逐个聚合修补；混合 COUNT/MIN/MAX 也不能将某个子项折叠为陈旧值。保留 `transform()` 现有 fallback，而不是在 `check()` 返回 false 或修改会话变量。
+4. **覆盖元数据入口**：对 CREATE、ALTER 已绑定表及 `copyOnlyForQuery()` 后对象验证同一判定；利用现有序列化/恢复测试证明无需新增字段或 Leader 专属状态。测试修改共享表属性、会话变量或 Mock 时必须恢复现场，避免污染普通表回归。
+5. **代码复核**：对照 FE-QUERY-001 检查非目标未被带入；校验旧代码缓存已预热、任务已成功/暂未调度等情况下防护仍仅由表配置决定。对其他缓存消费者只做相关回归，不把独立缺口悄悄纳入本轮。
+
+### 20.4 自动化测试矩阵
+
+| 场景 | 必须断言 |
+| --- | --- |
+| TTL 表 COUNT 缓存命中 | 强制旧 rowCount 被原新鲜度判据接受，`COUNT(*)`、`COUNT(1)`、原本合格的非 NULL 列 COUNT 仍使用 MetaScan，不输出旧计数常量 |
+| TTL 表 MIN/MAX 缓存命中 | 数值/日期类合格列提供旧极值；结果计划保留 BE 聚合和 MetaScan，不引用这些缓存极值 |
+| 混合及部分缓存命中 | COUNT、MIN、MAX 同查；包括只命中一个 MIN/MAX 的情况，不发生 TTL 聚合的局部缓存常量替换 |
+| 普通表正向对照 | 在相同 Mock 下仍产生既有常量替换；不能以全局开关关闭或让新鲜度检查失效通过 TTL 负例 |
+| 配置判定边界 | `TableProperty=null`、仅普通属性、TTL 条件存在、绑定存在、复制/恢复对象分别覆盖；不依赖 Dictionary/Leader 运行状态 |
+| CREATE / ALTER / 查询副本 | 建表绑定及既有表 ALTER 后识别一致；复制和 JSON round-trip 不丢失保护依据，旧无 TTL 元数据不误禁用 |
+| 原有 MetaScan 限制 | nullable 列 COUNT、过滤、GROUP BY、DISTINCT、普通 DELETE 的 `hasDelete` 限制不被绕过；不能对所有查询强制 MetaScan |
+| 原有配置及表达式 | 开关关闭时保留原扫描行为，开启时合格 TTL 表保留 MetaScan；普通字面量和不依赖缓存的表达式优化不被连带禁止 |
+| 既有 Tenant-TTL 链路 | 回归绑定、计划、调度、进度与 Agent Task 测试，确保没有增加 BE 请求、改动版本时间或改变重试语义 |
+
+计划测试类：`AggregateMetaTest`、`AggregateTest`、`MinMaxMonotonicRewriteTest`、`*TenantTtl*Test`、`OlapTableTest`。新增测试放入现有类时更新选择器及实际报告；不提前承诺固定测试数量。对于简单合格 SQL，应正向断言 MetaScan，并确认聚合输出未被缓存常量替代；不要对复杂 SQL 一概断言没有 UNION/常量节点。
+
+### 20.5 编译与测试执行安排
+
+1. 开工先检查实际 Docker 容器、挂载、JDK/Maven 和已有 FE 产物；复用 `sr-tenant-ttl-4.0-build-cache-arm64`，只允许一个容器写该 volume。上轮实际复用 `starrocks-tenant-ttl-e2e`，原 build 容器已停止；执行时重新核实，不机械启动第二个 writer。
+2. 只同步本轮变更的 FE 源码/测试，沿用既有成功构建环境和参数，不 clean、不删除缓存。先执行目标计划测试，再执行上表回归、Checkstyle 和 FE package；分别保留原始日志与 Surefire XML。
+3. 可沿用的测试选择器示例（在容器内既有源码的 `fe` 目录执行，具体环境参数按上轮成功记录补齐）：
+
+   ```bash
+   mvn -pl fe-core -am -Dmaven.clean.skip=true -Dcheckstyle.skip \
+     '-Dtest=AggregateMetaTest,AggregateTest,MinMaxMonotonicRewriteTest,*TenantTtl*Test,OlapTableTest' \
+     -Dsurefire.failIfNoSpecifiedTests=false test
+   ```
+
+4. 本轮不修改 BE 或协议，不要求为 FE 入口 guard 重编 BE；保留现有 BE 运行产物和 Debug UT 缓存。后续执行集成测试时复用匹配版本 BE，不能把此前的 BE 测试数字当作本轮新执行结果。
+5. 集群升级/SQL 验收在用户授权实施后执行；备份并记录旧 FE 产物，只升级隔离测试环境所需 FE，保留已有数据库和构建资产。涉及权限或环境变化时按实际授权处理。
+
+### 20.6 真实 SQL 闭环及统计滞后窗口
+
+1. 使用独立 `tenant_ttl_r039_<日期>` 数据库、策略表与 Dictionary，沿用已支持的业务表结构，增加用于验证极值的数值列。准备普通未绑定对照表，不覆盖或清空 038 测试库。
+2. 设计明确会删除最小值、最大值且保留中间值的数据，覆盖 DELETE_LIST 和 KEEP_LIST；另覆盖 NULL tenant 保留、零行/全部清空结果及原有 DROP/NOOP 分流。每阶段写出 COUNT、MIN/MAX 和明细的预期值，不沿用已经过多轮修改的旧库初始行数。
+3. 在绑定前预热普通聚合的 FE 统计/缓存并保存 EXPLAIN，然后通过合法 ALTER 绑定；即使旧缓存仍可命中，绑定后的合格 COUNT/MIN/MAX 应显示 MetaScan。不能通过关闭 `enable_rewrite_simple_agg_to_meta_scan`、全局暂停统计或修改统计周期来代替产品修复。
+4. 触发真实 TTL 改写或策略切换，在相关 Replica 完成后立即重复执行普通 COUNT/MIN/MAX、EXPLAIN、明细/分组扫描，并保存 FE 统计刷新日志及执行时间。必须证明至少一次采样发生在 FE 统计尚未追平的窗口；若已错过窗口，记录未覆盖并通过新的受控数据/策略变化复测，不把统计自愈后的一致记为该用例通过。
+5. 在无并发业务写入且对应任务收敛后比较结果。不能把逐 Replica 改写过程强行解释为表级原子切换，也不能把两条查询跨越改写提交时的差异误当成本次缓存缺陷。模拟陈旧统计的确定性 UT 与真实 SQL 证据两者都保留。
+6. 普通未绑定对照表继续验证原常量优化可用；SQL 中显式带过滤、nullable COUNT 等仍按既有准入回退。FE 重启/恢复后的保护通过元数据/规划测试覆盖；若增加真实重启或多 FE 验证，单列实际动作和结果，不以单 FE 测试宣称覆盖多 FE。
+7. 新增验收记录按“动作/SQL、预期、实际、时间、计划/日志证据”逐步输出；保留失败尝试与未测项。至少记录普通 COUNT、MIN/MAX、混合聚合、绑定前后计划、TTL 执行结果和普通表对照。
+
+### 20.7 退出条件与交付
+
+1. 防护只影响 Tenant-TTL 配置表的 FE 缓存聚合常量入口；符合原条件的 BE MetaScan 确实保留，普通表行为不变。
+2. 目标 UT、相关回归、Checkstyle 和 FE package 实际通过；统计滞后窗口内的 SQL 结果、计划与明细一致。没有采集到该窗口或只有 Mock 验证时，不宣称完整 SQL 验收通过。
+3. diff 不包含 BE/协议/调度、版本时间或通用缓存重构；新增测试能在无修复的实现上揭示问题，且不污染其他测试。
+4. 更新第 13.1 节问题状态、此节实施结果及独立验收记录；只在上述条件满足后将相应阻塞标为已解决，不追溯修改 038 原始失败事实，也不掩盖其他尚未完成的集群故障验证。
+5. 验收后形成独立 [039] commit，遵守仓库提交体要求；未经请求不 push、不清理构建产物。不得混入原有未提交的独立 038 验收文件或用户未跟踪目录。
+
+### 20.8 实际实施记录
+
+生产代码只改 `RewriteSimpleAggToMetaScanRule.java`，新增 9 行（含 import）；新增独立 `TenantTtlAggregateMetaTest` 8 项。测试最初两次辅助方法签名/类型编译错误已修正；旧实现红灯验证为 8 项中 7 项防护断言失败、1 项普通表对照通过。修复后完整选择器 273 项通过，0 failures/errors/skipped；Checkstyle 0 violations；FE package BUILD SUCCESS。原始日志保留在原持久卷 `round039-*`，未重编 BE。
+
+UTC 05:54:07 启动新 FE（PID 62575），BE PID 903 未变。旧 jar 和停机元数据保存在 `/tenant-ttl-workspace/round039-fe-backup-20260924/`。独立 SQL 库 `tenant_ttl_r039_20260924` 中，绑定前 COUNT/MIN/MAX 都输出 FE 常量；绑定后 TTL 表计划变为 MetaScan，普通表仍 EXECUTE IN FE。
+
+UTC 06:04:09～18 共 10 个 Replica 任务完成，未改默认 600 秒调度与 300 秒统计周期。06:04:24，rewrite_only 的分区 RowCount 仍为 4+4=8、VisibleVersion/Time 未因 TTL 推进，但普通聚合与明细均为 5 行、MIN/MAX=21/33；events=9/11/33，rewrite_empty=0/NULL/NULL，control=8/-2000/2000 且保留 FE 常量。该证据覆盖真正的统计滞后窗口，不是自愈后才测到一致。未测全 FE、BE UT 或真实多节点故障，不宣称修复其他缓存路径。完整 SQL、执行结果、失败尝试和原始日志索引见 [第 039 轮验收记录](Tenant_TTL_039_聚合常量修复与验收记录.md)。

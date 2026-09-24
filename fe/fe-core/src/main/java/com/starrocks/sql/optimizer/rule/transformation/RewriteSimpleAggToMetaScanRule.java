@@ -15,6 +15,7 @@
 package com.starrocks.sql.optimizer.rule.transformation;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.starrocks.analysis.Expr;
@@ -27,6 +28,7 @@ import com.starrocks.catalog.MaterializedIndexMeta;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
 import com.starrocks.catalog.Table;
+import com.starrocks.catalog.TableProperty;
 import com.starrocks.catalog.Type;
 import com.starrocks.common.Pair;
 import com.starrocks.server.GlobalStateMgr;
@@ -300,6 +302,13 @@ public class RewriteSimpleAggToMetaScanRule extends TransformationRule {
         LogicalAggregationOperator aggregationOperator = input.getOp().cast();
         LogicalOlapScanOperator scanOperator = input.inputAt(0).inputAt(0).getOp().cast();
         OlapTable table = (OlapTable) scanOperator.getTable();
+        TableProperty tableProperty = table.getTableProperty();
+        if (tableProperty != null && (tableProperty.getTenantTtlDictionaryBinding() != null ||
+                !Strings.isNullOrEmpty(tableProperty.getCompactionRetentionCondition()))) {
+            // Tenant-TTL changes rows without advancing the visible version/time used to validate FE statistics.
+            // Skip cached constants for the entire binding lifetime, but retain transform()'s BE MetaScan fallback.
+            return Optional.empty();
+        }
         if (!containsAllPartitions(table, scanOperator.getSelectedPartitionId())) {
             return Optional.empty();
         }
