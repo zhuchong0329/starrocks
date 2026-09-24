@@ -3890,10 +3890,6 @@ public class Config extends ConfigBase {
     @ConfField(mutable = true)
     public static int tenant_ttl_scheduler_interval_seconds = 600;
 
-    // Retained for compatibility with existing fe.conf; the scheduler now visits all bound tables in a round.
-    @ConfField(mutable = true)
-    public static int tenant_ttl_scheduler_max_tables_per_cycle = 1000;
-
     // Total attempts per Replica in one round, including failed preflight checks and the first attempt.
     @ConfField(mutable = true)
     public static int tenant_ttl_agent_task_max_attempts = 30;

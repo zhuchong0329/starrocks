@@ -8,7 +8,7 @@
 
 当前状态：第 039 轮按 FE-QUERY-001 完成限定入口防护，273 项 FE 回归、Checkstyle、FE package 与真实统计滞后窗口 SQL 验收全部通过，第 038 轮续验发现的 FE 聚合常量阻塞已收敛。保留集群仅升级 FE，BE 未改动或重启；没有扩大到其他缓存兼容性、动态恢复或真实多节点故障验证。
 
-阅读约定：第 9 节的 017～030 为历史实施拆分，涉及旧调度槽、未知恢复或在途删除屏障的安排已被第 19 节替代，不应按历史步骤重做。第 17 节测试数字只证明当时实现，不证明本次新增并行边界。
+阅读约定：第 9 节的 017～030 为历史实施拆分，涉及旧调度槽、未知恢复或在途删除屏障的安排已被第 19 节替代，不应按历史步骤重做。第 17 节测试数字只证明当时实现，不证明本次新增并行边界。第 21 节记录 040 按用户确认删除无用表数配置，替代 036 当时保留兼容字段的安排。
 
 ## 1. 输入文档与结论优先级
 
@@ -1078,7 +1078,7 @@ Leader 可以安全识别需要处理的分区并完成 NOOP/Catalog 分支，Re
 | `.../leader/LeaderImpl.java` 的 Tenant-TTL 专属完成分支 | 根据接纳结果决定移除注册；`TTL_ALREADY_RUNNING`/无有效终态不冒充完成；普通任务分支不变 |
 | `.../tenantttl/scheduler/TenantTtlPartitionProgressManager.java` | 继续唯一维护完整成功事实，不改变 Image/EditLog 模式；配合调用方闭合 Catalog 校验到提交的锁边界 |
 | `.../tenantttl/TenantTtlStatusService.java` | 沿用表级有界摘要，准确表达超时/耗尽/阻塞，不新增历史查询 |
-| `.../common/Config.java` | 周期默认 600，max_attempts 默认 30，现有 soft_timeout 默认 3600 改为累计预算；旧 max_tables 字段保留兼容并注明不再使用 |
+| `.../common/Config.java` | 周期默认 600，max_attempts 默认 30，现有 soft_timeout 默认 3600 改为累计预算；036 曾保留旧 max_tables 兼容字段，040 按用户确认删除，见第 21 节 |
 | `.../leader/ReportHandler.java` | 不改生产代码；只通过测试验证既有补发行为与专属任务生命周期的交互 |
 
 不机械保留原 `PartitionExecution`/`ActiveTask` 所有字段。当前分区仅需不可变计划、expectedProgress、轮内成功版本和本轮结果；当前 Replica 仅需固定预算、已尝试次数、单调开始时间、任务引用和错误。保留一个短临界区处理关闭/结果接纳及角色代际，不将整个串行循环声明为 synchronized。
@@ -1139,7 +1139,7 @@ BE 内部修复若没有改变任何 FE 可观察条件，不承诺自动发现�
 
 - 将 Scheduler 切换到逐表四态处理及新入口，移除 tableScanOffset、跨轮部分 executions 和无限未知独占；轮后读取 600 秒配置。
 - 同一提交完成 TenantTtlCompactionTask/LeaderImpl 专属生命周期、短锁切主隔离、BLOCKED 恢复与进度提交的 Catalog 锁边界，避免过渡版本丢失真实终态或产生孤儿进度。
-- 新增 attempts 配置；保留旧 max_tables 兼容字段但不读取；更新注释/SHOW 摘要和所有旧接口调用/测试。
+- 新增 attempts 配置；036 当时保留旧 max_tables 兼容字段但不读取（040 按用户确认删除，见第 21 节）；更新注释/SHOW 摘要和所有旧接口调用/测试。
 - 在 `TenantTtlSchedulerTest`/`TenantTtlEndToEndTest` 验证一次调用推进多 Replica/多表、1001 表、有限集合、新绑定下轮、A/B 跨批次回归、无事件不重发及部分失败下轮全核验。
 - 在 `TenantTtlCompactionTaskTest`/`TenantTtlRewriteCoordinatorTest` 验证非终态不关闭、超时关闭、晚到报告不能复活、角色失效及 complete/drop 的互斥提交。
 - 关键 drop/rewrite 锁交错测试必须在取消屏障的代码验收前跑通；失败则修复或暂停，不以 FE 静态推断替代。
@@ -1325,3 +1325,22 @@ RewriteSimpleAggToMetaScanRule.check()                 保留原准入
 UTC 05:54:07 启动新 FE（PID 62575），BE PID 903 未变。旧 jar 和停机元数据保存在 `/tenant-ttl-workspace/round039-fe-backup-20260924/`。独立 SQL 库 `tenant_ttl_r039_20260924` 中，绑定前 COUNT/MIN/MAX 都输出 FE 常量；绑定后 TTL 表计划变为 MetaScan，普通表仍 EXECUTE IN FE。
 
 UTC 06:04:09～18 共 10 个 Replica 任务完成，未改默认 600 秒调度与 300 秒统计周期。06:04:24，rewrite_only 的分区 RowCount 仍为 4+4=8、VisibleVersion/Time 未因 TTL 推进，但普通聚合与明细均为 5 行、MIN/MAX=21/33；events=9/11/33，rewrite_empty=0/NULL/NULL，control=8/-2000/2000 且保留 FE 常量。该证据覆盖真正的统计滞后窗口，不是自愈后才测到一致。未测全 FE、BE UT 或真实多节点故障，不宣称修复其他缓存路径。完整 SQL、执行结果、失败尝试和原始日志索引见 [第 039 轮验收记录](Tenant_TTL_039_聚合常量修复与验收记录.md)。
+
+## 21. 第 040 轮：删除无用的每轮表数配置
+
+确认日期：2026-09-24。依据：用户明确要求删除无调度用途的 `tenant_ttl_scheduler_max_tables_per_cycle`；FE-SCHED-009 同步更新。
+
+### 21.1 范围与步骤
+
+1. 删除 `Config.java` 中该配置定义及兼容注释，不修改 Scheduler/Coordinator 实现；`tenant_ttl_scheduler_interval_seconds = 600`、重试和时间预算保持不变。
+2. 删除 `TenantTtlSchedulerTest` 中对废弃字段的赋值/恢复，保留一轮遍历 1001 张表、多表全部 Tablet 完成、新绑定下一轮进入等既有断言。
+3. 新增配置兼容回归：带旧项的 fe.conf 仍可加载；该字段不存在、配置查询不展示、动态设置拒绝。使用现有 ConfigBase 行为，不新增别名或兼容分支。
+4. 执行相关 FE 单测和 Checkstyle，复用原持久化缓存、不 clean；独立提交 [040]，不 push，不混入原有 038 文件及未跟踪目录。
+
+### 21.2 兼容性与验证记录
+
+旧 fe.conf 中残留的静态值会被忽略，无需为启动先修改配置；仍建议从运维模板移除。动态设置该名称不再支持，配置查询不再返回该项；每轮处理全部已捕获绑定表的语义不变。
+
+已完成 FE 编译及上述范围的回归：`ConfigTest` 8 项（7 通过，1 项原有配置持久化测试因容器环境跳过）、`TenantTtlSchedulerTest` 6 项、`TenantTtlEndToEndTest` 1 项、`TenantTtlRewriteCoordinatorTest` 22 项，总计 37 项，36 通过、0 failures/errors、1 skipped。新增旧配置兼容测试实际通过；Checkstyle 0 违规；`git diff --check` 通过。
+
+复用原 Colima 实例和唯一运行的 `starrocks-tenant-ttl-e2e` 容器及持久化卷，Java 17/Maven 3.6.3，未 clean。执行命令：在原 `/tenant-ttl-workspace` 设置 `STARROCKS_HOME` 并加载 `env.sh`，进入 `fe` 后运行 `mvn -pl fe-core -am -Dmaven.clean.skip=true -Dcheckstyle.skip -Dtest=ConfigTest,TenantTtlSchedulerTest,TenantTtlEndToEndTest,TenantTtlRewriteCoordinatorTest -DfailIfNoTests=false -Dsurefire.failIfNoSpecifiedTests=false -T 1 test`，再执行 `mvn -pl fe-core -DskipTests checkstyle:check`。日志为 `/tenant-ttl-workspace/round040-fe-test.log` 与 `round040-checkstyle.log`。未执行全 FE、FE package、BE 编译/单测及集群 SQL：本轮仅删除无用配置，未改调度实现，未启动或升级测试集群；不将 039 的部署状态当作 040 已部署。

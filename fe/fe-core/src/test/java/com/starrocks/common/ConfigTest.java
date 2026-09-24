@@ -21,8 +21,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
@@ -46,6 +49,25 @@ public class ConfigTest {
         PatternMatcher matcher = PatternMatcher.createMysqlPattern("tablet_sched_slot_num_per_path", false);
         List<List<String>> configs = Config.getConfigInfo(matcher);
         Assertions.assertEquals("3", configs.get(0).get(2));
+    }
+
+    @Test
+    public void testRemovedTenantTtlTableLimit(@TempDir Path tempDir) throws Exception {
+        String removedKey = "tenant_ttl_scheduler_max_tables_per_cycle";
+        Path legacyConfig = tempDir.resolve("fe.conf");
+        Files.writeString(legacyConfig, removedKey + " = 1000\n");
+        try {
+            // A legacy file remains loadable, but the obsolete setting is no longer exposed or mutable.
+            config.init(legacyConfig.toString());
+            Assertions.assertThrows(NoSuchFieldException.class, () -> Config.class.getField(removedKey));
+            Assertions.assertFalse(Config.getAllMutableConfigs().containsKey(removedKey));
+            Assertions.assertTrue(Config.getConfigInfo(
+                    PatternMatcher.createMysqlPattern(removedKey, false)).isEmpty());
+            Assertions.assertThrows(InvalidConfException.class,
+                    () -> Config.setMutableConfig(removedKey, "1", false, "root"));
+        } finally {
+            setUp();
+        }
     }
 
     @Test

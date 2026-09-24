@@ -189,8 +189,6 @@ public class TenantTtlSchedulerTest {
     @Test
     @Order(3)
     public void testOneRoundVisitsMoreThanLegacyTableLimit() {
-        int previousLimit = Config.tenant_ttl_scheduler_max_tables_per_cycle;
-        Config.tenant_ttl_scheduler_max_tables_per_cycle = 1;
         Set<TenantTtlPolicySnapshotManager.TableRef> previousRefs = new HashSet<>(fixedSnapshotManager.tableRefs);
         fixedSnapshotManager.tableRefs.clear();
         long firstMissingTable = Long.MAX_VALUE - 2000;
@@ -206,7 +204,6 @@ public class TenantTtlSchedulerTest {
         } finally {
             fixedSnapshotManager.tableRefs.clear();
             fixedSnapshotManager.tableRefs.addAll(previousRefs);
-            Config.tenant_ttl_scheduler_max_tables_per_cycle = previousLimit;
         }
     }
 
@@ -226,8 +223,6 @@ public class TenantTtlSchedulerTest {
                     DICTIONARY_NAME + "', '" + TABLE_KEY + "', 180)\")");
             tables.add((OlapTable) db.getTable(name));
         }
-        int oldLimit = Config.tenant_ttl_scheduler_max_tables_per_cycle;
-        Config.tenant_ttl_scheduler_max_tables_per_cycle = 1;
         Set<TenantTtlPolicySnapshotManager.TableRef> previousRefs = new HashSet<>(fixedSnapshotManager.tableRefs);
         fixedSnapshotManager.tableRefs.clear();
         fixedSnapshotManager.addTable(tables.get(0).getId());
@@ -255,7 +250,6 @@ public class TenantTtlSchedulerTest {
         } finally {
             fixedSnapshotManager.tableRefs.clear();
             fixedSnapshotManager.tableRefs.addAll(previousRefs);
-            Config.tenant_ttl_scheduler_max_tables_per_cycle = oldLimit;
         }
     }
 
