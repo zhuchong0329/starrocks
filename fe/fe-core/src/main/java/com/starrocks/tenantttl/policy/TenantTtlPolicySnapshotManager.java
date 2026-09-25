@@ -25,6 +25,8 @@ import com.starrocks.proto.PExportDictionaryCacheResult;
 import com.starrocks.proto.PUniqueId;
 import com.starrocks.rpc.BackendServiceClient;
 import com.starrocks.server.GlobalStateMgr;
+import com.starrocks.system.ComputeNode;
+import com.starrocks.system.SystemInfoService;
 import com.starrocks.thrift.TNetworkAddress;
 import com.starrocks.thrift.TUniqueId;
 import org.slf4j.Logger;
@@ -141,7 +143,7 @@ public class TenantTtlPolicySnapshotManager {
             if (success) {
                 if (txnId > state.targetTxnId) {
                     state.targetTxnId = txnId;
-                    state.targetNodes = immutableSortedNodes(participatingNodes);
+                    state.sweep = null;
                     state.retryFailureCount = 0;
                     state.retryTxnId = 0;
                     state.retryToken++;
@@ -246,7 +248,7 @@ public class TenantTtlPolicySnapshotManager {
                 return;
             }
             state.targetTxnId = dictionary.getLastSuccessTxnId();
-            state.targetNodes = Collections.emptyList();
+            state.sweep = null;
             scheduleExportNowUnlocked(dictionaryId, state);
         }
     }
@@ -322,6 +324,7 @@ public class TenantTtlPolicySnapshotManager {
 
     private ExportContext prepareExport(long dictionaryId, long generation, long epoch) {
         DictionaryView dictionary = runtime.getDictionary(dictionaryId);
+        List<ExportNode> catalogNodes = sortedDistinctNodes(runtime.getExportNodes(dictionaryId));
         synchronized (this) {
             SnapshotState state = snapshotStates.get(dictionaryId);
             if (!isEligibleUnlocked(dictionaryId, generation, epoch) || state == null || dictionary == null ||
@@ -334,7 +337,7 @@ public class TenantTtlPolicySnapshotManager {
             }
             if (latestTxnId > state.targetTxnId) {
                 state.targetTxnId = latestTxnId;
-                state.targetNodes = Collections.emptyList();
+                state.sweep = null;
                 state.retryFailureCount = 0;
                 state.retryTxnId = 0;
                 state.retryToken++;
@@ -348,12 +351,19 @@ public class TenantTtlPolicySnapshotManager {
             }
             state.lastAttemptTxnId = latestTxnId;
             state.lastAttemptTimeMillis = runtime.currentTimeMillis();
-            List<TNetworkAddress> nodes = state.targetTxnId == latestTxnId ? state.targetNodes : Collections.emptyList();
-            if (nodes.isEmpty()) {
-                nodes = immutableSortedNodes(runtime.getExportNodes(dictionaryId));
+            if (state.sweep == null || state.sweep.txnId != latestTxnId) {
+                state.sweep = new ExportSweep(latestTxnId, rotateAfter(catalogNodes, state.lastVisitedNode));
+            }
+            ExportSweep sweep = state.sweep;
+            List<ExportNode> nodes = new ArrayList<>();
+            while (sweep.nextIndex < sweep.nodes.size() && nodes.size() < MAX_EXPORT_NODES_PER_ATTEMPT) {
+                ExportNode captured = sweep.nodes.get(sweep.nextIndex++);
+                // A removed/replaced endpoint must not be contacted using a stale refresh participant list.
+                ExportNode current = catalogNodes.stream().filter(captured::sameIdentity).findFirst().orElse(null);
+                nodes.add(current == null ? new ExportNode(captured.id, captured.address, false) : current);
             }
             return new ExportContext(dictionaryId, dictionary.getDictionaryName(), latestTxnId, generation, epoch,
-                    state.lastAttemptTimeMillis, nodes,
+                    state.lastAttemptTimeMillis, nodes, sweep,
                     Config.tenant_ttl_policy_snapshot_export_max_rows,
                     Config.tenant_ttl_policy_snapshot_export_max_uncompressed_bytes,
                     Config.tenant_ttl_policy_snapshot_export_max_response_bytes);
@@ -374,11 +384,14 @@ public class TenantTtlPolicySnapshotManager {
         }
 
         ExportResult lastRetryable = null;
-        int attemptCount = Math.min(MAX_EXPORT_NODES_PER_ATTEMPT, context.nodes.size());
-        for (int i = 0; i < attemptCount; ++i) {
-            TNetworkAddress node = context.nodes.get(i);
+        for (ExportNode node : context.nodes) {
+            if (!node.alive) {
+                lastRetryable = ExportResult.retryable("TENANT_TTL_POLICY_EXPORT_NODE_UNAVAILABLE",
+                        node.address + ": captured node is offline, removed or replaced").visited(node);
+                continue;
+            }
             try {
-                Future<PExportDictionaryCacheResult> future = runtime.export(node, newExportRequest(context));
+                Future<PExportDictionaryCacheResult> future = runtime.export(node.address, newExportRequest(context));
                 PExportDictionaryCacheResult response;
                 try {
                     response = future.get(Math.max(1, Config.tenant_ttl_policy_snapshot_export_rpc_timeout_ms),
@@ -390,17 +403,17 @@ public class TenantTtlPolicySnapshotManager {
                 TenantTtlPolicySnapshot snapshot = snapshotBuilder.build(
                         context.dictionaryId, context.dictionaryName, context.txnId,
                         Instant.ofEpochMilli(runtime.currentTimeMillis()), response);
-                return ExportResult.success(snapshot);
+                return ExportResult.success(snapshot).visited(node);
             } catch (TenantTtlPolicySnapshotBuildException e) {
                 ExportResult failure = ExportResult.failure(e.getClassification(), e.getErrorCode().name(),
-                        node + ": " + e.getMessage());
+                        node.address + ": " + e.getMessage()).visited(node);
                 if (e.getClassification() == TenantTtlPolicySnapshotBuildException.Classification.DETERMINISTIC) {
                     return failure;
                 }
                 lastRetryable = failure;
             } catch (Exception e) {
                 lastRetryable = ExportResult.retryable("TENANT_TTL_POLICY_EXPORT_RPC_ERROR",
-                        node + ": " + rootMessage(e));
+                        node.address + ": " + rootMessage(e)).visited(node);
             }
         }
         return lastRetryable == null ? ExportResult.retryable("TENANT_TTL_POLICY_EXPORT_RPC_ERROR",
@@ -429,6 +442,9 @@ public class TenantTtlPolicySnapshotManager {
                 return;
             }
             state.exportActive = false;
+            if (result.lastVisitedNode != null) {
+                state.lastVisitedNode = result.lastVisitedNode;
+            }
             state.lastAttemptTimeMillis = runtime.currentTimeMillis();
             if (result.snapshot != null) {
                 TenantTtlPolicySnapshot current = state.currentSnapshot;
@@ -442,12 +458,12 @@ public class TenantTtlPolicySnapshotManager {
                 state.retryTxnId = 0;
                 state.nextRetryTimeMillis = 0;
                 state.retryToken++;
+                state.sweep = null;
                 state.clearFailure();
                 DictionaryView dictionary = runtime.getDictionary(context.dictionaryId);
                 if (dictionary != null && dictionary.getLastSuccessTxnId() >
                         state.currentSnapshot.getDictionaryTxnId()) {
                     state.targetTxnId = dictionary.getLastSuccessTxnId();
-                    state.targetNodes = Collections.emptyList();
                     scheduleExportNowUnlocked(context.dictionaryId, state);
                 }
                 return;
@@ -462,7 +478,7 @@ public class TenantTtlPolicySnapshotManager {
                 if (dictionary != null) {
                     state.targetTxnId = Math.max(state.targetTxnId, dictionary.getLastSuccessTxnId());
                 }
-                state.targetNodes = Collections.emptyList();
+                state.sweep = null;
                 state.retryFailureCount = 0;
                 state.retryTxnId = 0;
                 state.nextRetryTimeMillis = 0;
@@ -473,8 +489,14 @@ public class TenantTtlPolicySnapshotManager {
             if (result.classification == TenantTtlPolicySnapshotBuildException.Classification.DETERMINISTIC) {
                 state.blockedTxnId = context.txnId;
                 state.nextRetryTimeMillis = 0;
+                state.sweep = null;
                 return;
             }
+            if (state.sweep == context.sweep && context.sweep.nextIndex < context.sweep.nodes.size()) {
+                scheduleExportNowUnlocked(context.dictionaryId, state);
+                return;
+            }
+            state.sweep = null;
             scheduleRetryUnlocked(context.dictionaryId, context.txnId, state);
         }
     }
@@ -549,13 +571,34 @@ public class TenantTtlPolicySnapshotManager {
         }
     }
 
-    private static List<TNetworkAddress> immutableSortedNodes(List<TNetworkAddress> nodes) {
+    private static List<ExportNode> sortedDistinctNodes(List<ExportNode> nodes) {
         if (nodes == null || nodes.isEmpty()) {
             return Collections.emptyList();
         }
-        List<TNetworkAddress> copy = new ArrayList<>(nodes);
-        copy.sort(Comparator.comparing(TNetworkAddress::getHostname).thenComparingInt(TNetworkAddress::getPort));
-        return Collections.unmodifiableList(copy);
+        List<ExportNode> copy = new ArrayList<>();
+        for (ExportNode node : nodes) {
+            if (copy.stream().noneMatch(node::sameIdentity)) {
+                copy.add(node);
+            }
+        }
+        copy.sort(ExportNode.ORDER);
+        return copy;
+    }
+
+    private static List<ExportNode> rotateAfter(List<ExportNode> nodes, ExportNode lastVisited) {
+        if (nodes.isEmpty() || lastVisited == null) {
+            return nodes;
+        }
+        // An address/id removed between sweeps still has a stable insertion point in the ordering.
+        int start = 0;
+        while (start < nodes.size() && ExportNode.ORDER.compare(nodes.get(start), lastVisited) <= 0) {
+            start++;
+        }
+        List<ExportNode> rotated = new ArrayList<>(nodes.size());
+        for (int i = 0; i < nodes.size(); i++) {
+            rotated.add(nodes.get((start + i) % nodes.size()));
+        }
+        return rotated;
     }
 
     static long retryDelayMs(int failureCount, double unitJitter) {
@@ -594,7 +637,7 @@ public class TenantTtlPolicySnapshotManager {
 
         void requestFullRefresh(String dictionaryName) throws Exception;
 
-        List<TNetworkAddress> getExportNodes(long dictionaryId);
+        List<ExportNode> getExportNodes(long dictionaryId);
 
         Future<PExportDictionaryCacheResult> export(TNetworkAddress node, PExportDictionaryCacheRequest request)
                 throws Exception;
@@ -612,6 +655,36 @@ public class TenantTtlPolicySnapshotManager {
 
     interface SnapshotBuilderFactory {
         TenantTtlPolicySnapshotBuilder create();
+    }
+
+    static final class ExportNode {
+        private static final Comparator<ExportNode> ORDER = Comparator
+                .comparing((ExportNode node) -> node.address.getHostname())
+                .thenComparingInt(node -> node.address.getPort()).thenComparingLong(node -> node.id);
+        private final long id;
+        private final TNetworkAddress address;
+        private final boolean alive;
+
+        ExportNode(long id, TNetworkAddress address, boolean alive) {
+            this.id = id;
+            this.address = new TNetworkAddress(address);
+            this.alive = alive;
+        }
+
+        private boolean sameIdentity(ExportNode other) {
+            return id == other.id && address.equals(other.address);
+        }
+    }
+
+    private static final class ExportSweep {
+        private final long txnId;
+        private final List<ExportNode> nodes;
+        private int nextIndex;
+
+        private ExportSweep(long txnId, List<ExportNode> nodes) {
+            this.txnId = txnId;
+            this.nodes = nodes;
+        }
     }
 
     static final class DictionaryView {
@@ -786,7 +859,8 @@ public class TenantTtlPolicySnapshotManager {
         private TenantTtlPolicySnapshot currentSnapshot;
         private TenantTtlPolicySnapshot candidateSnapshot;
         private long targetTxnId;
-        private List<TNetworkAddress> targetNodes = Collections.emptyList();
+        private ExportSweep sweep;
+        private ExportNode lastVisitedNode;
         private Long blockedTxnId;
         private boolean exportActive;
         private boolean refreshAfterPreBindingTask;
@@ -814,13 +888,14 @@ public class TenantTtlPolicySnapshotManager {
         private final long generation;
         private final long epoch;
         private final long attemptTimeMillis;
-        private final List<TNetworkAddress> nodes;
+        private final List<ExportNode> nodes;
+        private final ExportSweep sweep;
         private final long maxRows;
         private final long maxUncompressedBytes;
         private final long maxResponseBytes;
 
         private ExportContext(long dictionaryId, String dictionaryName, long txnId, long generation, long epoch,
-                              long attemptTimeMillis, List<TNetworkAddress> nodes, long maxRows,
+                              long attemptTimeMillis, List<ExportNode> nodes, ExportSweep sweep, long maxRows,
                               long maxUncompressedBytes, long maxResponseBytes) {
             this.dictionaryId = dictionaryId;
             this.dictionaryName = dictionaryName;
@@ -829,6 +904,7 @@ public class TenantTtlPolicySnapshotManager {
             this.epoch = epoch;
             this.attemptTimeMillis = attemptTimeMillis;
             this.nodes = nodes;
+            this.sweep = sweep;
             this.maxRows = maxRows;
             this.maxUncompressedBytes = maxUncompressedBytes;
             this.maxResponseBytes = maxResponseBytes;
@@ -840,6 +916,7 @@ public class TenantTtlPolicySnapshotManager {
         private final TenantTtlPolicySnapshotBuildException.Classification classification;
         private final String errorCode;
         private final String message;
+        private ExportNode lastVisitedNode;
 
         private ExportResult(TenantTtlPolicySnapshot snapshot,
                              TenantTtlPolicySnapshotBuildException.Classification classification,
@@ -852,6 +929,11 @@ public class TenantTtlPolicySnapshotManager {
 
         private static ExportResult success(TenantTtlPolicySnapshot snapshot) {
             return new ExportResult(snapshot, null, null, null);
+        }
+
+        private ExportResult visited(ExportNode node) {
+            lastVisitedNode = node;
+            return this;
         }
 
         private static ExportResult retryable(String errorCode, String message) {
@@ -901,9 +983,14 @@ public class TenantTtlPolicySnapshotManager {
         }
 
         @Override
-        public List<TNetworkAddress> getExportNodes(long dictionaryId) {
-            List<TNetworkAddress> nodes = new ArrayList<>();
-            com.starrocks.catalog.DictionaryMgr.fillBackendsOrComputeNodes(nodes);
+        public List<ExportNode> getExportNodes(long dictionaryId) {
+            SystemInfoService cluster = GlobalStateMgr.getCurrentState().getNodeMgr().getClusterInfo();
+            List<ComputeNode> candidates = new ArrayList<>(cluster.getBackends());
+            candidates.addAll(cluster.getComputeNodes());
+            List<ExportNode> nodes = new ArrayList<>();
+            for (ComputeNode node : candidates) {
+                nodes.add(new ExportNode(node.getId(), node.getBrpcAddress(), node.isAlive()));
+            }
             return nodes;
         }
 

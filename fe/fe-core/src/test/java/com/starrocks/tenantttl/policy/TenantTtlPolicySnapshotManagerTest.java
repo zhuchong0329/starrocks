@@ -57,6 +57,199 @@ public class TenantTtlPolicySnapshotManagerTest {
             ProtobufProxy.create(PTenantTtlPolicyBatchPB.class);
 
     @Test
+    public void testThirdNodeIsTriedInNextSliceWithoutBackoff() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.nodes = Arrays.asList(NODE_3, NODE_1, NODE_2, NODE_3);
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        runtime.exportActions.add((node, request) -> completed(outcomeResponse(
+                request.expectedTxnId, PDictionaryCacheExportOutcome.CACHE_NOT_FOUND)));
+        runtime.exportActions.add((node, request) -> completed(outcomeResponse(
+                request.expectedTxnId, PDictionaryCacheExportOutcome.VERSION_MISMATCH)));
+        runtime.exportActions.add((node, request) -> completed(validResponse(request.expectedTxnId)));
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+
+        dispatcher.runOneImmediate();
+        assertEquals(Arrays.asList("be-a", "be-b"), runtime.requestedHosts);
+        assertEquals(0, dispatcher.delayedSize());
+        assertEquals(1, dispatcher.immediateSize());
+        assertEquals(0, manager.getStatus(DICTIONARY_ID).getRetryFailureCount());
+        dispatcher.runImmediate();
+
+        assertEquals(Arrays.asList("be-a", "be-b", "be-c"), runtime.requestedHosts);
+        assertEquals(7, manager.getCurrentSnapshot(DICTIONARY_ID).orElseThrow().getDictionaryTxnId());
+        assertTrue(runtime.refreshRequests.isEmpty());
+    }
+
+    @Test
+    public void testFiveNodesFinishWholeSweepBeforeBackoff() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.nodes = Arrays.asList(NODE_3, NODE_2, NODE_1,
+                new TNetworkAddress("be-e", 8060), new TNetworkAddress("be-d", 8060));
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        for (int i = 0; i < 5; i++) {
+            runtime.exportActions.add((node, request) -> failed(new IllegalStateException("unreachable")));
+        }
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runOneImmediate();
+        dispatcher.runOneImmediate();
+        assertEquals(4, runtime.requestedHosts.size());
+        assertEquals(0, dispatcher.delayedSize());
+        dispatcher.runImmediate();
+        assertEquals(Arrays.asList("be-a", "be-b", "be-c", "be-d", "be-e"), runtime.requestedHosts);
+        assertEquals(1, manager.getStatus(DICTIONARY_ID).getRetryFailureCount());
+        assertEquals(10_000, dispatcher.nextDelay());
+    }
+
+    @Test
+    public void testNewTransactionsDoNotRestartAtFirstNodes() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.nodes = Arrays.asList(NODE_1, NODE_2, NODE_3);
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        for (int i = 0; i < 2; i++) {
+            runtime.exportActions.add((node, request) -> failed(new IllegalStateException("unreachable")));
+        }
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runOneImmediate();
+        runtime.setDictionaryState(DICTIONARY_ID, 8, false);
+        manager.onDictionaryRefreshFinished(DICTIONARY_ID, 8, true, Collections.singletonList(NODE_1));
+        runtime.exportActions.add((node, request) -> completed(validResponse(request.expectedTxnId)));
+        dispatcher.runImmediate();
+        assertEquals(Arrays.asList("be-a", "be-b", "be-c"), runtime.requestedHosts);
+        assertEquals(Arrays.asList(7L, 7L, 8L), runtime.requestedTxnIds);
+        assertEquals(8, manager.getCurrentSnapshot(DICTIONARY_ID).orElseThrow().getDictionaryTxnId());
+    }
+
+    @Test
+    public void testRemovedNodeSkippedAndNewNodeJoinsNextSweep() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.nodes = Arrays.asList(NODE_1, NODE_2, NODE_3);
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        for (int i = 0; i < 2; i++) {
+            runtime.exportActions.add((node, request) -> failed(new IllegalStateException("unreachable")));
+        }
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runOneImmediate();
+        runtime.nodes = Arrays.asList(NODE_1, NODE_2, new TNetworkAddress("be-d", 8060));
+        dispatcher.runImmediate();
+        assertEquals(Arrays.asList("be-a", "be-b"), runtime.requestedHosts);
+        assertEquals(1, dispatcher.delayedSize());
+        runtime.exportActions.add((node, request) -> completed(validResponse(request.expectedTxnId)));
+        dispatcher.runNextDelayed();
+        dispatcher.runImmediate();
+        assertEquals(Arrays.asList("be-a", "be-b", "be-d"), runtime.requestedHosts);
+        assertEquals(7, manager.getCurrentSnapshot(DICTIONARY_ID).orElseThrow().getDictionaryTxnId());
+    }
+
+    @Test
+    public void testAddressAndIdentityChangesInvalidateCapturedNode() throws Exception {
+        for (boolean changeId : Arrays.asList(false, true)) {
+            FakeRuntime runtime = new FakeRuntime();
+            ManualDispatcher dispatcher = new ManualDispatcher();
+            runtime.nodes = Arrays.asList(NODE_1, NODE_2, NODE_3);
+            runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+            for (int i = 0; i < 2; i++) {
+                runtime.exportActions.add((node, request) -> failed(new IllegalStateException("unreachable")));
+            }
+            TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+            manager.onLeaderActivated(Collections.singletonList(
+                    new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+            dispatcher.runOneImmediate();
+            if (changeId) {
+                runtime.nodeIds.put(NODE_3.hostname, 9000L);
+            } else {
+                runtime.nodes = Arrays.asList(NODE_1, NODE_2, new TNetworkAddress("be-c", 9060));
+            }
+            dispatcher.runImmediate();
+            assertEquals(Arrays.asList("be-a", "be-b"), runtime.requestedHosts);
+            assertEquals(1, dispatcher.delayedSize());
+            runtime.exportActions.add((node, request) -> {
+                assertEquals("be-c", node.hostname);
+                assertEquals(changeId ? 8060 : 9060, node.port);
+                return completed(validResponse(request.expectedTxnId));
+            });
+            if (changeId) {
+                // The new id sorts before the old hash id; let the new sweep pass A/B first.
+                runtime.nodes = Collections.singletonList(NODE_3);
+            }
+            dispatcher.runNextDelayed();
+            dispatcher.runImmediate();
+            assertEquals(7, manager.getCurrentSnapshot(DICTIONARY_ID).orElseThrow().getDictionaryTxnId());
+        }
+    }
+
+    @Test
+    public void testEmptyAndOfflineCandidatesBackOffWithoutRpc() {
+        for (boolean empty : Arrays.asList(false, true)) {
+            FakeRuntime runtime = new FakeRuntime();
+            ManualDispatcher dispatcher = new ManualDispatcher();
+            runtime.nodes = empty ? Collections.emptyList() : Arrays.asList(NODE_1, NODE_2, NODE_3);
+            runtime.offlineHosts.addAll(Arrays.asList("be-a", "be-b", "be-c"));
+            runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+            TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+            manager.onLeaderActivated(Collections.singletonList(
+                    new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+            dispatcher.runImmediate();
+            assertTrue(runtime.requestedHosts.isEmpty());
+            assertEquals(1, dispatcher.delayedSize());
+            assertEquals(1, manager.getStatus(DICTIONARY_ID).getRetryFailureCount());
+            assertTrue(runtime.refreshRequests.isEmpty());
+        }
+    }
+
+    @Test
+    public void testContinuationYieldsAndBecomesInvalidAfterUnbind() {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.nodes = Arrays.asList(NODE_1, NODE_2, NODE_3);
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        for (int i = 0; i < 2; i++) {
+            runtime.exportActions.add((node, request) -> failed(new IllegalStateException("unreachable")));
+        }
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.execute(() -> {
+            assertEquals(2, runtime.requestedHosts.size());
+            manager.removeTable(1, 2, binding(DICTIONARY_ID));
+        });
+        dispatcher.runImmediate();
+        assertEquals(Arrays.asList("be-a", "be-b"), runtime.requestedHosts);
+        assertEquals(0, dispatcher.delayedSize());
+        assertFalse(manager.getCurrentSnapshot(DICTIONARY_ID).isPresent());
+    }
+
+    @Test
+    public void testDeterministicFailureOnThirdNodeStopsSweep() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.nodes = Arrays.asList(NODE_1, NODE_2, NODE_3, new TNetworkAddress("be-d", 8060));
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        for (int i = 0; i < 2; i++) {
+            runtime.exportActions.add((node, request) -> failed(new IllegalStateException("unreachable")));
+        }
+        runtime.exportActions.add((node, request) -> completed(duplicateResponse(request.expectedTxnId)));
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runImmediate();
+        assertEquals(Arrays.asList("be-a", "be-b", "be-c"), runtime.requestedHosts);
+        assertEquals(7, manager.getStatus(DICTIONARY_ID).getBlockedTxnId());
+        assertEquals(0, dispatcher.delayedSize());
+    }
+
+    @Test
     public void testFirstReferenceRefreshAndPreBindingRefreshIsolation() throws Exception {
         FakeRuntime runtime = new FakeRuntime();
         ManualDispatcher dispatcher = new ManualDispatcher();
@@ -395,6 +588,11 @@ public class TenantTtlPolicySnapshotManagerTest {
             }
         }
 
+        private void runOneImmediate() {
+            assertFalse(immediate.isEmpty());
+            immediate.removeFirst().run();
+        }
+
         private void runNextDelayed() {
             assertFalse(delayed.isEmpty());
             delayed.removeFirst().run();
@@ -408,6 +606,8 @@ public class TenantTtlPolicySnapshotManagerTest {
         private final List<Long> requestedTxnIds = new ArrayList<>();
         private final List<String> requestedHosts = new ArrayList<>();
         private List<TNetworkAddress> nodes = Arrays.asList(NODE_1, NODE_2);
+        private final Map<String, Long> nodeIds = new HashMap<>();
+        private final List<String> offlineHosts = new ArrayList<>();
         private boolean leader = true;
         private long nowMillis = 1_800_000_000_000L;
 
@@ -448,8 +648,14 @@ public class TenantTtlPolicySnapshotManagerTest {
         }
 
         @Override
-        public List<TNetworkAddress> getExportNodes(long dictionaryId) {
-            return nodes;
+        public List<TenantTtlPolicySnapshotManager.ExportNode> getExportNodes(long dictionaryId) {
+            List<TenantTtlPolicySnapshotManager.ExportNode> candidates = new ArrayList<>();
+            for (TNetworkAddress node : nodes) {
+                long id = nodeIds.computeIfAbsent(node.hostname, host -> (long) host.hashCode());
+                candidates.add(new TenantTtlPolicySnapshotManager.ExportNode(id, node,
+                        !offlineHosts.contains(node.hostname)));
+            }
+            return candidates;
         }
 
         @Override
