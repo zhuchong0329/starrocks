@@ -14,10 +14,10 @@
 
 package com.starrocks.tenantttl.policy;
 
-import com.starrocks.catalog.Dictionary;
+import com.starrocks.catalog.DictionaryMgr.TenantTtlRefreshDisposition;
+import com.starrocks.catalog.DictionaryMgr.TenantTtlRefreshRequest;
 import com.starrocks.catalog.TenantTtlDictionaryBinding;
 import com.starrocks.common.Config;
-import com.starrocks.common.MetaNotFoundException;
 import com.starrocks.common.ThreadPoolManager;
 import com.starrocks.common.util.UUIDUtil;
 import com.starrocks.proto.PExportDictionaryCacheRequest;
@@ -63,6 +63,7 @@ public class TenantTtlPolicySnapshotManager {
     private static final long RETRY_INITIAL_DELAY_MS = 10_000L;
     private static final long RETRY_MAX_DELAY_MS = 600_000L;
     private static final double RETRY_JITTER_RATIO = 0.20;
+    private static final long RECOVERY_CHECK_INTERVAL_MS = 10_000;
 
     private final RuntimeEnvironment runtime;
     private final TaskDispatcher dispatcher;
@@ -133,6 +134,13 @@ public class TenantTtlPolicySnapshotManager {
     /** Called after the ordinary Dictionary result and its last-success transaction have been committed. */
     public void onDictionaryRefreshFinished(long dictionaryId, long txnId, boolean success,
                                             List<TNetworkAddress> participatingNodes) {
+        DictionaryView dictionary = runtime.getDictionary(dictionaryId);
+        onDictionaryRefreshFinished(dictionaryId, txnId, success, participatingNodes,
+                dictionary == null ? 0 : dictionary.refreshId);
+    }
+
+    public void onDictionaryRefreshFinished(long dictionaryId, long txnId, boolean success,
+                                            List<TNetworkAddress> participatingNodes, long refreshId) {
         boolean requestPostBindingRefresh = false;
         synchronized (this) {
             SnapshotState state = snapshotStates.get(dictionaryId);
@@ -140,10 +148,13 @@ public class TenantTtlPolicySnapshotManager {
                 return;
             }
 
+            boolean completed = state.recovery.finishRefresh(refreshId, success, runtime.monotonicMillis());
+
             if (success) {
                 if (txnId > state.targetTxnId) {
                     state.targetTxnId = txnId;
                     state.sweep = null;
+                    state.recovery.resetEvidence(txnId);
                     state.retryFailureCount = 0;
                     state.retryTxnId = 0;
                     state.retryToken++;
@@ -153,10 +164,11 @@ public class TenantTtlPolicySnapshotManager {
                 }
                 scheduleExportNowUnlocked(dictionaryId, state);
             }
-            if (state.refreshAfterPreBindingTask) {
+            if (state.refreshAfterPreBindingTask && completed) {
                 state.refreshAfterPreBindingTask = false;
                 requestPostBindingRefresh = true;
             }
+            scheduleRecoveryCheckUnlocked(dictionaryId, state);
         }
         if (requestPostBindingRefresh) {
             scheduleFullRefresh(dictionaryId, getGeneration(dictionaryId), getLifecycleEpoch());
@@ -199,7 +211,8 @@ public class TenantTtlPolicySnapshotManager {
                 state.currentSnapshot == null ? 0 : state.currentSnapshot.getDictionaryTxnId(), state.targetTxnId,
                 state.blockedTxnId == null ? 0 : state.blockedTxnId, state.lastAttemptTxnId,
                 state.lastAttemptTimeMillis, state.retryFailureCount, state.nextRetryTimeMillis,
-                state.lastFailureCode, state.lastFailureMessage, state.lastFailureTimeMillis);
+                state.lastFailureCode, state.lastFailureMessage, state.lastFailureTimeMillis,
+                recoveryDiagnostic(state));
     }
 
     public synchronized Set<TableRef> getReferencedTables(long dictionaryId) {
@@ -254,49 +267,132 @@ public class TenantTtlPolicySnapshotManager {
     }
 
     private void scheduleFirstReferenceRefresh(long dictionaryId, long generation, long epoch) {
-        dispatcher.execute(() -> {
-            if (!isEligible(dictionaryId, generation, epoch)) {
-                return;
-            }
-            DictionaryView dictionary = runtime.getDictionary(dictionaryId);
-            if (dictionary == null) {
-                return;
-            }
-            if (dictionary.isRefreshing()) {
-                synchronized (TenantTtlPolicySnapshotManager.this) {
-                    SnapshotState state = snapshotStates.get(dictionaryId);
-                    if (isEligibleUnlocked(dictionaryId, generation, epoch) && state != null) {
-                        state.refreshAfterPreBindingTask = true;
-                    }
-                }
-                return;
-            }
-            requestFullRefresh(dictionaryId, dictionary.getDictionaryName(), generation, epoch);
-        });
+        dispatcher.execute(() -> requestInitialRefresh(dictionaryId, generation, epoch, true));
     }
 
     private void scheduleFullRefresh(long dictionaryId, long generation, long epoch) {
-        dispatcher.execute(() -> {
-            if (!isEligible(dictionaryId, generation, epoch)) {
-                return;
-            }
-            DictionaryView dictionary = runtime.getDictionary(dictionaryId);
-            if (dictionary != null) {
-                requestFullRefresh(dictionaryId, dictionary.getDictionaryName(), generation, epoch);
-            }
-        });
+        dispatcher.execute(() -> requestInitialRefresh(dictionaryId, generation, epoch, false));
     }
 
-    private void requestFullRefresh(long dictionaryId, String dictionaryName, long generation, long epoch) {
-        try {
-            runtime.requestFullRefresh(dictionaryName);
-            LOG.info("Tenant-TTL requested a full refresh for Dictionary {} ({})", dictionaryName, dictionaryId);
-        } catch (Exception e) {
-            if (isEligible(dictionaryId, generation, epoch)) {
-                LOG.warn("Failed to request Tenant-TTL full refresh for Dictionary {} ({})",
-                        dictionaryName, dictionaryId, e);
-            }
+    private synchronized void requestInitialRefresh(long dictionaryId, long generation, long epoch,
+                                                     boolean firstReference) {
+        SnapshotState state = snapshotStates.get(dictionaryId);
+        DictionaryView dictionary = runtime.getDictionary(dictionaryId);
+        if (!isEligibleUnlocked(dictionaryId, generation, epoch) || state == null || dictionary == null) {
+            return;
         }
+        TenantTtlRefreshRequest result = requestRefreshUnlocked(dictionaryId, dictionary, state);
+        if (firstReference && result != null && result.disposition == TenantTtlRefreshDisposition.JOIN_EXISTING) {
+            state.refreshAfterPreBindingTask = true;
+        }
+        scheduleRecoveryCheckUnlocked(dictionaryId, state);
+    }
+
+    private TenantTtlRefreshRequest requestRefreshUnlocked(long dictionaryId, DictionaryView dictionary,
+                                                           SnapshotState state) {
+        try {
+            TenantTtlRefreshRequest result = runtime.requestRecoveryRefresh(dictionaryId, dictionary.lastSuccessTxnId);
+            if (result.disposition == TenantTtlRefreshDisposition.ENQUEUED ||
+                    result.disposition == TenantTtlRefreshDisposition.JOIN_EXISTING) {
+                state.recovery.waitingRefreshId = result.refreshId;
+                state.recovery.resetEvidence(dictionary.lastSuccessTxnId);
+                setRecoveryPhase(dictionaryId, state, "WAITING_REFRESH");
+                LOG.info("Tenant-TTL Dictionary {} refresh {}: {}", dictionaryId, result.refreshId, result.disposition);
+            }
+            return result;
+        } catch (Exception e) {
+            state.recovery.waitingRefreshId = 0;
+            state.recovery.cooling = true;
+            state.recovery.refreshFinishedAt = runtime.monotonicMillis();
+            state.recovery.lastRefreshResult = "ADMISSION_FAILED: " + rootMessage(e);
+            LOG.warn("Failed to request Tenant-TTL full refresh for Dictionary {}", dictionaryId, e);
+            return null;
+        }
+    }
+
+    private void scheduleRecoveryCheckUnlocked(long dictionaryId, SnapshotState state) {
+        if (state.currentSnapshot != null || state.recoveryCheckScheduled ||
+                (state.blockedTxnId != null && state.blockedTxnId == state.targetTxnId)) {
+            return;
+        }
+        state.recoveryCheckScheduled = true;
+        long token = ++state.recoveryCheckToken;
+        long generation = getGenerationUnlocked(dictionaryId);
+        long epoch = lifecycleEpoch;
+        state.nextRecoveryCheckMillis = saturatedAdd(runtime.currentTimeMillis(), RECOVERY_CHECK_INTERVAL_MS);
+        dispatcher.schedule(() -> {
+            List<ExportNode> nodes = runtime.getExportNodes(dictionaryId);
+            synchronized (TenantTtlPolicySnapshotManager.this) {
+                SnapshotState current = snapshotStates.get(dictionaryId);
+                if (!isEligibleUnlocked(dictionaryId, generation, epoch) || current == null ||
+                        current.recoveryCheckToken != token) {
+                    return;
+                }
+                current.recoveryCheckScheduled = false;
+                current.nextRecoveryCheckMillis = 0;
+                evaluateRecoveryUnlocked(dictionaryId, current, nodes.stream().anyMatch(node -> node.alive));
+                scheduleRecoveryCheckUnlocked(dictionaryId, current);
+            }
+        }, RECOVERY_CHECK_INTERVAL_MS);
+    }
+
+    private void evaluateRecoveryUnlocked(long dictionaryId, SnapshotState state, boolean hasLiveNode) {
+        if (state.currentSnapshot != null) {
+            return;
+        }
+        DictionaryView dictionary = runtime.getDictionary(dictionaryId);
+        if (dictionary == null) {
+            return;
+        }
+        if (dictionary.lastSuccessTxnId > state.targetTxnId) {
+            state.targetTxnId = dictionary.lastSuccessTxnId;
+            state.sweep = null;
+            state.recovery.resetEvidence(state.targetTxnId);
+            state.retryFailureCount = 0;
+            state.retryToken++;
+            scheduleExportNowUnlocked(dictionaryId, state);
+            return;
+        }
+        if (state.blockedTxnId != null && state.blockedTxnId == state.targetTxnId) {
+            setRecoveryPhase(dictionaryId, state, "BLOCKED");
+        } else if (dictionary.refreshing || state.recovery.waitingRefreshId > 0) {
+            if (dictionary.refreshId > 0) {
+                state.recovery.waitingRefreshId = dictionary.refreshId;
+            }
+            setRecoveryPhase(dictionaryId, state, "WAITING_REFRESH");
+        } else if (!Config.tenant_ttl_policy_snapshot_auto_recover_enabled) {
+            setRecoveryPhase(dictionaryId, state, "DISABLED");
+        } else if (!hasLiveNode) {
+            setRecoveryPhase(dictionaryId, state, "WAITING_NODES");
+        } else if (state.recovery.cooldownRemaining(runtime.monotonicMillis(),
+                Config.tenant_ttl_policy_snapshot_recovery_cooldown_seconds) > 0) {
+            setRecoveryPhase(dictionaryId, state, "COOLDOWN");
+        } else if (dictionary.lastSuccessTxnId <= 0 || state.recovery.needed) {
+            requestRefreshUnlocked(dictionaryId, dictionary, state);
+        } else {
+            setRecoveryPhase(dictionaryId, state, "PROBING");
+        }
+    }
+
+    private void setRecoveryPhase(long dictionaryId, SnapshotState state, String phase) {
+        if (!phase.equals(state.recovery.phase)) {
+            state.recovery.phase = phase;
+            LOG.info("Tenant-TTL Dictionary {} target {} recovery {}", dictionaryId, state.targetTxnId, phase);
+        }
+    }
+
+    private String recoveryDiagnostic(SnapshotState state) {
+        if (state.currentSnapshot != null) {
+            return null;
+        }
+        return "recovery=" + state.recovery.phase + ", target=" + state.targetTxnId +
+                ", visited=" + state.recovery.visited + "/" + state.recovery.candidates +
+                ", uncertainSweeps=" + state.recovery.uncertainSweeps +
+                ", refresh=" + state.recovery.waitingRefreshId + ", lastRefresh=" + state.recovery.lastRefreshResult +
+                ", nextCheckMillis=" + state.nextRecoveryCheckMillis +
+                ", cooldownRemainingMillis=" + state.recovery.cooldownRemaining(runtime.monotonicMillis(),
+                Config.tenant_ttl_policy_snapshot_recovery_cooldown_seconds) +
+                (Config.tenant_ttl_policy_snapshot_recovery_cooldown_seconds <= 0 ? ", invalidCooldownUsingDefault=300" : "");
     }
 
     private void scheduleExportNowUnlocked(long dictionaryId, SnapshotState state) {
@@ -338,6 +434,7 @@ public class TenantTtlPolicySnapshotManager {
             if (latestTxnId > state.targetTxnId) {
                 state.targetTxnId = latestTxnId;
                 state.sweep = null;
+                state.recovery.resetEvidence(latestTxnId);
                 state.retryFailureCount = 0;
                 state.retryTxnId = 0;
                 state.retryToken++;
@@ -352,7 +449,10 @@ public class TenantTtlPolicySnapshotManager {
             state.lastAttemptTxnId = latestTxnId;
             state.lastAttemptTimeMillis = runtime.currentTimeMillis();
             if (state.sweep == null || state.sweep.txnId != latestTxnId) {
-                state.sweep = new ExportSweep(latestTxnId, rotateAfter(catalogNodes, state.lastVisitedNode));
+                state.sweep = new ExportSweep(latestTxnId, rotateAfter(catalogNodes, state.lastVisitedNode),
+                        runtime.monotonicMillis());
+                state.recovery.visited = 0;
+                state.recovery.candidates = state.sweep.nodes.size();
             }
             ExportSweep sweep = state.sweep;
             List<ExportNode> nodes = new ArrayList<>();
@@ -385,9 +485,11 @@ public class TenantTtlPolicySnapshotManager {
 
         ExportResult lastRetryable = null;
         for (ExportNode node : context.nodes) {
+            context.sweep.visited++;
             if (!node.alive) {
                 lastRetryable = ExportResult.retryable("TENANT_TTL_POLICY_EXPORT_NODE_UNAVAILABLE",
                         node.address + ": captured node is offline, removed or replaced").visited(node);
+                context.sweep.uncertain++;
                 continue;
             }
             try {
@@ -410,8 +512,19 @@ public class TenantTtlPolicySnapshotManager {
                 if (e.getClassification() == TenantTtlPolicySnapshotBuildException.Classification.DETERMINISTIC) {
                     return failure;
                 }
+                switch (e.getErrorCode()) {
+                    case TENANT_TTL_POLICY_CACHE_NOT_FOUND:
+                    case TENANT_TTL_POLICY_VERSION_MISMATCH:
+                        context.sweep.missing++;
+                        break;
+                    default:
+                        // A server's non-OK status is not proof of a network failure or lost cache.
+                        context.sweep.other++;
+                        break;
+                }
                 lastRetryable = failure;
             } catch (Exception e) {
+                context.sweep.uncertain++;
                 lastRetryable = ExportResult.retryable("TENANT_TTL_POLICY_EXPORT_RPC_ERROR",
                         node.address + ": " + rootMessage(e)).visited(node);
             }
@@ -446,6 +559,7 @@ public class TenantTtlPolicySnapshotManager {
                 state.lastVisitedNode = result.lastVisitedNode;
             }
             state.lastAttemptTimeMillis = runtime.currentTimeMillis();
+            state.recovery.visited = context.sweep.visited;
             if (result.snapshot != null) {
                 TenantTtlPolicySnapshot current = state.currentSnapshot;
                 if (current == null || result.snapshot.getDictionaryTxnId() > current.getDictionaryTxnId()) {
@@ -459,6 +573,12 @@ public class TenantTtlPolicySnapshotManager {
                 state.nextRetryTimeMillis = 0;
                 state.retryToken++;
                 state.sweep = null;
+                state.recovery.resetEvidence(context.txnId);
+                state.recovery.waitingRefreshId = 0;
+                state.recoveryCheckToken++;
+                state.recoveryCheckScheduled = false;
+                state.nextRecoveryCheckMillis = 0;
+                setRecoveryPhase(context.dictionaryId, state, "RECOVERED");
                 state.clearFailure();
                 DictionaryView dictionary = runtime.getDictionary(context.dictionaryId);
                 if (dictionary != null && dictionary.getLastSuccessTxnId() >
@@ -479,6 +599,7 @@ public class TenantTtlPolicySnapshotManager {
                     state.targetTxnId = Math.max(state.targetTxnId, dictionary.getLastSuccessTxnId());
                 }
                 state.sweep = null;
+                state.recovery.resetEvidence(state.targetTxnId);
                 state.retryFailureCount = 0;
                 state.retryTxnId = 0;
                 state.nextRetryTimeMillis = 0;
@@ -490,14 +611,28 @@ public class TenantTtlPolicySnapshotManager {
                 state.blockedTxnId = context.txnId;
                 state.nextRetryTimeMillis = 0;
                 state.sweep = null;
+                state.recovery.resetEvidence(context.txnId);
+                state.recoveryCheckToken++;
+                state.recoveryCheckScheduled = false;
+                state.nextRecoveryCheckMillis = 0;
+                setRecoveryPhase(context.dictionaryId, state, "BLOCKED");
                 return;
             }
             if (state.sweep == context.sweep && context.sweep.nextIndex < context.sweep.nodes.size()) {
                 scheduleExportNowUnlocked(context.dictionaryId, state);
                 return;
             }
+            boolean hasLiveNode = context.sweep.nodes.stream().anyMatch(node -> node.alive);
+            if (hasLiveNode) {
+                state.recovery.recordSweep(context.txnId, context.sweep.startedAt, runtime.monotonicMillis(),
+                        context.sweep.missing, context.sweep.uncertain, context.sweep.other);
+            } else {
+                state.recovery.resetEvidence(context.txnId);
+            }
             state.sweep = null;
             scheduleRetryUnlocked(context.dictionaryId, context.txnId, state);
+            evaluateRecoveryUnlocked(context.dictionaryId, state, hasLiveNode);
+            scheduleRecoveryCheckUnlocked(context.dictionaryId, state);
         }
     }
 
@@ -530,10 +665,6 @@ public class TenantTtlPolicySnapshotManager {
         if (isEligibleUnlocked(dictionaryId, generation, epoch) && state != null) {
             state.exportActive = false;
         }
-    }
-
-    private synchronized boolean isEligible(long dictionaryId, long generation, long epoch) {
-        return isEligibleUnlocked(dictionaryId, generation, epoch);
     }
 
     private boolean isEligibleUnlocked(long dictionaryId, long generation, long epoch) {
@@ -635,7 +766,7 @@ public class TenantTtlPolicySnapshotManager {
 
         DictionaryView getDictionary(long dictionaryId);
 
-        void requestFullRefresh(String dictionaryName) throws Exception;
+        TenantTtlRefreshRequest requestRecoveryRefresh(long dictionaryId, long expectedSuccessTxnId) throws Exception;
 
         List<ExportNode> getExportNodes(long dictionaryId);
 
@@ -643,6 +774,8 @@ public class TenantTtlPolicySnapshotManager {
                 throws Exception;
 
         long currentTimeMillis();
+
+        long monotonicMillis();
 
         double retryJitter();
     }
@@ -680,24 +813,33 @@ public class TenantTtlPolicySnapshotManager {
         private final long txnId;
         private final List<ExportNode> nodes;
         private int nextIndex;
+        private int visited;
+        private final long startedAt;
+        private int missing;
+        private int uncertain;
+        private int other;
 
-        private ExportSweep(long txnId, List<ExportNode> nodes) {
+        private ExportSweep(long txnId, List<ExportNode> nodes, long startedAt) {
             this.txnId = txnId;
             this.nodes = nodes;
+            this.startedAt = startedAt;
         }
     }
 
-    static final class DictionaryView {
+    public static final class DictionaryView {
         private final long dictionaryId;
         private final String dictionaryName;
         private final long lastSuccessTxnId;
         private final boolean refreshing;
+        private final long refreshId;
 
-        DictionaryView(long dictionaryId, String dictionaryName, long lastSuccessTxnId, boolean refreshing) {
+        public DictionaryView(long dictionaryId, String dictionaryName, long lastSuccessTxnId, boolean refreshing,
+                              long refreshId) {
             this.dictionaryId = dictionaryId;
             this.dictionaryName = dictionaryName;
             this.lastSuccessTxnId = lastSuccessTxnId;
             this.refreshing = refreshing;
+            this.refreshId = refreshId;
         }
 
         long getDictionaryId() {
@@ -748,11 +890,21 @@ public class TenantTtlPolicySnapshotManager {
         private final String lastFailureCode;
         private final String lastFailureMessage;
         private final long lastFailureTimeMillis;
+        private final String recoveryDiagnostic;
 
         SnapshotStatus(long generation, int referenceCount, long snapshotTxnId, long targetTxnId,
                        long blockedTxnId, long lastAttemptTxnId, long lastAttemptTimeMillis,
                        int retryFailureCount, long nextRetryTimeMillis, String lastFailureCode,
                        String lastFailureMessage, long lastFailureTimeMillis) {
+            this(generation, referenceCount, snapshotTxnId, targetTxnId, blockedTxnId, lastAttemptTxnId,
+                    lastAttemptTimeMillis, retryFailureCount, nextRetryTimeMillis, lastFailureCode,
+                    lastFailureMessage, lastFailureTimeMillis, null);
+        }
+
+        SnapshotStatus(long generation, int referenceCount, long snapshotTxnId, long targetTxnId,
+                       long blockedTxnId, long lastAttemptTxnId, long lastAttemptTimeMillis,
+                       int retryFailureCount, long nextRetryTimeMillis, String lastFailureCode,
+                       String lastFailureMessage, long lastFailureTimeMillis, String recoveryDiagnostic) {
             this.generation = generation;
             this.referenceCount = referenceCount;
             this.snapshotTxnId = snapshotTxnId;
@@ -765,6 +917,11 @@ public class TenantTtlPolicySnapshotManager {
             this.lastFailureCode = lastFailureCode;
             this.lastFailureMessage = lastFailureMessage;
             this.lastFailureTimeMillis = lastFailureTimeMillis;
+            this.recoveryDiagnostic = recoveryDiagnostic;
+        }
+
+        public String getRecoveryDiagnostic() {
+            return recoveryDiagnostic;
         }
 
         private static SnapshotStatus empty(long generation, int referenceCount) {
@@ -873,6 +1030,10 @@ public class TenantTtlPolicySnapshotManager {
         private String lastFailureCode;
         private String lastFailureMessage;
         private long lastFailureTimeMillis;
+        private final TenantTtlSnapshotRecovery recovery = new TenantTtlSnapshotRecovery();
+        private boolean recoveryCheckScheduled;
+        private long recoveryCheckToken;
+        private long nextRecoveryCheckMillis;
 
         private void clearFailure() {
             lastFailureCode = null;
@@ -969,17 +1130,13 @@ public class TenantTtlPolicySnapshotManager {
 
         @Override
         public DictionaryView getDictionary(long dictionaryId) {
-            Dictionary dictionary = GlobalStateMgr.getCurrentState().getDictionaryMgr().getDictionaryById(dictionaryId);
-            if (dictionary == null) {
-                return null;
-            }
-            return new DictionaryView(dictionary.getDictionaryId(), dictionary.getDictionaryName(),
-                    dictionary.getLastSuccessVersion(), dictionary.isRefreshing());
+            return GlobalStateMgr.getCurrentState().getDictionaryMgr().getTenantTtlDictionaryView(dictionaryId);
         }
 
         @Override
-        public void requestFullRefresh(String dictionaryName) throws MetaNotFoundException {
-            GlobalStateMgr.getCurrentState().getDictionaryMgr().refreshDictionary(dictionaryName);
+        public TenantTtlRefreshRequest requestRecoveryRefresh(long dictionaryId, long expectedSuccessTxnId) {
+            return GlobalStateMgr.getCurrentState().getDictionaryMgr()
+                    .requestTenantTtlRecoveryRefresh(dictionaryId, expectedSuccessTxnId);
         }
 
         @Override
@@ -1003,6 +1160,11 @@ public class TenantTtlPolicySnapshotManager {
         @Override
         public long currentTimeMillis() {
             return System.currentTimeMillis();
+        }
+
+        @Override
+        public long monotonicMillis() {
+            return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
         }
 
         @Override

@@ -125,6 +125,83 @@ public class DictionaryMgrTest {
     }
 
     @Test
+    public void testTenantTtlRefreshAdmissionCoalescesAndChecksTarget() throws Exception {
+        new Expectations(globalStateMgr) {
+            {
+                globalStateMgr.isLeader();
+                result = true;
+                minTimes = 0;
+            }
+        };
+        DictionaryMgr local = new DictionaryMgr();
+        Dictionary dictionary = new Dictionary(17, "ttl_dict", "t", "default_catalog", "testDb",
+                Arrays.asList("key"), Arrays.asList("value"), null);
+        local.addDictionary(dictionary);
+        dictionary.setLastSuccessVersion(7);
+        DictionaryMgr.TenantTtlRefreshRequest first = local.requestTenantTtlRecoveryRefresh(17, 7);
+        DictionaryMgr.TenantTtlRefreshRequest second = local.requestTenantTtlRecoveryRefresh(17, 7);
+        Assertions.assertEquals(DictionaryMgr.TenantTtlRefreshDisposition.ENQUEUED, first.disposition);
+        Assertions.assertEquals(DictionaryMgr.TenantTtlRefreshDisposition.JOIN_EXISTING, second.disposition);
+        Assertions.assertEquals(first.refreshId, second.refreshId);
+        Assertions.assertEquals(1, local.getUnfinishedRefreshTasks().size());
+        // Admission does not run a source query or wait for a journal; the ordinary scheduler sets REFRESHING.
+        Assertions.assertFalse(dictionary.isRefreshing());
+        dictionary.setLastSuccessVersion(8);
+        Assertions.assertEquals(DictionaryMgr.TenantTtlRefreshDisposition.TARGET_CHANGED,
+                local.requestTenantTtlRecoveryRefresh(17, 7).disposition);
+        Assertions.assertEquals(DictionaryMgr.TenantTtlRefreshDisposition.INELIGIBLE,
+                local.requestTenantTtlRecoveryRefresh(18, 7).disposition);
+        dictionary.setCommitting();
+        Assertions.assertEquals(DictionaryMgr.TenantTtlRefreshDisposition.JOIN_EXISTING,
+                local.requestTenantTtlRecoveryRefresh(17, 8).disposition);
+    }
+
+    @Test
+    public void testTenantTtlJoinsManualRefreshAndConcurrentRequests() throws Exception {
+        new Expectations(globalStateMgr) {
+            {
+                globalStateMgr.isLeader();
+                result = true;
+                minTimes = 0;
+            }
+        };
+        new MockUp<DictionaryMgr>() {
+            @Mock
+            public void syncDictionaryMeta(List<Dictionary> dictionaries) {
+            }
+        };
+        DictionaryMgr local = new DictionaryMgr();
+        Dictionary dictionary = new Dictionary(17, "ttl_dict", "t", "default_catalog", "testDb",
+                Arrays.asList("key"), Arrays.asList("value"), null);
+        local.addDictionary(dictionary);
+        local.refreshDictionary("ttl_dict");
+        Assertions.assertEquals(DictionaryMgr.TenantTtlRefreshDisposition.JOIN_EXISTING,
+                local.requestTenantTtlRecoveryRefresh(17, 0).disposition);
+
+        Dictionary other = new Dictionary(18, "other_dict", "t", "default_catalog", "testDb",
+                Arrays.asList("key"), Arrays.asList("value"), null);
+        local.addDictionary(other);
+        java.util.concurrent.CyclicBarrier barrier = new java.util.concurrent.CyclicBarrier(2);
+        java.util.concurrent.Callable<DictionaryMgr.TenantTtlRefreshRequest> request = () -> {
+            barrier.await();
+            return local.requestTenantTtlRecoveryRefresh(18, 0);
+        };
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Future<DictionaryMgr.TenantTtlRefreshRequest> a = executor.submit(request);
+            java.util.concurrent.Future<DictionaryMgr.TenantTtlRefreshRequest> b = executor.submit(request);
+            DictionaryMgr.TenantTtlRefreshRequest left = a.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            DictionaryMgr.TenantTtlRefreshRequest right = b.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            Assertions.assertEquals(left.refreshId, right.refreshId);
+            Assertions.assertNotEquals(left.disposition, right.disposition);
+            Assertions.assertTrue(Arrays.asList(left.disposition, right.disposition)
+                    .contains(DictionaryMgr.TenantTtlRefreshDisposition.ENQUEUED));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
     public void testShowDictionary() throws Exception {
         dictionaryMgr.getAllInfo("dict");
     }

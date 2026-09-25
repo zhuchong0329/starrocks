@@ -100,6 +100,10 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
 
     private Set<Long> unfinishedRefreshTasks = Sets.newHashSet();
     private final Set<Long> runningRefreshTasks = Sets.newHashSet();
+    // Local refresh identities fence delayed Tenant-TTL callbacks; never persisted or used as Dictionary versions.
+    private final Map<Long, Long> tenantTtlRefreshIds = new HashMap<>();
+    private final Set<Long> pendingTenantTtlRefreshTasks = Sets.newHashSet();
+    private long nextTenantTtlRefreshId = 1;
 
     private final Lock lock = new ReentrantLock();
 
@@ -130,13 +134,16 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
             for (Map.Entry<Long, Dictionary> entry : dictionariesMapById.entrySet()) {
                 long id = entry.getKey();
                 Dictionary dictionary = dictionariesMapById.get(id);
+                boolean tenantTtlQueued = pendingTenantTtlRefreshTasks.remove(id);
                 // regular schedule
-                if ((dictionary.getNextSchedulableTime() <= System.currentTimeMillis() &&
+                if (tenantTtlQueued || (dictionary.getNextSchedulableTime() <= System.currentTimeMillis() &&
                         !unfinishedRefreshTasks.contains(id)) ||
                         // follower -> leader when dictionary is refreshing.
                         (dictionary.isRefreshing() && !runningRefreshTasks.contains(id))) {
                     unfinishedRefreshTasks.add(id);
-                    dictionary.setRefreshing();
+                    if (!tenantTtlQueued || !dictionary.isRefreshing()) {
+                        dictionary.setRefreshing();
+                    }
                     dictionary.updateNextSchedulableTime(dictionary.getRefreshInterval());
                     syncDictionaries.add(dictionary);
                 }
@@ -249,6 +256,8 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
                 dictionariesMapById.remove(dictionary.getDictionaryId());
                 dictionariesIdMapByName.remove(dictionary.getDictionaryName());
                 unfinishedRefreshTasks.remove(dictionary.getDictionaryId());
+                tenantTtlRefreshIds.remove(dictionary.getDictionaryId());
+                pendingTenantTtlRefreshTasks.remove(dictionary.getDictionaryId());
             }
         } finally {
             lock.unlock();
@@ -279,6 +288,82 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
             List<Dictionary> syncDictionary = Lists.newArrayList();
             syncDictionary.add(dictionary);
             syncDictionaryMeta(syncDictionary);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public enum TenantTtlRefreshDisposition {
+        ENQUEUED, JOIN_EXISTING, TARGET_CHANGED, INELIGIBLE
+    }
+
+    public static final class TenantTtlRefreshRequest {
+        public final TenantTtlRefreshDisposition disposition;
+        public final long refreshId;
+
+        public TenantTtlRefreshRequest(TenantTtlRefreshDisposition disposition, long refreshId) {
+            this.disposition = disposition;
+            this.refreshId = refreshId;
+        }
+    }
+
+    /**
+     * Short, non-I/O admission called with the snapshot manager monitor held. Never call back into that manager here.
+     * The ordinary scheduler journals REFRESHING before starting its worker, as for leader-recovered refreshes.
+     */
+    public TenantTtlRefreshRequest requestTenantTtlRecoveryRefresh(long dictionaryId, long expectedSuccessTxnId) {
+        lock.lock();
+        try {
+            Dictionary dictionary = dictionariesMapById.get(dictionaryId);
+            if (!GlobalStateMgr.getCurrentState().isLeader() || dictionary == null) {
+                return new TenantTtlRefreshRequest(TenantTtlRefreshDisposition.INELIGIBLE, 0);
+            }
+            if (dictionary.getLastSuccessVersion() != expectedSuccessTxnId) {
+                return new TenantTtlRefreshRequest(TenantTtlRefreshDisposition.TARGET_CHANGED, 0);
+            }
+            boolean existing = unfinishedRefreshTasks.contains(dictionaryId) || runningRefreshTasks.contains(dictionaryId)
+                    || dictionary.isRefreshing() || tenantTtlRefreshIds.containsKey(dictionaryId);
+            long refreshId = tenantTtlRefreshIds.computeIfAbsent(dictionaryId, ignored -> nextTenantTtlRefreshId++);
+            if (existing) {
+                return new TenantTtlRefreshRequest(TenantTtlRefreshDisposition.JOIN_EXISTING, refreshId);
+            }
+            unfinishedRefreshTasks.add(dictionaryId);
+            pendingTenantTtlRefreshTasks.add(dictionaryId);
+            return new TenantTtlRefreshRequest(TenantTtlRefreshDisposition.ENQUEUED, refreshId);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public TenantTtlPolicySnapshotManager.DictionaryView getTenantTtlDictionaryView(long dictionaryId) {
+        lock.lock();
+        try {
+            Dictionary dictionary = dictionariesMapById.get(dictionaryId);
+            if (dictionary == null) {
+                return null;
+            }
+            boolean refreshing = dictionary.isRefreshing() || unfinishedRefreshTasks.contains(dictionaryId)
+                    || runningRefreshTasks.contains(dictionaryId) || tenantTtlRefreshIds.containsKey(dictionaryId);
+            return new TenantTtlPolicySnapshotManager.DictionaryView(dictionaryId, dictionary.getDictionaryName(),
+                    dictionary.getLastSuccessVersion(), refreshing, tenantTtlRefreshIds.getOrDefault(dictionaryId, 0L));
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private long captureTenantTtlRefreshId(long dictionaryId) {
+        lock.lock();
+        try {
+            return tenantTtlRefreshIds.computeIfAbsent(dictionaryId, ignored -> nextTenantTtlRefreshId++);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void finishTenantTtlRefreshId(long dictionaryId, long refreshId) {
+        lock.lock();
+        try {
+            tenantTtlRefreshIds.remove(dictionaryId, refreshId);
         } finally {
             lock.unlock();
         }
@@ -632,6 +717,7 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
     public class RefreshDictionaryCacheWorker implements Runnable {
         private Dictionary dictionary;
         private long txnId;
+        private final long tenantTtlRefreshId;
         private List<TNetworkAddress> beNodes = Lists.newArrayList();
         private boolean error;
         private String errMsg;
@@ -639,6 +725,7 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
         public RefreshDictionaryCacheWorker(Dictionary dictionary, long txnId) {
             this.dictionary = dictionary;
             this.txnId = txnId;
+            this.tenantTtlRefreshId = captureTenantTtlRefreshId(dictionary.getDictionaryId());
             this.error = false;
             this.errMsg = "";
             initializeBeNodesAddress();
@@ -797,10 +884,11 @@ public class DictionaryMgr implements Writable, GsonPostProcessable {
             List<Dictionary> syncDictionary = Lists.newArrayList();
             syncDictionary.add(dictionary);
             GlobalStateMgr.getCurrentState().getDictionaryMgr().syncDictionaryMeta(syncDictionary);
+            finishTenantTtlRefreshId(dictionaryId, tenantTtlRefreshId);
             TenantTtlPolicySnapshotManager snapshotManager =
                     GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager();
             if (snapshotManager != null) {
-                snapshotManager.onDictionaryRefreshFinished(dictionaryId, txnId, success, beNodes);
+                snapshotManager.onDictionaryRefreshFinished(dictionaryId, txnId, success, beNodes, tenantTtlRefreshId);
             }
         }
 

@@ -3867,6 +3867,12 @@ public class Config extends ConfigBase {
     @ConfField(mutable = true)
     public static int tenant_ttl_policy_snapshot_export_rpc_timeout_ms = 60000;
 
+    @ConfField(mutable = true)
+    public static boolean tenant_ttl_policy_snapshot_auto_recover_enabled = true;
+
+    @ConfField(mutable = true)
+    public static long tenant_ttl_policy_snapshot_recovery_cooldown_seconds = 300;
+
     // Keep the BE tenant_ttl_policy_export_max_rows default in sync. Byte and memory limits still apply.
     @ConfField(mutable = true)
     public static long tenant_ttl_policy_snapshot_export_max_rows = 1000000;

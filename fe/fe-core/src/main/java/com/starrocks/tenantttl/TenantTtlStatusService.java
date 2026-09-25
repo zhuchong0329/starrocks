@@ -393,6 +393,7 @@ public final class TenantTtlStatusService {
             } else {
                 addError(snapshotStatus.getLastFailureMessage());
             }
+            addError(snapshotStatus.getRecoveryDiagnostic());
         }
 
         private void addDictionaryError() {

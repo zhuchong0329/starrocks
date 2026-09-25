@@ -16,7 +16,10 @@ package com.starrocks.tenantttl.policy;
 
 import com.baidu.bjf.remoting.protobuf.Codec;
 import com.baidu.bjf.remoting.protobuf.ProtobufProxy;
+import com.starrocks.catalog.DictionaryMgr.TenantTtlRefreshDisposition;
+import com.starrocks.catalog.DictionaryMgr.TenantTtlRefreshRequest;
 import com.starrocks.catalog.TenantTtlDictionaryBinding;
+import com.starrocks.common.Config;
 import com.starrocks.proto.CompressionTypePB;
 import com.starrocks.proto.PCompressedTenantTtlPolicyBatchPB;
 import com.starrocks.proto.PDictionaryCacheExportOutcome;
@@ -26,6 +29,7 @@ import com.starrocks.proto.PTenantTtlPolicyBatchPB;
 import com.starrocks.proto.PTenantTtlPolicyEntryPB;
 import com.starrocks.proto.StatusPB;
 import com.starrocks.thrift.TNetworkAddress;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -55,6 +59,243 @@ public class TenantTtlPolicySnapshotManagerTest {
     private static final TNetworkAddress NODE_3 = new TNetworkAddress("be-c", 8060);
     private static final Codec<PTenantTtlPolicyBatchPB> POLICY_BATCH_CODEC =
             ProtobufProxy.create(PTenantTtlPolicyBatchPB.class);
+
+    @AfterEach
+    public void restoreRecoveryConfig() {
+        Config.tenant_ttl_policy_snapshot_auto_recover_enabled = true;
+        Config.tenant_ttl_policy_snapshot_recovery_cooldown_seconds = 300;
+    }
+
+    @Test
+    public void testFailedRecoveryRetriesAfterCooldownAndPublishesNewVersion() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        runtime.fallbackOutcome = PDictionaryCacheExportOutcome.CACHE_NOT_FOUND;
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runImmediate();
+        assertEquals(1, runtime.refreshRequests.size());
+        runtime.monotonicMillis = 500_000;
+        dispatcher.runDelayedBatch();
+        assertEquals(1, runtime.refreshRequests.size());
+        runtime.setDictionaryState(DICTIONARY_ID, 7, false);
+        manager.onDictionaryRefreshFinished(DICTIONARY_ID, 8, false, runtime.nodes);
+        runtime.monotonicMillis = 799_000;
+        runtime.nowMillis -= 1_000_000;
+        dispatcher.runDelayedBatch();
+        assertEquals(1, runtime.refreshRequests.size());
+        runtime.monotonicMillis = 800_000;
+        dispatcher.runDelayedBatch();
+        assertEquals(2, runtime.refreshRequests.size());
+        // A delayed completion from the first attempt cannot release the second one.
+        manager.onDictionaryRefreshFinished(DICTIONARY_ID, 8, false, runtime.nodes, 1);
+        runtime.monotonicMillis += 1_000_000;
+        dispatcher.runDelayedBatch();
+        assertEquals(2, runtime.refreshRequests.size());
+        runtime.setDictionaryState(DICTIONARY_ID, 9, false);
+        runtime.exportActions.add((node, request) -> completed(validResponse(request.expectedTxnId)));
+        manager.onDictionaryRefreshFinished(DICTIONARY_ID, 9, true, runtime.nodes);
+        dispatcher.runImmediate();
+        assertEquals(9, manager.getCurrentSnapshot(DICTIONARY_ID).orElseThrow().getDictionaryTxnId());
+        assertNull(manager.getStatus(DICTIONARY_ID).getRecoveryDiagnostic());
+        dispatcher.runDelayedBatch();
+        assertEquals(2, runtime.refreshRequests.size());
+    }
+
+    @Test
+    public void testSwitchReenablesRecoveryWithoutExternalRefresh() {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        runtime.fallbackOutcome = PDictionaryCacheExportOutcome.CACHE_NOT_FOUND;
+        Config.tenant_ttl_policy_snapshot_auto_recover_enabled = false;
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runImmediate();
+        assertTrue(runtime.refreshRequests.isEmpty());
+        assertTrue(manager.getStatus(DICTIONARY_ID).getRecoveryDiagnostic().contains("DISABLED"));
+        Config.tenant_ttl_policy_snapshot_auto_recover_enabled = true;
+        dispatcher.runDelayedBatch();
+        assertEquals(1, runtime.refreshRequests.size());
+    }
+
+    @Test
+    public void testReturningOfflineNodesAreProbedBeforeRefreshingSource() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        runtime.offlineHosts.addAll(Arrays.asList("be-a", "be-b"));
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runImmediate();
+        for (int i = 0; i < 3; i++) {
+            runtime.monotonicMillis += 60_000;
+            dispatcher.runDelayedBatch();
+        }
+        runtime.offlineHosts.clear();
+        runtime.exportActions.add((node, request) -> completed(validResponse(request.expectedTxnId)));
+        dispatcher.runDelayedBatch();
+        assertTrue(runtime.refreshRequests.isEmpty());
+        assertEquals(7, manager.getCurrentSnapshot(DICTIONARY_ID).orElseThrow().getDictionaryTxnId());
+    }
+
+    @Test
+    public void testRecoveryTimersCannotActAfterLeaderEpochChangeOrDictionaryReplacement() {
+        for (boolean replaceDictionary : Arrays.asList(false, true)) {
+            FakeRuntime runtime = new FakeRuntime();
+            ManualDispatcher dispatcher = new ManualDispatcher();
+            runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+            runtime.fallbackOutcome = PDictionaryCacheExportOutcome.CACHE_NOT_FOUND;
+            Config.tenant_ttl_policy_snapshot_auto_recover_enabled = false;
+            TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+            manager.onLeaderActivated(Collections.singletonList(
+                    new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+            dispatcher.runImmediate();
+            if (replaceDictionary) {
+                manager.onDictionaryDropped(DICTIONARY_ID);
+                runtime.dictionaries.remove(DICTIONARY_ID);
+                runtime.putDictionary(202, DICTIONARY_NAME, 0, false);
+            } else {
+                manager.onLeaderActivated(Collections.emptyList());
+            }
+            Config.tenant_ttl_policy_snapshot_auto_recover_enabled = true;
+            dispatcher.runDelayedBatch();
+            assertTrue(runtime.refreshRequests.isEmpty());
+        }
+    }
+
+    @Test
+    public void testInternalOrIntegrityErrorsCannotCauseSourceRefresh() throws Exception {
+        for (boolean integrity : Arrays.asList(false, true)) {
+            FakeRuntime runtime = new FakeRuntime();
+            ManualDispatcher dispatcher = new ManualDispatcher();
+            runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+            TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+            for (int i = 0; i < 4; i++) {
+                runtime.exportActions.add((node, request) -> {
+                    if (!integrity) {
+                        return completed(outcomeResponse(request.expectedTxnId,
+                                PDictionaryCacheExportOutcome.EXPORT_INTERNAL_ERROR));
+                    }
+                    PExportDictionaryCacheResult response = validResponse(request.expectedTxnId);
+                    response.contentCrc32c++;
+                    return completed(response);
+                });
+                runtime.exportActions.add((node, request) -> completed(outcomeResponse(
+                        request.expectedTxnId, PDictionaryCacheExportOutcome.CACHE_NOT_FOUND)));
+            }
+            manager.onLeaderActivated(Collections.singletonList(
+                    new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+            dispatcher.runImmediate();
+            for (int i = 0; i < 3; i++) {
+                runtime.monotonicMillis += 60_000;
+                dispatcher.runDelayedBatch();
+            }
+            assertTrue(runtime.refreshRequests.isEmpty());
+            assertFalse(manager.getCurrentSnapshot(DICTIONARY_ID).isPresent());
+        }
+    }
+
+    @Test
+    public void testMixedNetworkFailureRequiresThreeCompleteSweepsAndElapsedTime() {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        for (int i = 0; i < 3; i++) {
+            runtime.exportActions.add((node, request) -> failed(new java.net.ConnectException("unreachable")));
+            runtime.exportActions.add((node, request) -> completed(outcomeResponse(
+                    request.expectedTxnId, PDictionaryCacheExportOutcome.CACHE_NOT_FOUND)));
+        }
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runImmediate();
+        runtime.monotonicMillis = 60_000;
+        dispatcher.runDelayedBatch();
+        assertTrue(runtime.refreshRequests.isEmpty());
+        runtime.monotonicMillis = 70_000;
+        dispatcher.runDelayedBatch();
+        assertEquals(1, runtime.refreshRequests.size());
+    }
+
+    @Test
+    public void testAdmissionTargetChangeDoesNotRefreshStaleVersion() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        runtime.fallbackOutcome = PDictionaryCacheExportOutcome.CACHE_NOT_FOUND;
+        runtime.beforeAdmission = () -> runtime.setDictionaryState(DICTIONARY_ID, 8, false);
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runImmediate();
+        assertTrue(runtime.refreshRequests.isEmpty());
+        runtime.exportActions.add((node, request) -> completed(validResponse(request.expectedTxnId)));
+        dispatcher.runDelayedBatch();
+        assertEquals(8, manager.getCurrentSnapshot(DICTIONARY_ID).orElseThrow().getDictionaryTxnId());
+        assertTrue(runtime.refreshRequests.isEmpty());
+    }
+
+    @Test
+    public void testInitialAdmissionFailureAndDisabledStartupRecover() {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 0, false);
+        runtime.failAdmission = true;
+        Config.tenant_ttl_policy_snapshot_auto_recover_enabled = false;
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runImmediate();
+        assertTrue(manager.getStatus(DICTIONARY_ID).getRecoveryDiagnostic().contains("ADMISSION_FAILED"));
+        runtime.failAdmission = false;
+        runtime.monotonicMillis = 300_000;
+        dispatcher.runDelayedBatch();
+        assertTrue(runtime.refreshRequests.isEmpty());
+        Config.tenant_ttl_policy_snapshot_auto_recover_enabled = true;
+        dispatcher.runDelayedBatch();
+        assertEquals(1, runtime.refreshRequests.size());
+        manager.removeTable(1, 2, binding(DICTIONARY_ID));
+        dispatcher.runDelayedBatch();
+        assertEquals(1, runtime.refreshRequests.size());
+    }
+
+    @Test
+    public void testMissingCommittedVersionRequestsRecovery() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 7, false);
+        for (int i = 0; i < 2; i++) {
+            runtime.exportActions.add((node, request) -> completed(outcomeResponse(
+                    request.expectedTxnId, PDictionaryCacheExportOutcome.CACHE_NOT_FOUND)));
+        }
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runImmediate();
+        assertEquals(Collections.singletonList(DICTIONARY_NAME), runtime.refreshRequests);
+        assertFalse(manager.getCurrentSnapshot(DICTIONARY_ID).isPresent());
+    }
+
+    @Test
+    public void testStartupRefreshFailureKeepsRecoveryScheduled() {
+        FakeRuntime runtime = new FakeRuntime();
+        ManualDispatcher dispatcher = new ManualDispatcher();
+        runtime.putDictionary(DICTIONARY_ID, DICTIONARY_NAME, 0, false);
+        TenantTtlPolicySnapshotManager manager = manager(runtime, dispatcher);
+        manager.onLeaderActivated(Collections.singletonList(
+                new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
+        dispatcher.runImmediate();
+        assertEquals(1, runtime.refreshRequests.size());
+        runtime.setDictionaryState(DICTIONARY_ID, 0, false);
+        manager.onDictionaryRefreshFinished(DICTIONARY_ID, 1, false, Collections.emptyList());
+        assertTrue(dispatcher.delayedSize() > 0);
+        assertFalse(manager.getCurrentSnapshot(DICTIONARY_ID).isPresent());
+    }
 
     @Test
     public void testThirdNodeIsTriedInNextSliceWithoutBackoff() throws Exception {
@@ -144,7 +385,7 @@ public class TenantTtlPolicySnapshotManagerTest {
         runtime.nodes = Arrays.asList(NODE_1, NODE_2, new TNetworkAddress("be-d", 8060));
         dispatcher.runImmediate();
         assertEquals(Arrays.asList("be-a", "be-b"), runtime.requestedHosts);
-        assertEquals(1, dispatcher.delayedSize());
+        assertEquals(2, dispatcher.delayedSize());
         runtime.exportActions.add((node, request) -> completed(validResponse(request.expectedTxnId)));
         dispatcher.runNextDelayed();
         dispatcher.runImmediate();
@@ -173,7 +414,7 @@ public class TenantTtlPolicySnapshotManagerTest {
             }
             dispatcher.runImmediate();
             assertEquals(Arrays.asList("be-a", "be-b"), runtime.requestedHosts);
-            assertEquals(1, dispatcher.delayedSize());
+            assertEquals(2, dispatcher.delayedSize());
             runtime.exportActions.add((node, request) -> {
                 assertEquals("be-c", node.hostname);
                 assertEquals(changeId ? 8060 : 9060, node.port);
@@ -202,7 +443,7 @@ public class TenantTtlPolicySnapshotManagerTest {
                     new TenantTtlPolicySnapshotManager.RecoveredReference(DICTIONARY_ID, 1, 2)));
             dispatcher.runImmediate();
             assertTrue(runtime.requestedHosts.isEmpty());
-            assertEquals(1, dispatcher.delayedSize());
+            assertEquals(2, dispatcher.delayedSize());
             assertEquals(1, manager.getStatus(DICTIONARY_ID).getRetryFailureCount());
             assertTrue(runtime.refreshRequests.isEmpty());
         }
@@ -246,6 +487,7 @@ public class TenantTtlPolicySnapshotManagerTest {
         dispatcher.runImmediate();
         assertEquals(Arrays.asList("be-a", "be-b", "be-c"), runtime.requestedHosts);
         assertEquals(7, manager.getStatus(DICTIONARY_ID).getBlockedTxnId());
+        assertTrue(manager.getStatus(DICTIONARY_ID).getRecoveryDiagnostic().contains("visited=3/4"));
         assertEquals(0, dispatcher.delayedSize());
     }
 
@@ -597,6 +839,14 @@ public class TenantTtlPolicySnapshotManagerTest {
             assertFalse(delayed.isEmpty());
             delayed.removeFirst().run();
         }
+
+        private void runDelayedBatch() {
+            int count = delayed.size();
+            for (int i = 0; i < count; i++) {
+                delayed.removeFirst().run();
+            }
+            runImmediate();
+        }
     }
 
     private static final class FakeRuntime implements TenantTtlPolicySnapshotManager.RuntimeEnvironment {
@@ -610,9 +860,17 @@ public class TenantTtlPolicySnapshotManagerTest {
         private final List<String> offlineHosts = new ArrayList<>();
         private boolean leader = true;
         private long nowMillis = 1_800_000_000_000L;
+        private long monotonicMillis;
+        private long nextRefreshId = 1;
+        private boolean failAdmission;
+        private Runnable beforeAdmission;
+        private PDictionaryCacheExportOutcome fallbackOutcome;
 
         private void putDictionary(long id, String name, long txnId, boolean refreshing) {
             dictionaries.put(id, new MutableDictionary(id, name, txnId, refreshing));
+            if (refreshing) {
+                dictionaries.get(id).refreshId = nextRefreshId++;
+            }
         }
 
         private void setDictionaryState(long id, long txnId, boolean refreshing) {
@@ -634,17 +892,33 @@ public class TenantTtlPolicySnapshotManagerTest {
                 return null;
             }
             return new TenantTtlPolicySnapshotManager.DictionaryView(dictionary.id, dictionary.name,
-                    dictionary.txnId, dictionary.refreshing);
+                    dictionary.txnId, dictionary.refreshing, dictionary.refreshId);
         }
 
         @Override
-        public void requestFullRefresh(String dictionaryName) {
-            refreshRequests.add(dictionaryName);
-            for (MutableDictionary dictionary : dictionaries.values()) {
-                if (dictionary.name.equals(dictionaryName)) {
-                    dictionary.refreshing = true;
-                }
+        public TenantTtlRefreshRequest requestRecoveryRefresh(long dictionaryId, long expectedSuccessTxnId) {
+            if (beforeAdmission != null) {
+                Runnable action = beforeAdmission;
+                beforeAdmission = null;
+                action.run();
             }
+            if (failAdmission) {
+                throw new IllegalStateException("admission unavailable");
+            }
+            MutableDictionary dictionary = dictionaries.get(dictionaryId);
+            if (!leader || dictionary == null) {
+                return new TenantTtlRefreshRequest(TenantTtlRefreshDisposition.INELIGIBLE, 0);
+            }
+            if (dictionary.txnId != expectedSuccessTxnId) {
+                return new TenantTtlRefreshRequest(TenantTtlRefreshDisposition.TARGET_CHANGED, 0);
+            }
+            if (dictionary.refreshing) {
+                return new TenantTtlRefreshRequest(TenantTtlRefreshDisposition.JOIN_EXISTING, dictionary.refreshId);
+            }
+            dictionary.refreshing = true;
+            dictionary.refreshId = nextRefreshId++;
+            refreshRequests.add(dictionary.name);
+            return new TenantTtlRefreshRequest(TenantTtlRefreshDisposition.ENQUEUED, dictionary.refreshId);
         }
 
         @Override
@@ -663,6 +937,9 @@ public class TenantTtlPolicySnapshotManagerTest {
                                                            PExportDictionaryCacheRequest request) throws Exception {
             requestedTxnIds.add(request.expectedTxnId);
             requestedHosts.add(node.hostname);
+            if (exportActions.isEmpty() && fallbackOutcome != null) {
+                return completed(outcomeResponse(request.expectedTxnId, fallbackOutcome));
+            }
             assertFalse(exportActions.isEmpty());
             return exportActions.removeFirst().apply(node, request);
         }
@@ -670,6 +947,11 @@ public class TenantTtlPolicySnapshotManagerTest {
         @Override
         public long currentTimeMillis() {
             return nowMillis;
+        }
+
+        @Override
+        public long monotonicMillis() {
+            return monotonicMillis;
         }
 
         @Override
@@ -683,6 +965,7 @@ public class TenantTtlPolicySnapshotManagerTest {
         private final String name;
         private long txnId;
         private boolean refreshing;
+        private long refreshId;
 
         private MutableDictionary(long id, String name, long txnId, boolean refreshing) {
             this.id = id;
