@@ -1,0 +1,605 @@
+{
+  "passed": true,
+  "pending": [],
+  "input_rows": 10080056,
+  "kept_rows": 4510488,
+  "deleted_rows": 5569568,
+  "baseline_replica_reads": 4440,
+  "final_replica_reads": 3264,
+  "recorded_utc": "2026-09-25T03:23:06.316065+00:00",
+  "product_commits": [
+    "439c74292b6270e18b4cbfeceef522988a3d4573",
+    "aa24f7a43224128dc4cb88ef2cfd0cebeea792bf"
+  ],
+  "topology": "3 voting FE, 3 BE, replication_num=3",
+  "binaries": {
+    "fe_sha256": "6df8bd5a7551b995d095deeb0db0ce6a1b434495f811390f1091ce5788cfe719",
+    "be_sha256": "d245c04c4a0b21c599c59a1ec1de2c661f3d09995e170a3d0a626b2512588380",
+    "be_origin": "/tenant-ttl-workspace/tenant-ttl-e2e-runtime-20260911-1457/be/lib/starrocks_be",
+    "be_note": "Reused existing Debug/MAKE_TEST=OFF binary; round034 count default set explicitly to 1000000."
+  },
+  "fe_tests": {
+    "regression": {
+      "tests": 172,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "diagnostic": {
+      "tests": 33,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "be_tests": [
+    {
+      "target": "tenant_ttl_compaction_types_test",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "tenant_ttl_row_filter_test",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "tenant_ttl_compaction_fixture_test",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "tenant_ttl_tablet_primitives_test",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "engine_tenant_ttl_compaction_task_test",
+      "tests": 26,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "dictionary_cache_manager_test",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "agent",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "restored_cluster_sha256": "6d1709c8398c2b0c82a4f7684e5216c8c211a73bcf99c0441f03fdc60ac33b3a",
+  "not_run": [
+    "CN runtime faults",
+    "full FE suite",
+    "full BE suite",
+    "new sanitizer runs",
+    "long soak / performance benchmark"
+  ],
+  "cases": [
+    {
+      "scenario": "E01",
+      "fault_window": null,
+      "copies": 100,
+      "input_rows": 2400000,
+      "kept_rows": 1080600,
+      "deleted_rows": 1319400,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 540300,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 659700
+        },
+        "events_b": {
+          "rows": 540300,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 659700
+        }
+      },
+      "completed_at": 1790304398.696982,
+      "no_reissue_checked": true,
+      "evidence_directory": "artifacts/ttl_r043_e01_100_20260925_023943",
+      "evidence_sha256": {
+        "data-verdict.json": "5b564ea6789274f05bbaf449ecf8adff19d511739d53e3930de53705714579cc",
+        "scenario-verdict.json": "38bc45842e3c041267cbd6db8b744af86bf7fa51fb14a8a95ef1747758889915",
+        "final-status.json": "8cff93c7531288446d87e4aaefcb810542a3a3bff68e54e180f58188b60392bf",
+        "no-reissue.json": "a04bad2dfdcdf1a6351f8cd47a3dfde5f047a441faa0bbe51dc5573a7f7a0168"
+      }
+    },
+    {
+      "scenario": "E01",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790299764.510426,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e01_10_20260925_012324",
+      "evidence_sha256": {
+        "data-verdict.json": "a7bb875541d3ba2b49f0b288b15f38843ffb686bf04c126a19db93f7af15c3d3",
+        "final-status.json": "c2cd8e5f81ee56466083495e612f36942322f2e4d15712990a0311e1f99cab48"
+      }
+    },
+    {
+      "scenario": "E01",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790306583.127619,
+      "no_reissue_checked": true,
+      "evidence_directory": "artifacts/ttl_r043_e01_10_20260925_031854",
+      "evidence_sha256": {
+        "data-verdict.json": "49275dec9afe196d7dbd2ab7e941b6e740cb3d7340a49954c1c35e1b707f72e0",
+        "scenario-verdict.json": "33696152a6da75bfa215c81e60dde47430f790a55cbbe9d1813a13a0bcf92b9e",
+        "final-status.json": "58f19acba250da6147730b73b8dc0ea934b1a91912b2d8548cad8e926c043c75",
+        "no-reissue.json": "e6c6ec30459466285405b9f052bbe35560a45ec085cf8b8e702ec1cf4be523b4",
+        "normal-environment.json": "083d387f421aa2d63a5d1ae40cb99f6263f8e57b52ac2bb3c617b9525db9ab6d"
+      }
+    },
+    {
+      "scenario": "E02",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790300153.220591,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e02_10_20260925_013045",
+      "evidence_sha256": {
+        "data-verdict.json": "79e9d11d477141d8969ba6d63c862d149dd8315fbac59ca72d6c9db1b16c04ae",
+        "final-status.json": "0cd11fa4111589af7c880b197f93c6b472f0c915b1dff93adc742caa8c4a0ae7"
+      }
+    },
+    {
+      "scenario": "E03",
+      "fault_window": null,
+      "copies": 100,
+      "input_rows": 2400000,
+      "kept_rows": 1080600,
+      "deleted_rows": 1319400,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 540300,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 659700
+        },
+        "events_b": {
+          "rows": 540300,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 659700
+        }
+      },
+      "completed_at": 1790305292.553867,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e03_100_20260925_025405",
+      "evidence_sha256": {
+        "data-verdict.json": "7876a0d5e255251194d729138bf85a073ae0b301e4f43b93ed56e803208083cb",
+        "scenario-verdict.json": "24df7e6ff34af99e68a88d5e949f6bb662086110c9243252ff99ce55dd14a2ae",
+        "final-status.json": "e3207bc27714b219adb4f8eda1d86372a5ab52266dd6ff3cb1ce063aa49ea1e2"
+      }
+    },
+    {
+      "scenario": "E03",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790300481.451452,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e03_10_20260925_013621",
+      "evidence_sha256": {
+        "data-verdict.json": "971ac422b66a2bc6b8cc8678fb2ebee3f78d2da2b72b877e45763bac0273b0a5",
+        "final-status.json": "42c790f2793b07fef6c676021445b4a9334a703782a74f752ab5dc01c9887ccd"
+      }
+    },
+    {
+      "scenario": "E04",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790301138.69009,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e04_10_20260925_014121",
+      "evidence_sha256": {
+        "data-verdict.json": "3871fcb6a5fe00e4af88834e1231365138da2c251ca0ca6dee6e445f86b2184b",
+        "scenario-verdict.json": "d95fcdb35d6ae89563418ae6b92c7d34c7ae38c699f19d5c5e6ea2729346025f",
+        "final-status.json": "dc95ad5ec042a30db9ad32dbd669faee659563c6be29096e8d701ab9298b050b"
+      }
+    },
+    {
+      "scenario": "E05",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790301707.685859,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e05_10_20260925_015220",
+      "evidence_sha256": {
+        "data-verdict.json": "6fefcc11fab9f53fa458621d1a37db5b864352df36d11006899c4688c4196981",
+        "scenario-verdict.json": "af38255bfd94e162aa851b253e48591ef81be96adc5cd311b6083cd4fa037379",
+        "final-status.json": "8e9536b25e5c1918e71ff953dc00efefe60d23c67626cd8a7e82c508fe436150"
+      }
+    },
+    {
+      "scenario": "E06",
+      "fault_window": "committed_reply_lost",
+      "copies": 100,
+      "input_rows": 2400000,
+      "kept_rows": 1080600,
+      "deleted_rows": 1319400,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 540300,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 659700
+        },
+        "events_b": {
+          "rows": 540300,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 659700
+        }
+      },
+      "completed_at": 1790306228.5547829,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e06_100_20260925_030132",
+      "evidence_sha256": {
+        "data-verdict.json": "44b8d15681cc663cf4116b84f23df21dfb0944ca116d948fbb46ad8a3e60fca8",
+        "scenario-verdict.json": "cc80ea0f5e1705e768baaf84874d435a5f3aacdebbc51637ea6343e96eec12cc",
+        "final-status.json": "d58c6170f31b41faaa441952115bd7e4a9c648e3213e871f8d0474642c8dd708",
+        "reply-loss-proof.json": "73496280d23f049b328792822677b24815dd739169f479e58de2dd5a37ca8a23"
+      }
+    },
+    {
+      "scenario": "E06",
+      "fault_window": "submission_blocked",
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790302475.865195,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e06_10_20260925_020148",
+      "evidence_sha256": {
+        "data-verdict.json": "d3271352fe175a106dbe6f112294e77ef1efd74b1708bf5347b96fb09444d35d",
+        "scenario-verdict.json": "5b44244a926d36ef9d7a4b11fe2fbaa4d5eb7b7ace0d916b756001a889a56f1d",
+        "final-status.json": "076dd096d468c6af15d977c73cbab82eab71a202e3dcc1208fed53a0b17f7b76"
+      }
+    },
+    {
+      "scenario": "E06",
+      "fault_window": "committed_reply_lost",
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790304845.709722,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e06_10_20260925_024639",
+      "evidence_sha256": {
+        "data-verdict.json": "800b1515e82e2aa9c0b0815b672179d2085c1bb409e5018c75942d52eda96b72",
+        "scenario-verdict.json": "c2faac3de1700d3c035b99f2a4ff55ac122865f10e43ea0df2384535aad1d15b",
+        "final-status.json": "4866cfc78171ef5a708e93e69f76de81d962194094f6a3b99e7a37e6a801a9a1",
+        "reply-loss-proof.json": "b62b3deab811d2a0ef03d523f69073a181fb3a41687bf02133106239aba6f294"
+      }
+    },
+    {
+      "scenario": "E07",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790302911.0438452,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e07_10_20260925_021437",
+      "evidence_sha256": {
+        "data-verdict.json": "6a6c98a68c3c5423e3915d3c5ffc152931e84517e77b6c1e87336660c19cc445",
+        "scenario-verdict.json": "ebd7c7f85832d8cad89014161bbca5fbf206c8c0da5f603102feabeb32e87d43",
+        "final-status.json": "cd8d9d1d89385a777660cd9ef1569c1ec03be48a5b456758d153e4e13f94fdba"
+      }
+    },
+    {
+      "scenario": "E08",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790303236.5864651,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e08_10_20260925_022151",
+      "evidence_sha256": {
+        "data-verdict.json": "7e7a1e1c4eb26d006fb4f2908201694422364d685cc0ec85e8f4ccc79a7c8ff2",
+        "scenario-verdict.json": "0112b1a5a2a8574fba7d04c6c0e594f7458a5affde899bdb44c3504cb40ea443",
+        "final-status.json": "937e0dc8a42a1af022844e40efc3d5709cc3534223d949e5584966065474e454"
+      }
+    },
+    {
+      "scenario": "E09",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 80000,
+      "deleted_rows": 160000,
+      "baseline_replicas": 288,
+      "final_replicas": 144,
+      "tables": {
+        "events_a": {
+          "rows": 40000,
+          "checked_replicas": 72,
+          "kept_partitions": 6,
+          "deleted_rows": 80000
+        },
+        "events_b": {
+          "rows": 40000,
+          "checked_replicas": 72,
+          "kept_partitions": 6,
+          "deleted_rows": 80000
+        }
+      },
+      "completed_at": 1790303413.764378,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e09_10_20260925_022716",
+      "evidence_sha256": {
+        "data-verdict.json": "5c855851c8227061226988cd64e9b88d6c507ffbc61ad6ef33b95860aaa4993f",
+        "scenario-verdict.json": "51183060e0873df632349e7a1cb9a6cdfc2c6f9a0b489803f70db85d327b022c",
+        "final-status.json": "4058cfb1eb13ebb725db7f44b96a9c33d44844595435bd2b5149bd5e25b75e22"
+      }
+    },
+    {
+      "scenario": "E10",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 240000,
+      "kept_rows": 108060,
+      "deleted_rows": 131940,
+      "baseline_replicas": 288,
+      "final_replicas": 216,
+      "tables": {
+        "events_a": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        },
+        "events_b": {
+          "rows": 54030,
+          "checked_replicas": 108,
+          "kept_partitions": 9,
+          "deleted_rows": 65970
+        }
+      },
+      "completed_at": 1790303983.404341,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_e10_10_20260925_023013",
+      "evidence_sha256": {
+        "data-verdict.json": "2b9f47598d2291900fe7f2cd5dd7121f523fc1f6d180c93bbea30a3ea816c512",
+        "scenario-verdict.json": "bb3ae7e7acb5caef812a953aa48301ba04b538b38b0b275cb7d3c22be12ab7ad",
+        "final-status.json": "031ca47520373a55d8361ee2a66bc47ba38956a4aac7cd187cfd85ded53c8e6f"
+      }
+    },
+    {
+      "scenario": "EDGE",
+      "fault_window": null,
+      "copies": 10,
+      "input_rows": 56,
+      "kept_rows": 28,
+      "deleted_rows": 28,
+      "baseline_replicas": 120,
+      "final_replicas": 96,
+      "tables": {
+        "events_a": {
+          "input": 28,
+          "kept": 14,
+          "deleted": 14,
+          "checked_replicas": 48,
+          "rewritten_empty_replicas": 6
+        },
+        "events_b": {
+          "input": 28,
+          "kept": 14,
+          "deleted": 14,
+          "checked_replicas": 48,
+          "rewritten_empty_replicas": 6
+        }
+      },
+      "completed_at": 1790306334.0383208,
+      "no_reissue_checked": false,
+      "evidence_directory": "artifacts/ttl_r043_edge_10_20260925_031708",
+      "evidence_sha256": {
+        "data-verdict.json": "37e617fb4185a8b414cb320e39debe2e299bde97667de9befab45fe8e7124898",
+        "scenario-verdict.json": "14248236fc30fc8f3738617baee6a3a035e0b7cac7ba911cc00dd8e9dda91f22",
+        "final-status.json": "a76193ad75c7887023b0ee4f0528e22659f85887f81a6cbe7ac0a41bbde1c98e"
+      }
+    }
+  ]
+}
