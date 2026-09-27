@@ -182,6 +182,42 @@ public class TenantTtlPolicyPlannerTest {
     }
 
     @Test
+    public void testEmptyAndMultibyteKeysAtAdjacentCapacityLimits() {
+        Map<String, Integer> overrides = Map.of("", 30, " ", 30, "设备", 30);
+        TenantTtlPolicySnapshot snapshot = snapshot(21, null, overrides);
+        // Empty keys still consume one entry and its four-byte length framing.
+        long exactBytes = 1L + Integer.BYTES + 3L * Integer.BYTES + 1 + 6;
+        for (int defaultDays : new int[] {180, 1}) {
+            long evaluationTime = defaultDays == 180 ? atDay(30) : atDay(1);
+            TenantTtlPolicyPlanner.FilterMode mode = defaultDays == 180 ?
+                    TenantTtlPolicyPlanner.FilterMode.DELETE_LIST : TenantTtlPolicyPlanner.FilterMode.KEEP_LIST;
+            for (int offset : new int[] {-1, 0, 1}) {
+                TenantTtlPolicyPlanner.Plan rows = new TenantTtlPolicyPlanner(3 + offset, exactBytes)
+                        .plan(snapshot, TABLE_KEY, defaultDays, UPPER, evaluationTime);
+                TenantTtlPolicyPlanner.Plan bytes = new TenantTtlPolicyPlanner(3, exactBytes + offset)
+                        .plan(snapshot, TABLE_KEY, defaultDays, UPPER, evaluationTime);
+                for (TenantTtlPolicyPlanner.Plan plan : new TenantTtlPolicyPlanner.Plan[] {rows, bytes}) {
+                    Assertions.assertEquals(mode, plan.getFilterMode());
+                    Assertions.assertEquals(3, plan.getRequiredTenantCount());
+                    Assertions.assertEquals(exactBytes, plan.getRequiredSerializedBytes());
+                    if (offset < 0) {
+                        Assertions.assertEquals(TenantTtlPolicyPlanner.PlanType.FAIL_CLOSED, plan.getType());
+                        Assertions.assertTrue(plan.getTenants().isEmpty());
+                    } else {
+                        Assertions.assertEquals(TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE, plan.getType());
+                        Assertions.assertEquals(3, plan.getTenants().size());
+                        Assertions.assertTrue(plan.getTenants().contains(TenantTtlByteKey.utf8("")));
+                    }
+                }
+                if (offset < 0) {
+                    Assertions.assertEquals(TenantTtlPolicyPlanner.FailReason.FILTER_ROW_LIMIT, rows.getFailReason());
+                    Assertions.assertEquals(TenantTtlPolicyPlanner.FailReason.FILTER_BYTE_LIMIT, bytes.getFailReason());
+                }
+            }
+        }
+    }
+
+    @Test
     public void testRaisedDefaultTenantLimitForBothFilterModes() {
         Assertions.assertEquals(100000, Config.tenant_ttl_filter_max_tenants);
         Assertions.assertEquals(8L * 1024 * 1024, Config.tenant_ttl_filter_max_serialized_bytes);

@@ -1,0 +1,352 @@
+{
+  "feature": "Generic single VARCHAR retention binding",
+  "round": 50,
+  "completed_at_utc": "2026-09-27T17:39:47.339040+00:00",
+  "baseline_commit": "7e74c2706f2b828ddae5f5237d667ccfc486c94d",
+  "source_verification": {
+    "files_checked": 6824,
+    "mismatches": [],
+    "source_commit": "c053eb12fee630b7a406df88a9ae2fb14dd8e983",
+    "manifest_sha256": "5927d2782d3a5c732c1c0e8c30af9d9dde8c6d504d035171e36552bc2232352d",
+    "observed_at_utc": "2026-09-27T17:22:16.848626+00:00"
+  },
+  "unit_and_build": {
+    "fe_tenant_ttl_tests": 156,
+    "fe_failures": 0,
+    "fe_errors": 0,
+    "fe_skipped": 0,
+    "checkstyle": "passed",
+    "fe_package": "passed",
+    "be_tests": [
+      {
+        "log": "round045-be-test.log",
+        "passed": 3,
+        "rebuilt_this_task": true
+      },
+      {
+        "log": "round046-be-test.log",
+        "passed": 11,
+        "rebuilt_this_task": true
+      },
+      {
+        "log": "round050-tenant_ttl_compaction_types_test.log",
+        "passed": 5,
+        "rebuilt_this_task": false
+      },
+      {
+        "log": "round050-tenant_ttl_tablet_primitives_test.log",
+        "passed": 10,
+        "rebuilt_this_task": false
+      },
+      {
+        "log": "round050-engine_tenant_ttl_compaction_task_test.log",
+        "passed": 26,
+        "rebuilt_this_task": false
+      }
+    ],
+    "be_total": 55,
+    "non_test_debug_be_build": "passed",
+    "logs": {
+      "round045-be-build.log": "2ff45ddfcaa168d50344c116784712487206c2012641f8258edf1e3f3559f115",
+      "round045-be-test.log": "c8404d5b1fa439e38e636bd7968fd716eb415446f5cc96247608ebbc2d438640",
+      "round046-be-build.log": "c554c0df26d2825c6ab903d1e5bd05aaefa3bc907e5d3086c75c2b95c0f47f01",
+      "round046-be-link-retry.log": "77c7a0d31153ca753a82bad1cb5aed7a0888d620c01412ead5ce6b791dfdbb5a",
+      "round046-be-test.log": "3dedc15fd91c6e967181d78d5a71a77786cd5ee440209bbcc082213bfd64df76",
+      "round049-fe-full.log": "646aa54e62344abf3d51db43ee439b35cb4bf3efa65b74240106ee5bbd386b83",
+      "round050-be-production-build-j6.log": "14476c3db049e8d45a97cd63d2513076dec7c28082587c1d0dd5c2cdbd83887f",
+      "round050-be-production-build.log": "05bd8efd8e0992509703dc9cadef1dd9a8400fa9b2c5c8156e82e14c50e356f3",
+      "round050-be-production-objects.log": "ef709a79b81e6efc1d7e05a86c9df40969413f917a6c2f53666e2ef53fb241d2",
+      "round050-engine_tenant_ttl_compaction_task_test.log": "17a90e8bc04028980869fc25b3093a5cb805f56cc9080cace2854d9700a8f314",
+      "round050-fe-boundary.log": "c1685f1f10437d9f4a52c6da9524690b9cf4c9985f1700cbbd94da2c2ae3787e",
+      "round050-fe-final.log": "1039d3e27a7f9eb4f65402e5647e64673458dc70ef7c285671333a5de8b3b8a7",
+      "round050-tenant_ttl_compaction_types_test.log": "7f162fea4a02c66efcad3408b39a4141f300ff9f052c72af3000e62db0880c5f",
+      "round050-tenant_ttl_tablet_primitives_test.log": "86d74e208cdc2d5f59ee1eab4f0c3d6c02bed8b7424ac1351e8c81d8f4818c09",
+      "round047-048-fe.log": "fc0e7ff5715533e7eae2298f7a6a8dabcfd660d2524aeac1b941a65cf961b4d9"
+    },
+    "fe_privilege_targeted_tests": 2
+  },
+  "binaries": {
+    "fe": {
+      "source": "/tenant-ttl-workspace/fe/fe-core/target/starrocks-fe.jar",
+      "path": "/tenant-ttl-workspace/generic-binding-20260927/assets-final/starrocks-fe.jar",
+      "sha256": "7c2f5425dd85141d9d7cedb43bed07ad6f910e47418723f8082dd5ea5e848d74",
+      "bytes": 30377096,
+      "previous_links": {
+        "1": "/tenant-ttl-workspace/generic-binding-20260927/assets/starrocks-fe.jar",
+        "2": "/tenant-ttl-workspace/generic-binding-20260927/assets/starrocks-fe.jar",
+        "3": "/tenant-ttl-workspace/generic-binding-20260927/assets/starrocks-fe.jar"
+      }
+    },
+    "be": {
+      "source": "/tenant-ttl-workspace/be/output/lib/starrocks_be",
+      "path": "/tenant-ttl-workspace/generic-binding-20260927/assets/starrocks_be",
+      "sha256": "c09529510792281f53ea3523bfd63cf079bfa56f9cdf664584231590d592d5c9",
+      "bytes": 2390794664,
+      "previous_links": {
+        "1": "/tenant-ttl-workspace/round043-assets/be/lib/starrocks_be",
+        "2": "/tenant-ttl-workspace/round043-assets/be/lib/starrocks_be",
+        "3": "/tenant-ttl-workspace/round043-assets/be/lib/starrocks_be"
+      }
+    }
+  },
+  "matrix": {
+    "passed": true,
+    "directory": "artifacts/matrix_20260927_172235",
+    "stages": [
+      {
+        "stage": "lifecycle",
+        "seconds": 41.64419475,
+        "evidence_directory": "artifacts/ttl_generic_ddl_20260927_172236",
+        "result": {
+          "leader_before": 3,
+          "leader_after": 2,
+          "passed": true
+        },
+        "result_sha256": "a9cbd1f3a4e768ed2b6f889bd483cbed1fb02a89c18b5ebcedfba5e50f00f548",
+        "evidence_file_count": 1,
+        "evidence_bytes": 13458,
+        "evidence_manifest_sha256": "57ef01b1461b7c23372ce43fce293b525c69b6854ca5811163c988398815eb27"
+      },
+      {
+        "stage": "standard",
+        "seconds": 192.01289258399999,
+        "evidence_directory": "artifacts/ttl_generic_10_20260927_160121",
+        "result": {
+          "passed": true,
+          "tables": {
+            "by_ip": {
+              "input": 120000,
+              "kept": 47620,
+              "deleted": 72380,
+              "partitions": 9,
+              "replicas_scanned": 108
+            },
+            "by_device": {
+              "input": 120000,
+              "kept": 47620,
+              "deleted": 72380,
+              "partitions": 9,
+              "replicas_scanned": 108
+            }
+          }
+        },
+        "result_sha256": "d6e268de89edb19b358526a7b733fb2efd280d3da5952a4f65ab7fd5a2ec919a",
+        "evidence_file_count": 1629,
+        "evidence_bytes": 10018879,
+        "evidence_manifest_sha256": "226ceec37c5b0f73e523a0df5a7d6f67368f9373fc9210db7e5c8481a8fa8977"
+      },
+      {
+        "stage": "large",
+        "seconds": 233.042197208,
+        "evidence_directory": "artifacts/ttl_generic_100_20260927_160254",
+        "result": {
+          "passed": true,
+          "tables": {
+            "by_ip": {
+              "input": 1200000,
+              "kept": 476200,
+              "deleted": 723800,
+              "partitions": 9,
+              "replicas_scanned": 108
+            },
+            "by_device": {
+              "input": 1200000,
+              "kept": 476200,
+              "deleted": 723800,
+              "partitions": 9,
+              "replicas_scanned": 108
+            }
+          }
+        },
+        "result_sha256": "1f387789715a29e8c7b1ab7c2a51cba46b06b7ed3d06fcd52ac35714063b055e",
+        "evidence_file_count": 1953,
+        "evidence_bytes": 47264359,
+        "evidence_manifest_sha256": "7c3479316d4abf74084553a2c6efba0590044949684a8b8c8a987f2965ea9309"
+      },
+      {
+        "stage": "comparison",
+        "seconds": 215.65607541700007,
+        "evidence_directory": "artifacts/ttl_generic_10_20260927_173022",
+        "result": {
+          "passed": true,
+          "tables": {
+            "by_ip": {
+              "input": 120000,
+              "kept": 47620,
+              "deleted": 72380,
+              "partitions": 9,
+              "replicas_scanned": 108
+            },
+            "by_device": {
+              "input": 120000,
+              "kept": 47620,
+              "deleted": 72380,
+              "partitions": 9,
+              "replicas_scanned": 108
+            }
+          }
+        },
+        "result_sha256": "d6e268de89edb19b358526a7b733fb2efd280d3da5952a4f65ab7fd5a2ec919a",
+        "evidence_file_count": 1627,
+        "evidence_bytes": 10005602,
+        "evidence_manifest_sha256": "beb7855134b13bae321d5c9d762f70c6d3b537e64c0419f0fe037900d3cbf34c"
+      },
+      {
+        "stage": "overlap_small",
+        "seconds": 36.33321379200004,
+        "evidence_directory": "artifacts/ttl_generic_overlap_20260927_173358",
+        "result": {
+          "passed": true,
+          "input_rows": 12000,
+          "kept_per_replica": 6000,
+          "replica_divergence_after_new_plan": [
+            6000,
+            6000,
+            12000
+          ],
+          "unbind_seconds": 0.028581165999998603,
+          "bind_seconds": 0.026167125000000624
+        },
+        "result_sha256": "50c6954b16f6ce3263d1a1a91f55f2188dbd9e194e854e1ee09377ffeed1d998",
+        "evidence_file_count": 32,
+        "evidence_bytes": 464400,
+        "evidence_manifest_sha256": "e23a8ee315983257ee638ba658618575e003fb09b50d38769bf161a41ad5d4fe"
+      },
+      {
+        "stage": "overlap_large",
+        "seconds": 155.47071783399997,
+        "evidence_directory": "artifacts/ttl_generic_overlap_20260927_173434",
+        "result": {
+          "passed": true,
+          "input_rows": 1200000,
+          "kept_per_replica": 600000,
+          "replica_divergence_after_new_plan": [
+            600000,
+            600000,
+            1200000
+          ],
+          "unbind_seconds": 0.02650216700000385,
+          "bind_seconds": 0.028947916000007012
+        },
+        "result_sha256": "3bdd8a15ad042b352316d4ba2f21adb16b0da7bd7902392c2844e5fd0450e588",
+        "evidence_file_count": 32,
+        "evidence_bytes": 39922888,
+        "evidence_manifest_sha256": "facfe55f5ee3a6f7de1fbd95df8f29be5c168514546e2df0488e3f0a42836b65"
+      }
+    ]
+  },
+  "comparison": {
+    "legacy": {
+      "ddl_seconds": 0.03192824999999999,
+      "completion_seconds": 88.9474335,
+      "be_ttl_duration_us": 1336094.0,
+      "be_rows_scanned": 210000.0,
+      "be_rows_deleted": 127140.0,
+      "be_rewritten_bytes": 1122225.0,
+      "fe_heap_min_bytes": 184315392.0,
+      "fe_heap_max_bytes": 455896576.0
+    },
+    "explicit": {
+      "ddl_seconds": 0.02724920900000427,
+      "completion_seconds": 93.032938917,
+      "be_ttl_duration_us": 1328655.0,
+      "be_rows_scanned": 210000.0,
+      "be_rows_deleted": 127140.0,
+      "be_rewritten_bytes": 1122225.0,
+      "fe_heap_min_bytes": 184839680.0,
+      "fe_heap_max_bytes": 468479488.0
+    }
+  },
+  "limitations": [
+    "Debug ARM64 observations; Release, ASAN and UBSAN were not run.",
+    "Existing unchanged BE type, tablet and engine unit binaries were reused.",
+    "Comparison includes scheduler waiting, cache and GC effects; no causal performance or SLA claim.",
+    "Post-unbind cached aggregate protection remains deferred; no persistent historical boolean was added.",
+    "Late old-column requests and persistent replica divergence are accepted by the agreed lifecycle contract."
+  ],
+  "final_health": {
+    "frontends_alive": 3,
+    "backends_alive": 3,
+    "fe_config": {
+      "1": {
+        "tenant_ttl_scheduler_interval_seconds": "600",
+        "tenant_ttl_policy_snapshot_recovery_cooldown_seconds": "300",
+        "tenant_ttl_agent_task_max_attempts": "30",
+        "tenant_ttl_agent_task_soft_timeout_seconds": "3600"
+      },
+      "2": {
+        "tenant_ttl_scheduler_interval_seconds": "600",
+        "tenant_ttl_policy_snapshot_recovery_cooldown_seconds": "300",
+        "tenant_ttl_agent_task_max_attempts": "30",
+        "tenant_ttl_agent_task_soft_timeout_seconds": "3600"
+      },
+      "3": {
+        "tenant_ttl_scheduler_interval_seconds": "600",
+        "tenant_ttl_policy_snapshot_recovery_cooldown_seconds": "300",
+        "tenant_ttl_agent_task_max_attempts": "30",
+        "tenant_ttl_agent_task_soft_timeout_seconds": "3600"
+      }
+    },
+    "be_config": {
+      "1": {
+        "max_compaction_concurrency": "-1"
+      },
+      "2": {
+        "max_compaction_concurrency": "-1"
+      },
+      "3": {
+        "max_compaction_concurrency": "-1"
+      }
+    },
+    "scoped_firewall_rules_remaining": 0,
+    "retired_tables": {
+      "ttl_generic_ddl_20260927_172236.events": "DISABLED",
+      "ttl_generic_10_20260927_160121.by_ip": "DISABLED",
+      "ttl_generic_10_20260927_160121.by_device": "DISABLED",
+      "ttl_generic_100_20260927_160254.by_ip": "DISABLED",
+      "ttl_generic_100_20260927_160254.by_device": "DISABLED",
+      "ttl_generic_10_20260927_173022.by_ip": "DISABLED",
+      "ttl_generic_10_20260927_173022.by_device": "DISABLED",
+      "ttl_generic_overlap_20260927_173358.events": "DISABLED",
+      "ttl_generic_overlap_20260927_173434.events": "DISABLED"
+    },
+    "evidence": "artifacts/final-health.json",
+    "sha256": "bd0b12d3c9bc4dd558296e4cc3f08ebd80f9a58fd9d964143359c3c221b583ce"
+  },
+  "build_configuration": {
+    "build_Debug": {
+      "CMAKE_BUILD_TYPE": "Debug",
+      "CMAKE_CXX_FLAGS": "",
+      "CMAKE_CXX_FLAGS_DEBUG": "-g",
+      "CMAKE_EXE_LINKER_FLAGS": "",
+      "ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT": "OFF",
+      "MAKE_TEST": "OFF",
+      "WITH_STARCACHE": "ON",
+      "WITH_TENANN": "OFF"
+    },
+    "ut_build_Debug": {
+      "CMAKE_BUILD_TYPE": "Debug",
+      "CMAKE_CXX_FLAGS": "",
+      "CMAKE_CXX_FLAGS_DEBUG": "-g",
+      "CMAKE_EXE_LINKER_FLAGS": "",
+      "ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT": "OFF",
+      "MAKE_TEST": "ON",
+      "WITH_STARCACHE": "ON",
+      "WITH_TENANN": "OFF"
+    },
+    "build_Release": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "CMAKE_CXX_FLAGS": "",
+      "CMAKE_CXX_FLAGS_DEBUG": "-g",
+      "CMAKE_EXE_LINKER_FLAGS": "",
+      "ENABLE_TENANT_TTL_MANUAL_TEST_ENDPOINT": "OFF",
+      "MAKE_TEST": "ON",
+      "WITH_STARCACHE": "ON",
+      "WITH_TENANN": "ON"
+    }
+  },
+  "runtime_binary_verification": {
+    "evidence": "artifacts/runtime-after-deploy.json",
+    "sha256": "1a39a046d4ae982c2a6e976b370916f68b8cbcf3fd272f133df2e9b7c37d9e1c"
+  }
+}
