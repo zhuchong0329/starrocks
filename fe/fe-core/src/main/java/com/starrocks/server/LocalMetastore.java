@@ -101,6 +101,7 @@ import com.starrocks.catalog.TabletInvertedIndex;
 import com.starrocks.catalog.TabletMeta;
 import com.starrocks.catalog.TenantTtlBindingAnalyzer;
 import com.starrocks.catalog.TenantTtlDictionaryBinding;
+import com.starrocks.catalog.TenantTtlTableBinding;
 import com.starrocks.catalog.View;
 import com.starrocks.catalog.system.information.InfoSchemaDb;
 import com.starrocks.catalog.system.sys.SysDb;
@@ -3800,6 +3801,17 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
         Column column = olapTable.getColumn(colName);
         if (column == null) {
             throw ErrorReportException.report(ErrorCode.ERR_BAD_FIELD_ERROR, colName, table.getName());
+        }
+        TableProperty property = olapTable.getTableProperty();
+        if (property != null && (property.getCompactionRetentionCondition() != null ||
+                property.getTenantTtlTableBinding() != null)) {
+            TenantTtlTableBinding binding = property.getTenantTtlTableBinding();
+            String configuredColumn = property.getCompactionRetentionKeyColumn();
+            if ((binding != null && (column.getColumnId().getId().equals(binding.getTenantColumnId()) ||
+                    column.getUniqueId() == binding.getTenantColumnUniqueId())) ||
+                    colName.equalsIgnoreCase(configuredColumn == null ? "tenant" : configuredColumn)) {
+                throw new SemanticException("Cannot rename a bound Tenant-TTL key column; unbind TTL first");
+            }
         }
         Column currentColumn = olapTable.getColumn(newColName);
         if (currentColumn != null) {

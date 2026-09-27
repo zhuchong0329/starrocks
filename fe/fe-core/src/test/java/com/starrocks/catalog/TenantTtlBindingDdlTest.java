@@ -169,6 +169,20 @@ public class TenantTtlBindingDdlTest {
     }
 
     @Test
+    public void testBoundColumnRenameIsRejectedWithoutSnapshot() throws Exception {
+        starRocksAssert.withTable(baseTableSql("rename_bound", "DUPLICATE KEY(tenant, recordTimestamp)",
+                "PARTITION BY RANGE(recordTimestamp) (PARTITION p0 VALUES LESS THAN ('100'))"));
+        OlapTable table = getTable("rename_bound");
+        TenantTtlTableBinding binding = table.getTableProperty().getTenantTtlTableBinding();
+        Exception error = Assertions.assertThrows(Exception.class,
+                () -> starRocksAssert.alterTable("ALTER TABLE rename_bound RENAME COLUMN tenant TO renamed"));
+        Assertions.assertTrue(error.getMessage().contains("unbind TTL first"));
+        Assertions.assertNotNull(table.getColumn("tenant"));
+        Assertions.assertNull(table.getColumn("renamed"));
+        Assertions.assertEquals(binding, table.getTableProperty().getTenantTtlTableBinding());
+    }
+
+    @Test
     public void testExplicitKeyColumnValidation() {
         String base = baseTableSql("generic_invalid", "DUPLICATE KEY(tenant, recordTimestamp)",
                 "PARTITION BY RANGE(recordTimestamp) (PARTITION p0 VALUES LESS THAN ('100'))");
