@@ -21,6 +21,7 @@ import com.starrocks.analysis.SlotRef;
 import com.starrocks.analysis.StringLiteral;
 import com.starrocks.analysis.TableName;
 import com.starrocks.common.DdlException;
+import com.starrocks.common.util.PropertyAnalyzer;
 import com.starrocks.common.util.TimeUtils;
 import com.starrocks.server.GlobalStateMgr;
 
@@ -74,11 +75,11 @@ public final class TenantTtlBindingAnalyzer {
     public static TableBindingResult analyzeTableBinding(Database db, OlapTable table, String timeZone,
                                                          Map<String, String> candidateProperties) throws DdlException {
         validateBusinessTable(table);
-        Column tenantColumn = requireColumn(table, TENANT_COLUMN_NAME);
+        Column tenantColumn = resolveKeyColumn(table, candidateProperties);
         if (!tenantColumn.getType().isVarchar()) {
-            throw new DdlException("Tenant-TTL column 'tenant' must be VARCHAR");
+            throw new DdlException("Tenant-TTL column '" + tenantColumn.getName() + "' must be VARCHAR");
         }
-        validateColumnIdentity(tenantColumn, TENANT_COLUMN_NAME);
+        validateColumnIdentity(tenantColumn, tenantColumn.getName());
 
         Column timeColumn = requireColumn(table, TIME_COLUMN_NAME);
         if (!timeColumn.getType().isBigint()) {
@@ -98,6 +99,32 @@ public final class TenantTtlBindingAnalyzer {
                 partitionBinding.expressionType, partitionBinding.listTimeComponentIndex,
                 normalizedTimeZone, partitionBinding.expressionFingerprint);
         return new TableBindingResult(tableBinding, normalizedPropertyTimeZone);
+    }
+
+    // Existing bindings are authoritative by identity, including ALTERs that omit the column property.
+    private static Column resolveKeyColumn(OlapTable table, Map<String, String> properties) throws DdlException {
+        String requested = properties == null ? null :
+                properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN);
+        if (requested != null && requested.isEmpty()) {
+            throw new DdlException("compaction_retention_key_column must not be empty");
+        }
+        TenantTtlTableBinding binding = table.getTableProperty() == null ? null :
+                table.getTableProperty().getTenantTtlTableBinding();
+        if (binding == null) {
+            return requireColumn(table, requested == null ? TENANT_COLUMN_NAME : requested);
+        }
+        Column bound = table.getColumn(ColumnId.create(binding.getTenantColumnId()));
+        if (bound == null || bound.getUniqueId() != binding.getTenantColumnUniqueId()) {
+            throw new DdlException("Tenant-TTL bound key column identity no longer exists");
+        }
+        if (requested != null) {
+            Column selected = requireColumn(table, requested);
+            if (!bound.getColumnId().equals(selected.getColumnId()) ||
+                    bound.getUniqueId() != selected.getUniqueId()) {
+                throw new DdlException("Cannot change the Tenant-TTL key column; unbind TTL first");
+            }
+        }
+        return bound;
     }
 
     /** Revalidates a persisted Dictionary identity without changing its ordinary cache state. */

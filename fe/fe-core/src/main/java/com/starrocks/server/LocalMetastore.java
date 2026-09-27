@@ -67,6 +67,7 @@ import com.starrocks.catalog.CatalogUtils;
 import com.starrocks.catalog.ColocateGroupSchema;
 import com.starrocks.catalog.ColocateTableIndex;
 import com.starrocks.catalog.Column;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.DataProperty;
 import com.starrocks.catalog.Database;
 import com.starrocks.catalog.DistributionInfo;
@@ -3857,6 +3858,8 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                 propertiesToPersist.put(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE,
                         binding.getNormalizedPropertyTimeZone());
             }
+            propertiesToPersist.put(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN,
+                    table.getColumn(ColumnId.create(binding.getTableBinding().getTenantColumnId())).getName());
             tableProperty.modifyTableProperties(propertiesToPersist);
             tableProperty.buildCompactionRetentionProperties();
             tableProperty.setTenantTtlDictionaryBinding(binding.getDictionaryBinding());
@@ -3983,14 +3986,15 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                                                           Database db, OlapTable table) throws DdlException {
         Map<String, Object> results = Maps.newHashMap();
         if (properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION) ||
-                properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE)) {
+                properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE) ||
+                properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN)) {
             TableProperty current = table.getTableProperty();
             String condition = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
             if (condition == null && current != null) {
                 condition = current.getCompactionRetentionCondition();
             }
             if (condition == null) {
-                throw new DdlException("compaction_retention_time_zone requires compaction_retention_condition");
+                throw new DdlException("Tenant-TTL column/time zone requires compaction_retention_condition");
             }
             String timeZone = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
             if (timeZone == null && current != null) {
@@ -4004,6 +4008,7 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
             results.put(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION, binding);
             properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
             properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
+            properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN);
         }
         if (properties.containsKey(PropertyAnalyzer.PROPERTIES_PARTITION_LIVE_NUMBER)) {
             if (!table.getPartitionInfo().isRangePartition()) {

@@ -3716,6 +3716,11 @@ public class OlapTable extends Table {
         if (!Strings.isNullOrEmpty(compactionRetentionCondition)) {
             properties.put(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION, compactionRetentionCondition);
         }
+        String compactionRetentionKeyColumn =
+                tableProperties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN);
+        if (!Strings.isNullOrEmpty(compactionRetentionKeyColumn)) {
+            properties.put(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN, compactionRetentionKeyColumn);
+        }
         String compactionRetentionTimeZone =
                 tableProperties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
         if (!Strings.isNullOrEmpty(compactionRetentionTimeZone)) {

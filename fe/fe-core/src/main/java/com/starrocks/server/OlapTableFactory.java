@@ -692,14 +692,19 @@ public class OlapTableFactory implements AbstractTableFactory {
                             PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE,
                             binding.getNormalizedPropertyTimeZone());
                 }
+                table.getTableProperty().getProperties().put(
+                        PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN,
+                        table.getColumn(ColumnId.create(binding.getTableBinding().getTenantColumnId())).getName());
                 table.getTableProperty().buildCompactionRetentionProperties();
                 table.getTableProperty().setTenantTtlDictionaryBinding(binding.getDictionaryBinding());
                 table.getTableProperty().setTenantTtlTableBinding(binding.getTableBinding());
                 properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
                 properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
+                properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN);
             } else if (properties != null &&
-                    properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE)) {
-                throw new DdlException("compaction_retention_time_zone requires compaction_retention_condition");
+                    (properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE) ||
+                            properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN))) {
+                throw new DdlException("Tenant-TTL column/time zone requires compaction_retention_condition");
             }
 
             // analyze version info

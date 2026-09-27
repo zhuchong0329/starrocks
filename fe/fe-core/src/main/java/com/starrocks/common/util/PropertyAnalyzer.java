@@ -208,6 +208,7 @@ public class PropertyAnalyzer {
     public static final String PROPERTIES_PARTITION_RETENTION_CONDITION = "partition_retention_condition";
     public static final String PROPERTIES_COMPACTION_RETENTION_CONDITION = "compaction_retention_condition";
     public static final String PROPERTIES_COMPACTION_RETENTION_TIME_ZONE = "compaction_retention_time_zone";
+    public static final String PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN = "compaction_retention_key_column";
     public static final String PROPERTIES_TIME_DRIFT_CONSTRAINT = "time_drift_constraint";
 
     // default: same as cluster query_timeout

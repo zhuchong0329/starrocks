@@ -224,7 +224,8 @@ public class AlterTableClauseAnalyzer implements AstVisitor<Void, ConnectContext
 
         boolean onlyTenantTtlProperties = properties.keySet().stream().allMatch(key ->
                 PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION.equals(key) ||
-                        PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE.equals(key));
+                        PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE.equals(key) ||
+                        PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN.equals(key));
         if (properties.size() != 1 && !onlyTenantTtlProperties
                 && !(TableProperty.isSamePrefixProperties(properties, TableProperty.DYNAMIC_PARTITION_PROPERTY_PREFIX)
                 || TableProperty.isSamePrefixProperties(properties, TableProperty.BINLOG_PROPERTY_PREFIX))) {
@@ -268,7 +269,8 @@ public class AlterTableClauseAnalyzer implements AstVisitor<Void, ConnectContext
         } else if (properties.containsKey(PropertyAnalyzer.PROPERTIES_PARTITION_RETENTION_CONDITION)) {
             // do nothing
         } else if (properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION) ||
-                properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE)) {
+                properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE) ||
+                properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN)) {
             // The complete candidate binding is validated under the table write lock in LocalMetastore.
         } else if (properties.containsKey(PropertyAnalyzer.PROPERTIES_TIME_DRIFT_CONSTRAINT)) {
             // do nothing

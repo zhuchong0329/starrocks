@@ -110,6 +110,53 @@ public class TenantTtlBindingDdlTest {
     }
 
     @Test
+    public void testExplicitKeyColumnAndStableIdentity() throws Exception {
+        String sql = baseTableSql("generic_key", "DUPLICATE KEY(tenant, recordTimestamp)",
+                "PARTITION BY RANGE(recordTimestamp) (PARTITION p0 VALUES LESS THAN ('100'))")
+                .replace("tenant VARCHAR(128) NULL", "dst_ip VARCHAR(40) NULL, device VARCHAR(64) NULL")
+                .replace("KEY(tenant, recordTimestamp)", "KEY(dst_ip, device, recordTimestamp)")
+                .replace("HASH(tenant)", "HASH(dst_ip)");
+        sql = sql.substring(0, sql.length() - 1) + ", 'compaction_retention_key_column' = 'DST_IP')";
+        starRocksAssert.withTable(sql);
+        OlapTable table = getTable("generic_key");
+        TenantTtlTableBinding original = table.getTableProperty().getTenantTtlTableBinding();
+        Assertions.assertEquals(table.getColumn("dst_ip").getColumnId().getId(), original.getTenantColumnId());
+        Assertions.assertEquals("dst_ip", table.getProperties().get(
+                PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN));
+        starRocksAssert.alterTableProperties("ALTER TABLE generic_key SET (" +
+                "'compaction_retention_condition' = \"dictionary_ttl('" + DICTIONARY_NAME + "', 'business.other', 30)\")");
+        Assertions.assertEquals(original, table.getTableProperty().getTenantTtlTableBinding());
+        Assertions.assertThrows(AlterJobException.class, () -> starRocksAssert.alterTableProperties(
+                "ALTER TABLE generic_key SET ('compaction_retention_key_column' = 'device')"));
+        Assertions.assertThrows(AlterJobException.class, () -> starRocksAssert.alterTableProperties(
+                "ALTER TABLE generic_key SET ('compaction_retention_key_column' = '')"));
+        TableProperty restored = GsonUtils.GSON.fromJson(GsonUtils.GSON.toJson(table.getTableProperty()),
+                TableProperty.class);
+        Assertions.assertEquals(original, restored.getTenantTtlTableBinding());
+        Assertions.assertEquals("dst_ip", restored.getCompactionRetentionKeyColumn());
+        List<String> ddl = new ArrayList<>();
+        AstToStringBuilder.getDdlStmt(table, ddl, null, null, false, true);
+        Assertions.assertTrue(ddl.get(0).contains("compaction_retention_key_column"));
+        Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(DB_NAME);
+        Assertions.assertTrue(TenantTtlPartitionBoundResolver.resolve(db, table,
+                table.getPartition("p0").getDefaultPhysicalPartition()).isProvable());
+    }
+
+    @Test
+    public void testExplicitKeyColumnValidation() {
+        String base = baseTableSql("generic_invalid", "DUPLICATE KEY(tenant, recordTimestamp)",
+                "PARTITION BY RANGE(recordTimestamp) (PARTITION p0 VALUES LESS THAN ('100'))");
+        for (String key : new String[] {"", "missing", "recordTimestamp"}) {
+            String sql = base.substring(0, base.length() - 1) +
+                    ", 'compaction_retention_key_column' = '" + key + "')";
+            Assertions.assertThrows(DdlException.class, () -> starRocksAssert.withTable(sql), key);
+        }
+        String orphan = base.replace("'compaction_retention_condition' = \"dictionary_ttl('" + DICTIONARY_NAME +
+                "', 'business.http_log', 180)\"", "'compaction_retention_key_column' = 'tenant'");
+        Assertions.assertThrows(DdlException.class, () -> starRocksAssert.withTable(orphan));
+    }
+
+    @Test
     public void testFromUnixTimeRequiresAndNormalizesTimeZone() throws Exception {
         Assertions.assertThrows(DdlException.class, () -> starRocksAssert.withTable(
                 fromUnixTimeTableSql("tenant_ttl_missing_tz", null)));

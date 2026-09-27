@@ -480,6 +480,10 @@ public class TableProperty implements Writable, GsonPostProcessable {
         return compactionRetentionCondition;
     }
 
+    public String getCompactionRetentionKeyColumn() {
+        return properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN);
+    }
+
     public String getCompactionRetentionTimeZone() {
         return compactionRetentionTimeZone;
     }
