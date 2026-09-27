@@ -34,11 +34,21 @@ public final class ShowTenantTtlStatusStmt extends ShowStmt {
 
     private final TableName tableName;
     private final String tenant;
+    private final boolean generic;
 
     public ShowTenantTtlStatusStmt(TableName tableName, String tenant, NodePosition pos) {
+        this(tableName, tenant, false, pos);
+    }
+
+    public ShowTenantTtlStatusStmt(TableName tableName, String tenant, boolean generic, NodePosition pos) {
         super(pos);
+        this.generic = generic;
         this.tableName = tableName;
         this.tenant = tenant;
+    }
+
+    public boolean isGeneric() {
+        return generic;
     }
 
     public TableName getTableName() {

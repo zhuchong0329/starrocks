@@ -67,6 +67,27 @@ public class ShowTenantTtlStatusStmtTest {
     }
 
     @Test
+    public void testGenericShowAndEmptyValue() {
+        ShowTenantTtlStatusStmt statement = (ShowTenantTtlStatusStmt) SqlParser.parseSingleStatement(
+                "SHOW COMPACTION TTL STATUS FROM business.http_log FOR VALUE ''", 0);
+        Assertions.assertTrue(statement.isGeneric());
+        Assertions.assertTrue(statement.hasTenant());
+        Assertions.assertEquals("", statement.getTenant());
+        ShowResultSetMetaData metadata = new ShowResultMetaFactory().getMetadata(statement);
+        Assertions.assertEquals(35, metadata.getColumnCount());
+        Assertions.assertEquals("KeyColumn", metadata.getColumn(15).getName());
+        Assertions.assertEquals("DictionaryKeyColumn", metadata.getColumn(16).getName());
+        Assertions.assertEquals("KeyColumnId", metadata.getColumn(17).getName());
+        Assertions.assertEquals("KeyColumnUniqueId", metadata.getColumn(18).getName());
+        Assertions.assertEquals("Value", metadata.getColumn(32).getName());
+        Assertions.assertTrue(metadata.getColumn(18).getType().isInt());
+        Assertions.assertThrows(ParsingException.class, () -> SqlParser.parseSingleStatement(
+                "SHOW TENANT TTL STATUS FROM business.http_log FOR VALUE ''", 0));
+        Assertions.assertThrows(ParsingException.class, () -> SqlParser.parseSingleStatement(
+                "SHOW COMPACTION TTL STATUS FROM business.http_log FOR TENANT ''", 0));
+    }
+
+    @Test
     public void testRejectIncompleteSyntax() {
         Assertions.assertThrows(ParsingException.class, () -> SqlParser.parseSingleStatement(
                 "SHOW TENANT TTL STATUS business.http_log", 0));

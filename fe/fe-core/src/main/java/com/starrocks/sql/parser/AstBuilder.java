@@ -4603,7 +4603,7 @@ public class AstBuilder extends StarRocksBaseVisitor<ParseNode> {
         TableName tableName = qualifiedNameToTableName(getQualifiedName(context.qualifiedName()));
         String tenant = context.string() == null ? null :
                 ((StringLiteral) visit(context.string())).getStringValue();
-        return new ShowTenantTtlStatusStmt(tableName, tenant, createPos(context));
+        return new ShowTenantTtlStatusStmt(tableName, tenant, context.COMPACTION() != null, createPos(context));
     }
 
     @Override

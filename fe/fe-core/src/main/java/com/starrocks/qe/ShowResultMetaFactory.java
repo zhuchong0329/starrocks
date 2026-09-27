@@ -303,9 +303,14 @@ public class ShowResultMetaFactory implements AstVisitor<ShowResultSetMetaData, 
                 .addColumn(new Column("LastSnapshotAttemptTxnId", ScalarType.BIGINT))
                 .addColumn(new Column("LastSnapshotAttemptTime", ScalarType.DATETIME))
                 .addColumn(new Column("TableKeyMatch", ScalarType.createVarchar(32)))
-                .addColumn(new Column("TableDefaultMatch", ScalarType.createVarchar(32)))
-                .addColumn(new Column("TenantColumnId", ScalarType.createVarchar(256)))
-                .addColumn(new Column("TenantColumnUniqueId", ScalarType.INT))
+                .addColumn(new Column("TableDefaultMatch", ScalarType.createVarchar(32)));
+        if (statement.isGeneric()) {
+            builder.addColumn(new Column("KeyColumn", ScalarType.createVarchar(256)))
+                    .addColumn(new Column("DictionaryKeyColumn", ScalarType.createVarchar(256)));
+        }
+        builder.addColumn(new Column(statement.isGeneric() ? "KeyColumnId" : "TenantColumnId",
+                        ScalarType.createVarchar(256)))
+                .addColumn(new Column(statement.isGeneric() ? "KeyColumnUniqueId" : "TenantColumnUniqueId", ScalarType.INT))
                 .addColumn(new Column("TimeColumnId", ScalarType.createVarchar(256)))
                 .addColumn(new Column("TimeColumnUniqueId", ScalarType.INT))
                 .addColumn(new Column("PartitionExpressionType", ScalarType.createVarchar(64)))
@@ -320,7 +325,7 @@ public class ShowResultMetaFactory implements AstVisitor<ShowResultSetMetaData, 
                 .addColumn(new Column("IgnoredZeroRows", ScalarType.BIGINT))
                 .addColumn(new Column("ErrorMessage", ScalarType.createVarchar(65535)));
         if (statement.hasTenant()) {
-            builder.addColumn(new Column("Tenant", ScalarType.createVarchar(65535)))
+            builder.addColumn(new Column(statement.isGeneric() ? "Value" : "Tenant", ScalarType.createVarchar(65535)))
                     .addColumn(new Column("EffectiveRetentionDays", ScalarType.INT))
                     .addColumn(new Column("ResolutionType", ScalarType.createVarchar(32)));
         }

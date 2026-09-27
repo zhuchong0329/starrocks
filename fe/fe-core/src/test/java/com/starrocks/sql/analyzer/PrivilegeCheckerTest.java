@@ -383,6 +383,15 @@ public class PrivilegeCheckerTest extends StarRocksTestBase {
                 "Access denied; you need (at least one of) the SELECT privilege(s) on TABLE tbl1 for this operation");
     }
 
+    @Test
+    public void testShowCompactionTtlStatusRequiresSelect() throws Exception {
+        verifyGrantRevoke(
+                "SHOW COMPACTION TTL STATUS FROM db1.tbl1 FOR VALUE ''",
+                "grant SELECT on db1.tbl1 to test",
+                "revoke SELECT on db1.tbl1 from test",
+                "Access denied; you need (at least one of) the SELECT privilege(s) on TABLE tbl1 for this operation");
+    }
+
     private static void verifyGrantRevokeFail(String sql, String grantSql, String revokeSql,
                                               String expectError1st, String expectError2nd) throws Exception {
         ConnectContext ctx = starRocksAssert.getCtx();

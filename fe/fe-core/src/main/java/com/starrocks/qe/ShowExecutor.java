@@ -3066,7 +3066,7 @@ public class ShowExecutor {
             }
             try {
                 List<String> row = TenantTtlStatusService.buildRow(
-                        state, db, (OlapTable) table, statement.getTenant());
+                        state, db, (OlapTable) table, statement.getTenant(), statement.isGeneric());
                 return new ShowResultSet(showResultMetaFactory.getMetadata(statement),
                         Collections.singletonList(row));
             } catch (RuntimeException e) {

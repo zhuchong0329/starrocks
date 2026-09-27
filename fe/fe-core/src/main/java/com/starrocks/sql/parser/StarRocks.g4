@@ -926,6 +926,7 @@ showDictionaryStatement
 
 showTenantTtlStatusStatement
     : SHOW TENANT TTL STATUS FROM qualifiedName (FOR TENANT string)?
+    | SHOW COMPACTION TTL STATUS FROM qualifiedName (FOR VALUE string)?
     ;
 
 cancelRefreshDictionaryStatement

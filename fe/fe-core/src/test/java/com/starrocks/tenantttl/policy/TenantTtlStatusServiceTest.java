@@ -112,6 +112,20 @@ public class TenantTtlStatusServiceTest {
     }
 
     @Test
+    public void testGenericShowUsesTheSameStatusAndPolicyResolution() {
+        List<String> legacy = TenantTtlStatusService.buildRow(state, db, table("active_log"), "");
+        List<String> generic = TenantTtlStatusService.buildRow(state, db, table("active_log"), "", true);
+        Assertions.assertEquals(legacy.size() + 2, generic.size());
+        Assertions.assertEquals("tenant", generic.get(15));
+        Assertions.assertEquals("tenant", generic.get(16));
+        Assertions.assertEquals(legacy.subList(0, 15), generic.subList(0, 15));
+        Assertions.assertEquals(legacy.subList(15, legacy.size()), generic.subList(17, generic.size()));
+        Assertions.assertEquals("", generic.get(32));
+        Assertions.assertEquals(32, TenantTtlStatusService.buildRow(state, db, table("disabled_log"),
+                null, true).size());
+    }
+
+    @Test
     public void testAnalyzerNormalizesAndRejectsMissingObjects() {
         ShowTenantTtlStatusStmt statement = parse("SHOW TENANT TTL STATUS FROM active_log");
         Analyzer.analyze(statement, context);

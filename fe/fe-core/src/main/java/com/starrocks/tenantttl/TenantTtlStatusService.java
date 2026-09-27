@@ -14,6 +14,8 @@
 
 package com.starrocks.tenantttl;
 
+import com.starrocks.catalog.Column;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.Database;
 import com.starrocks.catalog.Dictionary;
 import com.starrocks.catalog.OlapTable;
@@ -53,6 +55,11 @@ public final class TenantTtlStatusService {
     }
 
     public static List<String> buildRow(GlobalStateMgr state, Database db, OlapTable table, String tenant) {
+        return buildRow(state, db, table, tenant, false);
+    }
+
+    public static List<String> buildRow(GlobalStateMgr state, Database db, OlapTable table, String tenant,
+                                        boolean generic) {
         Objects.requireNonNull(state, "global state is null");
         Objects.requireNonNull(db, "database is null");
         Objects.requireNonNull(table, "table is null");
@@ -63,13 +70,14 @@ public final class TenantTtlStatusService {
             if (db.getTable(table.getId()) != table) {
                 throw new IllegalStateException("table identity changed while collecting Tenant-TTL status");
             }
-            return buildRowLocked(state, db, table, tenant);
+            return buildRowLocked(state, db, table, tenant, generic);
         } finally {
             locker.unLockDatabase(db.getId(), LockType.READ);
         }
     }
 
-    private static List<String> buildRowLocked(GlobalStateMgr state, Database db, OlapTable table, String tenant) {
+    private static List<String> buildRowLocked(GlobalStateMgr state, Database db, OlapTable table, String tenant,
+                                               boolean generic) {
         TableProperty property = table.getTableProperty();
         String condition = property == null ? null : property.getCompactionRetentionCondition();
         boolean enabled = condition != null;
@@ -79,16 +87,20 @@ public final class TenantTtlStatusService {
 
         MutableStatus status = new MutableStatus(db.getFullName() + "." + table.getName(), enabled,
                 dictionaryBinding, tableBinding);
+        Column keyColumn = tableBinding == null ? null :
+                table.getColumn(ColumnId.create(tableBinding.getTenantColumnId()));
+        status.keyColumn = keyColumn == null ? (property == null ? null : property.getCompactionRetentionKeyColumn()) :
+                keyColumn.getName();
         if (!enabled) {
             status.bindingState = BindingState.DISABLED;
             status.schedulerState = "DISABLED";
-            return status.toRow(tenant);
+            return status.toRow(tenant, generic);
         }
 
         if (!validatePersistedMetadata(condition, dictionaryBinding, tableBinding, status)) {
             status.bindingState = BindingState.INVALID;
             status.schedulerState = "INVALID";
-            return status.toRow(tenant);
+            return status.toRow(tenant, generic);
         }
 
         Dictionary dictionary = state.getDictionaryMgr().getDictionaryById(dictionaryBinding.getDictionaryId());
@@ -102,7 +114,7 @@ public final class TenantTtlStatusService {
                 status.addError("bound Dictionary ID " + dictionaryBinding.getDictionaryId() +
                         " no longer exists; same-name Dictionary now has ID " + sameName.getDictionaryId());
             }
-            return status.toRow(tenant);
+            return status.toRow(tenant, generic);
         }
         status.dictionary = dictionary;
 
@@ -110,7 +122,7 @@ public final class TenantTtlStatusService {
             status.bindingState = BindingState.PAUSED;
             status.schedulerState = "PAUSED";
             status.addError("bound Dictionary ID resolves to an unexpected Dictionary name");
-            return status.toRow(tenant);
+            return status.toRow(tenant, generic);
         }
         try {
             TenantTtlBindingAnalyzer.validateDictionaryBinding(dictionary);
@@ -124,7 +136,7 @@ public final class TenantTtlStatusService {
             status.schedulerState = "PAUSED";
             status.addError(rootMessage(e));
             status.addDictionaryError();
-            return status.toRow(tenant);
+            return status.toRow(tenant, generic);
         }
 
         TenantTtlPolicySnapshotManager snapshotManager = state.getTenantTtlPolicySnapshotManager();
@@ -137,7 +149,7 @@ public final class TenantTtlStatusService {
         if (dictionary.getLastSuccessVersion() <= 0) {
             status.bindingState = BindingState.WAITING_DICTIONARY;
             status.schedulerState = "WAITING_DICTIONARY";
-            return status.toRow(tenant);
+            return status.toRow(tenant, generic);
         }
 
         Optional<TenantTtlPolicySnapshot> currentSnapshot =
@@ -145,7 +157,7 @@ public final class TenantTtlStatusService {
         if (!currentSnapshot.isPresent()) {
             status.bindingState = BindingState.WAITING_POLICY_SNAPSHOT;
             status.schedulerState = "WAITING_POLICY_SNAPSHOT";
-            return status.toRow(tenant);
+            return status.toRow(tenant, generic);
         }
 
         status.bindingState = BindingState.ACTIVE;
@@ -153,7 +165,7 @@ public final class TenantTtlStatusService {
         status.populatePolicyMatch();
         status.populatePartitionAndSchedulerState(state, db, table);
         status.resolveTenant(tenant);
-        return status.toRow(tenant);
+        return status.toRow(tenant, generic);
     }
 
     private static boolean validatePersistedMetadata(String condition,
@@ -233,6 +245,7 @@ public final class TenantTtlStatusService {
         private final Set<String> errors = new LinkedHashSet<>();
         private BindingState bindingState;
         private String configuredDictionaryName;
+        private String keyColumn;
         private String configuredTableKey;
         private Integer configuredDefaultDays;
         private Dictionary dictionary;
@@ -419,7 +432,7 @@ public final class TenantTtlStatusService {
                     joined.substring(0, MAX_ERROR_MESSAGE_LENGTH) + "...";
         }
 
-        private List<String> toRow(String tenant) {
+        private List<String> toRow(String tenant, boolean generic) {
             List<String> row = new ArrayList<>();
             boolean active = bindingState == BindingState.ACTIVE;
             row.add(physicalTable);
@@ -438,6 +451,10 @@ public final class TenantTtlStatusService {
             row.add(snapshotStatus == null ? null : nullableTimeMillis(snapshotStatus.getLastAttemptTimeMillis()));
             row.add(tableKeyMatch.name());
             row.add(tableDefaultMatch.name());
+            if (generic) {
+                row.add(keyColumn);
+                row.add(dictionary == null || dictionary.getKeys().isEmpty() ? null : dictionary.getKeys().get(0));
+            }
             row.add(tableBinding == null ? null : tableBinding.getTenantColumnId());
             row.add(tableBinding == null ? null : Integer.toString(tableBinding.getTenantColumnUniqueId()));
             row.add(tableBinding == null ? null : tableBinding.getTimeColumnId());
