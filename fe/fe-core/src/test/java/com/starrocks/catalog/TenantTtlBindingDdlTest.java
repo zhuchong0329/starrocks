@@ -19,12 +19,15 @@ import com.starrocks.alter.AlterJobException;
 import com.starrocks.common.DdlException;
 import com.starrocks.common.util.PropertyAnalyzer;
 import com.starrocks.persist.ModifyTablePropertyOperationLog;
+import com.starrocks.persist.OperationType;
+import com.starrocks.persist.TenantTtlPartitionProgressBatchLog;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.analyzer.AstToStringBuilder;
 import com.starrocks.tenantttl.TenantTtlPartitionBoundResolver;
 import com.starrocks.tenantttl.policy.TenantTtlPolicySnapshotManager;
+import com.starrocks.tenantttl.scheduler.TenantTtlPartitionProgress;
 import com.starrocks.utframe.StarRocksAssert;
 import com.starrocks.utframe.UtFrameUtils;
 import org.junit.jupiter.api.Assertions;
@@ -180,6 +183,56 @@ public class TenantTtlBindingDdlTest {
         Assertions.assertNotNull(table.getColumn("tenant"));
         Assertions.assertNull(table.getColumn("renamed"));
         Assertions.assertEquals(binding, table.getTableProperty().getTenantTtlTableBinding());
+    }
+
+    @Test
+    public void testUnbindReenableRenameAndReplay() throws Exception {
+        starRocksAssert.withTable(fromUnixTimeTableSql("unbind_lifecycle", "UTC"));
+        OlapTable table = getTable("unbind_lifecycle");
+        Database db = GlobalStateMgr.getCurrentState().getLocalMetastore().getDb(DB_NAME);
+        TenantTtlTableBinding original = table.getTableProperty().getTenantTtlTableBinding();
+        TenantTtlDictionaryBinding dictionary = table.getTableProperty().getTenantTtlDictionaryBinding();
+        TenantTtlPartitionProgress progress = new TenantTtlPartitionProgress(db.getId(), table.getId(),
+                table.getPartition("p0").getDefaultPhysicalPartition().getId(), "binding", "policy", "boundary",
+                10, 1, 1, 10);
+        GlobalStateMgr.getCurrentState().getTenantTtlPartitionProgressManager().replayUpsert(
+                new TenantTtlPartitionProgressBatchLog(ImmutableList.of(progress)));
+        starRocksAssert.alterTableProperties("ALTER TABLE unbind_lifecycle SET ('compaction_retention_condition' = '')");
+        Assertions.assertNull(table.getTableProperty().getTenantTtlTableBinding());
+        Assertions.assertNull(table.getTableProperty().getTenantTtlDictionaryBinding());
+        Assertions.assertNull(table.getTableProperty().getCompactionRetentionCondition());
+        Assertions.assertNull(table.getTableProperty().getCompactionRetentionKeyColumn());
+        Assertions.assertNull(table.getTableProperty().getCompactionRetentionTimeZone());
+        Assertions.assertEquals(0, GlobalStateMgr.getCurrentState().getTenantTtlPartitionProgressManager()
+                .countTable(db.getId(), table.getId()));
+        Assertions.assertFalse(GlobalStateMgr.getCurrentState().getTenantTtlPolicySnapshotManager()
+                .getReferencedTables(dictionary.getDictionaryId()).contains(
+                        new TenantTtlPolicySnapshotManager.TableRef(db.getId(), table.getId())));
+        starRocksAssert.alterTableProperties("ALTER TABLE unbind_lifecycle SET ('compaction_retention_condition' = '')");
+        starRocksAssert.alterTable("ALTER TABLE unbind_lifecycle RENAME COLUMN tenant TO device");
+        starRocksAssert.alterTableProperties("ALTER TABLE unbind_lifecycle SET (" +
+                "'compaction_retention_condition' = \"dictionary_ttl('" + DICTIONARY_NAME +
+                "', 'business.http_log', 180)\", 'compaction_retention_key_column' = 'device', " +
+                "'compaction_retention_time_zone' = 'UTC')");
+        Assertions.assertNotSame(original, table.getTableProperty().getTenantTtlTableBinding());
+        Assertions.assertEquals("device", table.getProperties().get(
+                PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN));
+        HashMap<String, String> unbind = new HashMap<>();
+        unbind.put(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION, "");
+        ModifyTablePropertyOperationLog log = new ModifyTablePropertyOperationLog(db.getId(), table.getId(), unbind);
+        ModifyTablePropertyOperationLog restored = GsonUtils.GSON.fromJson(GsonUtils.GSON.toJson(log),
+                ModifyTablePropertyOperationLog.class);
+        GlobalStateMgr.getCurrentState().getLocalMetastore().replayModifyTableProperty(
+                OperationType.OP_ALTER_TABLE_PROPERTIES, restored);
+        GlobalStateMgr.getCurrentState().getLocalMetastore().replayModifyTableProperty(
+                OperationType.OP_ALTER_TABLE_PROPERTIES, restored);
+        TableProperty image = GsonUtils.GSON.fromJson(GsonUtils.GSON.toJson(table.getTableProperty()), TableProperty.class);
+        Assertions.assertNull(image.getTenantTtlTableBinding());
+        Assertions.assertNull(image.getCompactionRetentionCondition());
+        Assertions.assertNull(image.getCompactionRetentionKeyColumn());
+        Assertions.assertNull(image.getCompactionRetentionTimeZone());
+        Assertions.assertNotNull(getTable("tenant_ttl_policy"));
+        Assertions.assertNotNull(GlobalStateMgr.getCurrentState().getDictionaryMgr().getDictionaryByName(DICTIONARY_NAME));
     }
 
     @Test

@@ -3866,6 +3866,14 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
             TenantTtlDictionaryBinding oldBinding = tableProperty.getTenantTtlDictionaryBinding();
             TenantTtlBindingAnalyzer.BindingResult binding = (TenantTtlBindingAnalyzer.BindingResult)
                     results.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
+            if (binding == null) {
+                // One ALTER log atomically removes configuration and completed progress on every FE.
+                tableProperty.clearTenantTtlBinding();
+                GlobalStateMgr.getCurrentState().getEditLog().logAlterTableProperties(
+                        new ModifyTablePropertyOperationLog(db.getId(), table.getId(), propertiesToPersist));
+                clearTenantTtlRuntime(db.getId(), table.getId(), oldBinding);
+                return;
+            }
             if (propertiesToPersist.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE)) {
                 propertiesToPersist.put(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE,
                         binding.getNormalizedPropertyTimeZone());
@@ -3994,6 +4002,14 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
         }
     }
 
+    private void clearTenantTtlRuntime(long dbId, long tableId, TenantTtlDictionaryBinding oldBinding) {
+        GlobalStateMgr state = GlobalStateMgr.getCurrentState();
+        state.getTenantTtlPolicySnapshotManager().updateBinding(dbId, tableId, oldBinding, null);
+        // The removal is already journaled by the empty-condition ALTER, including on replay.
+        state.getTenantTtlPartitionProgressManager().replayRemoveTable(dbId, tableId);
+        state.getTenantTtlScheduler().forgetTable(dbId, tableId);
+    }
+
     private Map<String, Object> validateToBeModifiedProps(Map<String, String> properties,
                                                           Database db, OlapTable table) throws DdlException {
         Map<String, Object> results = Maps.newHashMap();
@@ -4002,6 +4018,14 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                 properties.containsKey(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN)) {
             TableProperty current = table.getTableProperty();
             String condition = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
+            if ("".equals(condition)) {
+                if (properties.size() != 1) {
+                    throw new DdlException("Unbind TTL must specify only an empty compaction_retention_condition");
+                }
+                results.put(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION, null);
+                properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
+                return results;
+            }
             if (condition == null && current != null) {
                 condition = current.getCompactionRetentionCondition();
             }
@@ -4583,6 +4607,10 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                     tableProperty.buildProperty(opCode);
                 }
                 if (opCode == OperationType.OP_ALTER_TABLE_PROPERTIES &&
+                        "".equals(properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION))) {
+                    tableProperty.clearTenantTtlBinding();
+                    clearTenantTtlRuntime(dbId, tableId, oldTenantTtlBinding);
+                } else if (opCode == OperationType.OP_ALTER_TABLE_PROPERTIES &&
                         info.getTenantTtlDictionaryBinding() != null && info.getTenantTtlTableBinding() != null) {
                     tableProperty.setTenantTtlDictionaryBinding(info.getTenantTtlDictionaryBinding());
                     tableProperty.setTenantTtlTableBinding(info.getTenantTtlTableBinding());

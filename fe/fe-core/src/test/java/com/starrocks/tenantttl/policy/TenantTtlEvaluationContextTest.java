@@ -26,6 +26,7 @@ import com.starrocks.catalog.Replica;
 import com.starrocks.catalog.TableProperty;
 import com.starrocks.catalog.Tablet;
 import com.starrocks.catalog.TenantTtlDictionaryBinding;
+import com.starrocks.catalog.TenantTtlTableBinding;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.server.GlobalStateMgr;
@@ -299,6 +300,25 @@ public class TenantTtlEvaluationContextTest {
         Assertions.assertNotEquals(
                 TenantTtlEvaluationContext.replicaTopologyFingerprint(ImmutableList.of(first, second)),
                 TenantTtlEvaluationContext.replicaTopologyFingerprint(ImmutableList.of(first, changed)));
+    }
+
+    @Test
+    public void testIdenticalReRegistrationInvalidatesOldContext() {
+        TenantTtlEvaluationContext old = TenantTtlEvaluationContext.captureLocked(
+                db, table, snapshot, () -> EVALUATION_TIME, new AtomicLong(81000)::incrementAndGet).getContext();
+        TenantTtlTableBinding binding = table.getTableProperty().getTenantTtlTableBinding();
+        try {
+            table.getTableProperty().setTenantTtlTableBinding(null);
+            Assertions.assertFalse(old.isBindingCurrent());
+            table.getTableProperty().setTenantTtlTableBinding(new TenantTtlTableBinding(binding));
+            Assertions.assertFalse(old.validateForPublication(GlobalStateMgr.getCurrentState()));
+            TenantTtlEvaluationContext current = TenantTtlEvaluationContext.captureLocked(
+                    db, table, snapshot, () -> EVALUATION_TIME, new AtomicLong(82000)::incrementAndGet).getContext();
+            Assertions.assertTrue(current.validateForPublication(GlobalStateMgr.getCurrentState()));
+            Assertions.assertEquals(old.getTableBindingFingerprint(), current.getTableBindingFingerprint());
+        } finally {
+            table.getTableProperty().setTenantTtlTableBinding(binding);
+        }
     }
 
     @Test

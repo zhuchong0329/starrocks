@@ -213,7 +213,7 @@ public class TableProperty implements Writable, GsonPostProcessable {
     private TenantTtlDictionaryBinding tenantTtlDictionaryBinding;
 
     @SerializedName(value = "tenantTtlTableBinding")
-    private TenantTtlTableBinding tenantTtlTableBinding;
+    private volatile TenantTtlTableBinding tenantTtlTableBinding;
 
     private String timeDriftConstraintSpec = null;
 
@@ -474,6 +474,17 @@ public class TableProperty implements Writable, GsonPostProcessable {
         compactionRetentionCondition = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
         compactionRetentionTimeZone = properties.get(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
         return this;
+    }
+
+    /** The empty-condition ALTER log is the durable record of this removal. */
+    public void clearTenantTtlBinding() {
+        // Publish invalidation first so in-flight FE attempts stop waiting/submitting.
+        tenantTtlTableBinding = null;
+        tenantTtlDictionaryBinding = null;
+        properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_CONDITION);
+        properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_KEY_COLUMN);
+        properties.remove(PropertyAnalyzer.PROPERTIES_COMPACTION_RETENTION_TIME_ZONE);
+        buildCompactionRetentionProperties();
     }
 
     public String getCompactionRetentionCondition() {

@@ -60,6 +60,7 @@ public final class TenantTtlEvaluationContext {
     private final String tableName;
     private final TenantTtlDictionaryBinding dictionaryBinding;
     private final TenantTtlTableBinding tableBinding;
+    private final TableProperty bindingProperty;
     private final String tableBindingFingerprint;
     private final TenantTtlPolicySnapshot snapshot;
     private final long evaluationTimeEpochSeconds;
@@ -73,12 +74,15 @@ public final class TenantTtlEvaluationContext {
                                        TenantTtlTableBinding tableBinding, String tableBindingFingerprint,
                                        TenantTtlPolicySnapshot snapshot, long evaluationTimeEpochSeconds,
                                        long baseIndexId, long schemaId, int schemaVersion,
-                                       List<PartitionPlan> partitionPlans) {
+                                       List<PartitionPlan> partitionPlans, TableProperty bindingProperty) {
         this.dbId = dbId;
         this.tableId = tableId;
         this.tableName = tableName;
         this.dictionaryBinding = new TenantTtlDictionaryBinding(dictionaryBinding);
-        this.tableBinding = new TenantTtlTableBinding(tableBinding);
+        // The immutable binding object is also a process-local registration identity.
+        // Unbind/re-enable creates a new object even when all persisted values are identical.
+        this.tableBinding = tableBinding;
+        this.bindingProperty = bindingProperty;
         this.tableBindingFingerprint = tableBindingFingerprint;
         this.snapshot = snapshot;
         this.evaluationTimeEpochSeconds = evaluationTimeEpochSeconds;
@@ -179,7 +183,7 @@ public final class TenantTtlEvaluationContext {
             }
             return CaptureResult.success(new TenantTtlEvaluationContext(db.getId(), table.getId(), table.getName(),
                     dictionaryBinding, tableBinding, tableFingerprint, snapshot, evaluationTime,
-                    baseIndexId, schema.getSchemaId(), schema.getSchemaVersion(), plans));
+                    baseIndexId, schema.getSchemaId(), schema.getSchemaVersion(), plans, property));
         } catch (DdlException | RuntimeException e) {
             return CaptureResult.failure(CaptureFailure.BINDING_INVALID,
                     e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
@@ -293,14 +297,18 @@ public final class TenantTtlEvaluationContext {
         }
     }
 
+    public boolean isBindingCurrent() {
+        return bindingProperty.getTenantTtlTableBinding() == tableBinding;
+    }
+
     /** Caller must hold the database read or write lock. */
     public boolean validateTableBindingLocked(Database db, OlapTable table) throws DdlException {
         if (db == null || table == null || db.getId() != dbId || table.getId() != tableId) {
             return false;
         }
         TableProperty property = table.getTableProperty();
-        if (property == null || property.getTenantTtlDictionaryBinding() == null ||
-                property.getTenantTtlTableBinding() == null) {
+        if (!isBindingCurrent() || property != bindingProperty || property.getTenantTtlDictionaryBinding() == null ||
+                property.getTenantTtlTableBinding() != tableBinding) {
             return false;
         }
         TenantTtlBindingAnalyzer.TableBindingResult layout = TenantTtlBindingAnalyzer.analyzeTableBinding(

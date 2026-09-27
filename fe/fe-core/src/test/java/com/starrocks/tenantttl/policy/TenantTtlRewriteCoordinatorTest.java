@@ -22,6 +22,7 @@ import com.starrocks.catalog.LocalTablet;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.PhysicalPartition;
 import com.starrocks.catalog.Replica;
+import com.starrocks.catalog.TenantTtlTableBinding;
 import com.starrocks.common.Config;
 import com.starrocks.common.jmockit.Deencapsulation;
 import com.starrocks.common.util.concurrent.lock.LockType;
@@ -55,6 +56,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -298,6 +300,63 @@ public class TenantTtlRewriteCoordinatorTest {
     }
 
     @Test
+    public void testUnbindClearsBlockPublishedAfterRegistrationInvalidation() throws Exception {
+        TenantTtlScheduler.PendingRewritePlan oldPlan = pendingPlan("p_retry", 104500);
+        TenantTtlTableBinding original = table.getTableProperty().getTenantTtlTableBinding();
+        AtomicLong clock = new AtomicLong();
+        AtomicLong sends = new AtomicLong();
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(task -> {
+            TTenantTtlTaskCode code = sends.incrementAndGet() == 1 ?
+                    TTenantTtlTaskCode.INVALID_ARGUMENT : TTenantTtlTaskCode.SUCCESS;
+            task.finish(result(task, code, code == TTenantTtlTaskCode.SUCCESS ? task.getObservedMaxVersion() : -1));
+        }, clock::get, clock::addAndGet);
+        CountDownLatch invalidated = new CountDownLatch(1);
+        FutureTask<Boolean> unbind = new FutureTask<>(() -> {
+            Locker locker = new Locker();
+            locker.lockDatabase(db.getId(), LockType.WRITE);
+            try {
+                table.getTableProperty().setTenantTtlTableBinding(new TenantTtlTableBinding(original));
+                invalidated.countDown();
+                coordinator.forgetTable(db.getId(), table.getId());
+                return true;
+            } finally {
+                locker.unLockDatabase(db.getId(), LockType.WRITE);
+            }
+        });
+        Thread ddl = new Thread(unbind, "tenant-ttl-unbind-block-publication");
+        AtomicLong inspections = new AtomicLong();
+        new MockUp<ComputeNode>() {
+            @Mock
+            public long getLastStartTime() throws Exception {
+                // BlockedPlan reads this after its current-binding check, before insertion.
+                if (inspections.incrementAndGet() == 1) {
+                    ddl.start();
+                    Assertions.assertTrue(invalidated.await(5, TimeUnit.SECONDS));
+                    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                    while (!unbind.isDone() && ddl.getState() != Thread.State.BLOCKED &&
+                            System.nanoTime() < deadline) {
+                        Thread.yield();
+                    }
+                    Assertions.assertTrue(unbind.isDone() || ddl.getState() == Thread.State.BLOCKED);
+                }
+                return 1;
+            }
+        };
+        try {
+            Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.BLOCKED,
+                    run(coordinator, oldPlan).getState());
+            Assertions.assertTrue(unbind.get(5, TimeUnit.SECONDS));
+            Assertions.assertFalse(oldPlan.getContext().isBindingCurrent());
+            Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.COMPLETED,
+                    run(coordinator, pendingPlan("p_retry", 104600)).getState());
+            Assertions.assertEquals(3, sends.get());
+        } finally {
+            ddl.join(5000);
+            table.getTableProperty().setTenantTtlTableBinding(original);
+        }
+    }
+
+    @Test
     public void testBlockedPlanDoesNotRetryWithNewTaskIds() {
         for (TTenantTtlTaskCode code : List.of(TTenantTtlTaskCode.INVALID_ARGUMENT, TTenantTtlTaskCode.NOT_SUPPORTED,
                 TTenantTtlTaskCode.DATA_INVARIANT_VIOLATION, TTenantTtlTaskCode.INTERNAL_ERROR)) {
@@ -316,6 +375,34 @@ public class TenantTtlRewriteCoordinatorTest {
             coordinator.resetForLeadershipLoss();
             run(coordinator, pendingPlan("p_retry", 107000));
             Assertions.assertEquals(2, sends.get(), code.name());
+        }
+    }
+
+    @Test
+    public void testIdenticalRebindClosesOldAttemptWithoutPublishingProgress() {
+        AtomicLong clock = new AtomicLong();
+        List<TenantTtlCompactionTask> sent = new ArrayList<>();
+        TenantTtlTableBinding binding = table.getTableProperty().getTenantTtlTableBinding();
+        TenantTtlScheduler.PendingRewritePlan old = pendingPlan("p_retry", 308000);
+        TenantTtlRewriteCoordinator coordinator = new TenantTtlRewriteCoordinator(sent::add, clock::get, millis -> {
+            clock.addAndGet(millis);
+            table.getTableProperty().setTenantTtlTableBinding(null);
+            table.getTableProperty().setTenantTtlTableBinding(new TenantTtlTableBinding(binding));
+        });
+        try {
+            Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.REPLAN_REQUIRED,
+                    run(coordinator, old).getState());
+            Assertions.assertEquals(1, sent.size());
+            Assertions.assertFalse(state.getTenantTtlPartitionProgressManager().get(progressKey(old)).isPresent());
+            Assertions.assertEquals(TenantTtlCompactionTask.FinishResult.CLOSED,
+                    sent.get(0).finish(result(sent.get(0), TTenantTtlTaskCode.SUCCESS,
+                            sent.get(0).getObservedMaxVersion())));
+            TenantTtlScheduler.PendingRewritePlan current = pendingPlan("p_retry", 309000);
+            TenantTtlRewriteCoordinator next = new TenantTtlRewriteCoordinator(task -> task.finish(result(task,
+                    TTenantTtlTaskCode.SUCCESS, task.getObservedMaxVersion())), clock::get, clock::addAndGet);
+            Assertions.assertEquals(TenantTtlRewriteCoordinator.ExecutionState.COMPLETED, run(next, current).getState());
+        } finally {
+            table.getTableProperty().setTenantTtlTableBinding(binding);
         }
     }
 

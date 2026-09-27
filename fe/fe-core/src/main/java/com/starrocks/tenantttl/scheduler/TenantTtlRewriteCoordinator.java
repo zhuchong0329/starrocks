@@ -90,7 +90,8 @@ public final class TenantTtlRewriteCoordinator {
     public ExecutionStatus executePartition(GlobalStateMgr state, TenantTtlScheduler.PendingRewritePlan pending,
                                             BooleanSupplier leader, Consumer<ExecutionStatus> observer) {
         long epoch = generation;
-        BooleanSupplier current = () -> generation == epoch && state.isLeader() && leader.getAsBoolean();
+        BooleanSupplier current = () -> generation == epoch && state.isLeader() && leader.getAsBoolean() &&
+                pending.getContext().isBindingCurrent();
         ProgressKey key = key(pending);
         PartitionPlan plan = pending.getPartitionPlan();
         TenantTtlPartitionProgress expected = state.getTenantTtlPartitionProgressManager().get(key).orElse(null);
@@ -109,7 +110,7 @@ public final class TenantTtlRewriteCoordinator {
             for (ReplicaTaskSpec spec : plan.getReplicaTasks()) {
                 if (!current.getAsBoolean()) {
                     return report(pending, spec, ExecutionState.REPLAN_REQUIRED, successful, null,
-                            "leadership changed", observer);
+                            "leadership or TTL binding changed", observer);
                 }
                 ReplicaResult result = executeReplica(state, pending, spec, current, successful, observer);
                 if (result.state == ExecutionState.COMPLETED) {
@@ -226,7 +227,7 @@ public final class TenantTtlRewriteCoordinator {
             budget.await(TenantTtlExecutionBudget.RETRY_MILLIS, current);
         }
         if (!current.getAsBoolean()) {
-            return ReplicaResult.failure(ExecutionState.REPLAN_REQUIRED, lastCode, "leadership changed");
+            return ReplicaResult.failure(ExecutionState.REPLAN_REQUIRED, lastCode, "leadership or TTL binding changed");
         }
         ExecutionState outcome = budget.remainingMillis() == 0 ? ExecutionState.TIMED_OUT :
                 ExecutionState.ATTEMPTS_EXHAUSTED;
@@ -311,6 +312,12 @@ public final class TenantTtlRewriteCoordinator {
             } finally {
                 locker.unLockDatabase(db.getId(), LockType.READ);
             }
+        }
+    }
+
+    public void forgetTable(long dbId, long tableId) {
+        synchronized (lifecycleLock) {
+            blockedPlans.keySet().removeIf(key -> key.getDbId() == dbId && key.getTableId() == tableId);
         }
     }
 

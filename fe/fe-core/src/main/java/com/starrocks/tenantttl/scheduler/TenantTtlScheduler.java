@@ -150,7 +150,11 @@ public final class TenantTtlScheduler extends FrontendDaemon {
                         pendingRewritePlans = Collections.unmodifiableList(
                                 rewrites.subList(index, rewrites.size()));
                         rewriteCoordinator.executePartition(state, rewrites.get(index), current,
-                                this::applyCoordinatorStatus);
+                                status -> {
+                                    if (context.isBindingCurrent()) {
+                                        applyCoordinatorStatus(status);
+                                    }
+                                });
                     }
                 } catch (RuntimeException e) {
                     LOG.warn("Tenant-TTL table round failed. dbId={}, tableId={}",
@@ -166,6 +170,12 @@ public final class TenantTtlScheduler extends FrontendDaemon {
             pendingRewritePlans = Collections.emptyList();
             scheduling.set(false);
         }
+    }
+
+    public void forgetTable(long dbId, long tableId) {
+        tableStatuses.remove(new TableRef(dbId, tableId));
+        partitionStatuses.keySet().removeIf(key -> key.getDbId() == dbId && key.getTableId() == tableId);
+        rewriteCoordinator.forgetTable(dbId, tableId);
     }
 
     private void applyCoordinatorStatus(TenantTtlRewriteCoordinator.ExecutionStatus status) {
