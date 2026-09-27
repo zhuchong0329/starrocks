@@ -98,6 +98,20 @@ public class TenantTtlPolicySnapshotBuilderTest {
     }
 
     @Test
+    public void testEmptyKeyIsASeparatePolicyAndMissingKeyIsInvalid() throws Exception {
+        TenantTtlPolicySnapshot snapshot = defaultBuilder().build(DICTIONARY_ID, "ttl_dict", TXN_ID, SNAPSHOT_TIME,
+                response(Collections.singletonList(List.of(entry("", "business.http_log", 7),
+                        entry("default", "business.http_log", 30), entry(" ", "business.http_log", 60))), true));
+        TablePolicy policy = snapshot.getTablePolicy("business.http_log").orElseThrow();
+        assertEquals(OptionalInt.of(7), policy.getTenantOverride(TenantTtlByteKey.utf8("")));
+        assertEquals(OptionalInt.of(60), policy.getTenantOverride(TenantTtlByteKey.utf8(" ")));
+        assertEquals(OptionalInt.of(30), policy.getTableDefaultDays());
+        assertFailure(response(Collections.singletonList(List.of(entry("", "business.http_log", 7),
+                        entry("", "business.http_log", 30))), false),
+                TENANT_TTL_POLICY_DUPLICATE_KEY, DETERMINISTIC);
+    }
+
+    @Test
     public void testZeroRowsAreFilteredAfterDuplicateValidation() throws Exception {
         PExportDictionaryCacheResult allZero = response(Collections.singletonList(List.of(
                 entry("default", "business.http_log", 0),
@@ -121,7 +135,7 @@ public class TenantTtlPolicySnapshotBuilderTest {
     public void testInvalidRowsRejectTheWholeCandidate() throws Exception {
         assertFailure(response(Collections.singletonList(List.of(entry("tenant", "table.key", -1))), false),
                 TENANT_TTL_POLICY_INVALID_ROW, DETERMINISTIC);
-        assertFailure(response(Collections.singletonList(List.of(entry(new byte[0], bytes("table.key"), 1))), false),
+        assertFailure(response(Collections.singletonList(List.of(entry((byte[]) null, bytes("table.key"), 1))), false),
                 TENANT_TTL_POLICY_INVALID_ROW, DETERMINISTIC);
         assertFailure(response(Collections.singletonList(List.of(entry(bytes("tenant"), new byte[0], 1))), false),
                 TENANT_TTL_POLICY_INVALID_ROW, DETERMINISTIC);

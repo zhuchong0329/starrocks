@@ -71,6 +71,26 @@ TEST_F(TenantTtlRowFilterTest, DeleteListBuildsExactRangesAndKeepsNull) {
     expect_range(plan.keep_row_ranges, 1, 4, 5);
 }
 
+TEST_F(TenantTtlRowFilterTest, EmptyKeyIsDistinctFromNullAndSpace) {
+    ASSERT_NE(nullptr, create_tablet());
+    auto rowset = add_rowset(Version(2, 2), {{{1, "", 1}, {2, std::nullopt, 2}, {3, " ", 3}, {4, "a", 4}}});
+    ASSERT_NE(nullptr, rowset);
+    TenantTtlRowFilter delete_filter(_tablet->tablet_schema(), kTenantColumnUniqueId,
+                                    TenantFilter{.mode = TenantFilterMode::DELETE_LIST, .tenants = {""}}, 1);
+    auto deleted = delete_filter.plan_segment(only_segment(rowset), 0);
+    ASSERT_OK(deleted.status());
+    EXPECT_EQ(1, deleted->deleted_rows);
+    ASSERT_EQ(1, deleted->keep_row_ranges->size());
+    expect_range(deleted->keep_row_ranges, 0, 1, 4);
+    TenantTtlRowFilter keep_filter(_tablet->tablet_schema(), kTenantColumnUniqueId,
+                                  TenantFilter{.mode = TenantFilterMode::KEEP_LIST, .tenants = {""}}, 1);
+    auto kept = keep_filter.plan_segment(only_segment(rowset), 0);
+    ASSERT_OK(kept.status());
+    EXPECT_EQ(2, kept->kept_rows);
+    ASSERT_EQ(1, kept->keep_row_ranges->size());
+    expect_range(kept->keep_row_ranges, 0, 0, 2);
+}
+
 TEST_F(TenantTtlRowFilterTest, ClassifiesKeepAndDrop) {
     ASSERT_NE(nullptr, create_tablet(false));
     auto rowset = add_rowset(Version(2, 2), {{{1, "a", 1}, {2, "b", 2}, {3, "a", 3}}});

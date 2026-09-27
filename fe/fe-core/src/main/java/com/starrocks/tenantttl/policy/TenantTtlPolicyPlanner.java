@@ -170,7 +170,7 @@ public final class TenantTtlPolicyPlanner {
         int nullRetentionDays = effectiveDefault;
         boolean valid = effectiveDefault > 0;
         for (Map.Entry<TenantTtlByteKey, Integer> entry : overrides) {
-            if (entry.getKey() == null || entry.getKey().size() == 0 || entry.getValue() == null ||
+            if (entry.getKey() == null || entry.getValue() == null ||
                     entry.getValue() <= 0) {
                 valid = false;
                 continue;

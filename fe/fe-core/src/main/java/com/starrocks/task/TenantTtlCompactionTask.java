@@ -104,9 +104,6 @@ public final class TenantTtlCompactionTask extends AgentTask {
         for (TenantTtlByteKey tenant : tenants) {
             TenantTtlByteKey current = TenantTtlByteKey.copyOf(
                     Objects.requireNonNull(tenant, "tenant is null").copyBytes());
-            if (current.size() == 0) {
-                throw new IllegalArgumentException("tenant must not be empty");
-            }
             if (previous != null && previous.compareTo(current) >= 0) {
                 throw new IllegalArgumentException("tenants must be strictly sorted and unique");
             }

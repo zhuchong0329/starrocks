@@ -96,6 +96,20 @@ public class TenantTtlCompactionTaskTest {
     }
 
     @Test
+    public void testEmptyValueSurvivesThriftInBothModes() throws Exception {
+        for (TenantTtlPolicyPlanner.FilterMode mode : new TenantTtlPolicyPlanner.FilterMode[] {
+                TenantTtlPolicyPlanner.FilterMode.DELETE_LIST, TenantTtlPolicyPlanner.FilterMode.KEEP_LIST}) {
+            TAgentTaskRequest request = AgentBatchTask.toAgentTaskRequest(task(mode,
+                    Collections.singletonList(TenantTtlByteKey.utf8(""))));
+            byte[] wire = new TSerializer(new TBinaryProtocol.Factory()).serialize(request);
+            TAgentTaskRequest restored = new TAgentTaskRequest();
+            new TDeserializer(new TBinaryProtocol.Factory()).deserialize(restored, wire);
+            Assertions.assertEquals(1, restored.getTenant_ttl_compaction_req().getFilter().getTenantsSize());
+            Assertions.assertEquals(0, restored.getTenant_ttl_compaction_req().getFilter().getTenants().get(0).remaining());
+        }
+    }
+
+    @Test
     public void testRequestRejectsUnsafeFilterShapes() {
         Assertions.assertThrows(IllegalArgumentException.class,
                 () -> task(TenantTtlPolicyPlanner.FilterMode.KEEP_LIST, Collections.emptyList()));

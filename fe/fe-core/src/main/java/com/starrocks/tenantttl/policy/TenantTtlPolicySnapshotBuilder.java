@@ -297,7 +297,7 @@ public final class TenantTtlPolicySnapshotBuilder {
 
     private void validateRow(PTenantTtlPolicyEntryPB entry, int batch, int row)
             throws TenantTtlPolicySnapshotBuildException {
-        if (entry == null || entry.tenant == null || entry.tenant.length == 0 || entry.tableName == null ||
+        if (entry == null || entry.tenant == null || entry.tableName == null ||
                 entry.tableName.length == 0 || entry.retentionDays == null || entry.retentionDays < 0) {
             throw failure(DETERMINISTIC, TENANT_TTL_POLICY_INVALID_ROW,
                     "invalid Tenant-TTL policy row at batch " + batch + ", row " + row);

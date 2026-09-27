@@ -59,6 +59,24 @@ public class TenantTtlPolicyPlannerTest {
     }
 
     @Test
+    public void testEmptyKeyParticipatesInBothFilterModes() {
+        TenantTtlByteKey empty = TenantTtlByteKey.utf8("");
+        TenantTtlPolicySnapshot shortEmpty = snapshot(20, 180, Collections.singletonMap("", 7));
+        TenantTtlPolicyPlanner.Plan delete = PLANNER.plan(shortEmpty, TABLE_KEY, 365, UPPER, atDay(7));
+        assertPlan(delete, TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE,
+                TenantTtlPolicyPlanner.FilterMode.DELETE_LIST);
+        Assertions.assertEquals(Collections.singletonList(empty), delete.getTenants());
+        Assertions.assertEquals(7, PLANNER.resolveTenant(shortEmpty, TenantTtlByteKey.utf8(TABLE_KEY),
+                empty, 365).getRetentionDays());
+        TenantTtlPolicySnapshot longEmpty = snapshot(21, 7, Collections.singletonMap("", 180));
+        TenantTtlPolicyPlanner.Plan keep = PLANNER.plan(longEmpty, TABLE_KEY, 365, UPPER, atDay(7));
+        assertPlan(keep, TenantTtlPolicyPlanner.PlanType.ROWSET_REWRITE,
+                TenantTtlPolicyPlanner.FilterMode.KEEP_LIST);
+        Assertions.assertEquals(Collections.singletonList(empty), keep.getTenants());
+        Assertions.assertEquals(1, keep.getRequiredTenantCount());
+    }
+
+    @Test
     public void testDeleteNoopKeepAndDropMatrix() {
         Map<String, Integer> overrides = new HashMap<>();
         overrides.put("tenant_a", 30);
