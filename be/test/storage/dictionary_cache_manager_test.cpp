@@ -252,9 +252,10 @@ public:
 
     static void create_tenant_ttl_dictionary_cache(DictionaryCacheManager* manager, int64_t dict_id, int64_t txn_id,
                                                    const std::vector<TenantTtlEntry>& entries,
-                                                   const std::string& table_name_column = "table_name") {
+                                                   const std::string& table_name_column = "table_name",
+                                                   const std::string& key_column = "tenant") {
         Fields fields{
-                std::make_shared<Field>(0, "tenant", TYPE_VARCHAR, false),
+                std::make_shared<Field>(0, key_column, TYPE_VARCHAR, false),
                 std::make_shared<Field>(1, table_name_column, TYPE_VARCHAR, false),
                 std::make_shared<Field>(2, "retention_days", TYPE_INT, false),
         };
@@ -277,7 +278,7 @@ public:
         TTupleDescriptorBuilder tuple_builder;
         tuple_builder.add_slot(TSlotDescriptorBuilder()
                                        .string_type(128)
-                                       .column_name("tenant")
+                                       .column_name(key_column)
                                        .column_pos(1)
                                        .id(1)
                                        .build());
@@ -304,10 +305,10 @@ public:
         thrift_schema.tuple_desc = descriptor_table.tupleDescriptors[0];
         thrift_schema.indexes.resize(1);
         thrift_schema.indexes[0].id = 1;
-        thrift_schema.indexes[0].columns = {"tenant", table_name_column, "retention_days"};
+        thrift_schema.indexes[0].columns = {key_column, table_name_column, "retention_days"};
 
         TColumn tenant_column;
-        tenant_column.column_name = "tenant";
+        tenant_column.column_name = key_column;
         tenant_column.__set_is_key(true);
         tenant_column.column_type.type = TPrimitiveType::VARCHAR;
         tenant_column.column_type.__set_len(128);
@@ -534,6 +535,24 @@ TEST_F(DictionaryCacheManagerTest, tenant_ttl_export_exact_snapshot_and_limits) 
     request.set_max_rows(100000);
     ASSERT_OK(manager.export_cache(&request, &response));
     ASSERT_EQ(PDictionaryCacheExportOutcome::SCHEMA_MISMATCH, response.outcome());
+}
+
+// NOLINTNEXTLINE
+TEST_F(DictionaryCacheManagerTest, tenant_ttl_export_custom_key_name) {
+    DictionaryCacheManager manager;
+    std::vector<TenantTtlEntry> entries{{"192.0.2.1", "ip_log", 7}, {"Router A", "devices", 30}};
+    create_tenant_ttl_dictionary_cache(&manager, 800, 801, entries, "table_name", "policy_key");
+    PExportDictionaryCacheRequest request;
+    request.set_protocol_version(1);
+    request.set_dictionary_id(800);
+    request.set_expected_txn_id(801);
+    PExportDictionaryCacheResult response;
+    ASSERT_OK(manager.export_cache(&request, &response));
+    ASSERT_EQ(PDictionaryCacheExportOutcome::EXPORT_OK, response.outcome());
+    ASSERT_TRUE(response.complete());
+    auto decoded = decode_export(response);
+    ASSERT_EQ(std::set<TenantTtlEntry>(entries.begin(), entries.end()),
+              std::set<TenantTtlEntry>(decoded.begin(), decoded.end()));
 }
 
 // NOLINTNEXTLINE

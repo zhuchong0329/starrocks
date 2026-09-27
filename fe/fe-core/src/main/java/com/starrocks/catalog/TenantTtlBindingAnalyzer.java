@@ -358,10 +358,9 @@ public final class TenantTtlBindingAnalyzer {
 
     private static void validateDictionarySchema(Dictionary dictionary) throws DdlException {
         if (dictionary.getKeys().size() != 2 || dictionary.getValues().size() != 1 ||
-                !TENANT_COLUMN_NAME.equalsIgnoreCase(dictionary.getKeys().get(0)) ||
                 !"table_name".equalsIgnoreCase(dictionary.getKeys().get(1)) ||
                 !"retention_days".equalsIgnoreCase(dictionary.getValues().get(0))) {
-            throw new DdlException("Tenant-TTL Dictionary must define KEY(tenant, table_name) and " +
+            throw new DdlException("Tenant-TTL Dictionary must define KEY(<key_column>, table_name) and " +
                     "VALUE(retention_days) in that order");
         }
     }
@@ -387,15 +386,15 @@ public final class TenantTtlBindingAnalyzer {
         if (columns.size() != 3) {
             throw new DdlException("Tenant-TTL policy source must contain exactly three columns");
         }
-        validatePolicyColumn(columns.get(0), TENANT_COLUMN_NAME, true);
+        validatePolicyColumn(columns.get(0), dictionary.getKeys().get(0), true);
         validatePolicyColumn(columns.get(1), "table_name", true);
         validatePolicyColumn(columns.get(2), "retention_days", false);
 
         List<Column> keyColumns = new ArrayList<>(sourceTable.getKeyColumnsInOrder());
         if (keyColumns.size() != 2 ||
-                !TENANT_COLUMN_NAME.equalsIgnoreCase(keyColumns.get(0).getName()) ||
+                !dictionary.getKeys().get(0).equalsIgnoreCase(keyColumns.get(0).getName()) ||
                 !"table_name".equalsIgnoreCase(keyColumns.get(1).getName())) {
-            throw new DdlException("Tenant-TTL policy source PRIMARY KEY must be (tenant, table_name)");
+            throw new DdlException("Tenant-TTL policy source PRIMARY KEY must match Dictionary KEY(<key_column>, table_name)");
         }
     }
 

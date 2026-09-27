@@ -143,6 +143,32 @@ public class TenantTtlBindingDdlTest {
     }
 
     @Test
+    public void testCustomDictionaryFirstKey() throws Exception {
+        starRocksAssert.withTable("CREATE TABLE " + DB_NAME + ".custom_policy (" +
+                "policy_value VARCHAR(256) NOT NULL, table_name VARCHAR(128) NOT NULL, retention_days INT NOT NULL) " +
+                "PRIMARY KEY(policy_value, table_name) DISTRIBUTED BY HASH(policy_value) BUCKETS 1 " +
+                "PROPERTIES('replication_num' = '1')");
+        Dictionary dictionary = new Dictionary(91005L, "custom_policy_dict", "custom_policy",
+                InternalCatalog.DEFAULT_INTERNAL_CATALOG_NAME, DB_NAME,
+                ImmutableList.of("policy_value", "table_name"), ImmutableList.of("retention_days"), new HashMap<>());
+        GlobalStateMgr.getCurrentState().getDictionaryMgr().addDictionary(dictionary);
+        TenantTtlBindingAnalyzer.validateDictionaryBinding(dictionary);
+        String sql = baseTableSql("generic_dictionary", "DUPLICATE KEY(tenant, recordTimestamp)",
+                "PARTITION BY RANGE(recordTimestamp) (PARTITION p0 VALUES LESS THAN ('100'))")
+                .replace(DICTIONARY_NAME, "custom_policy_dict").replace("tenant", "device_name");
+        sql = sql.substring(0, sql.length() - 1) + ", 'compaction_retention_key_column' = 'device_name')";
+        // The database name contains tenant: qualify it explicitly after replacing the business column.
+        sql = sql.replace(DB_NAME.replace("tenant", "device_name"), DB_NAME);
+        starRocksAssert.withTable(sql);
+        Assertions.assertEquals(91005L, getTable("generic_dictionary").getTableProperty()
+                .getTenantTtlDictionaryBinding().getDictionaryId());
+        Dictionary wrong = new Dictionary(91006L, "wrong_policy_dict", "custom_policy",
+                InternalCatalog.DEFAULT_INTERNAL_CATALOG_NAME, DB_NAME,
+                ImmutableList.of("tenant", "table_name"), ImmutableList.of("retention_days"), new HashMap<>());
+        Assertions.assertThrows(DdlException.class, () -> TenantTtlBindingAnalyzer.validateDictionaryBinding(wrong));
+    }
+
+    @Test
     public void testExplicitKeyColumnValidation() {
         String base = baseTableSql("generic_invalid", "DUPLICATE KEY(tenant, recordTimestamp)",
                 "PARTITION BY RANGE(recordTimestamp) (PARTITION p0 VALUES LESS THAN ('100'))");

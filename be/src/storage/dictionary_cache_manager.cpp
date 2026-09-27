@@ -328,7 +328,6 @@ Status DictionaryCacheManager::export_cache(const PExportDictionaryCacheRequest*
 
     auto schema_matches = [&]() {
         return schema != nullptr && schema->num_fields() == 3 &&
-               boost::iequals(schema->field(0)->name(), "tenant") &&
                schema->field(0)->type()->type() == TYPE_VARCHAR &&
                boost::iequals(schema->field(1)->name(), "table_name") &&
                schema->field(1)->type()->type() == TYPE_VARCHAR &&
