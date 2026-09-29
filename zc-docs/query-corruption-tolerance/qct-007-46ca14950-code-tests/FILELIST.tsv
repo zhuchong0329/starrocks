@@ -1,0 +1,6 @@
+8	44	fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java
+3	0	fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionWarning.java
+6	3	fe/fe-core/src/main/java/com/starrocks/qe/StmtExecutor.java
+61	20	fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionPolicyTest.java
+10	0	fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionWarningTest.java
+18	4	fe/fe-core/src/test/java/com/starrocks/sql/plan/QueryCorruptionPlanTest.java

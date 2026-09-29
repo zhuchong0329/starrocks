@@ -1,0 +1,98 @@
+StarRocks 查询损坏容错：生产代码与测试合并补丁清单
+生成日期：2026-09-20（Asia/Shanghai）
+
+一、确认范围
+源仓库：/Users/zhuchong/Documents/code/starrocks-query-corruption-tolerance
+源分支：codex/query-corruption-tolerance
+排他起点：9559176fab6e2cb885779f1e7b680133d58d6972
+包含终点：22a4478221d94b27e24d006a36f3b15bf962aac2
+本地基线引用：refs/heads/4.0.11（使用完整 ref，避免同名 tag 歧义）
+已确认起点为终点祖先，区间无 merge commit。
+本次用户明确要求一个大 patch，因此仅在临时仓库汇总为新提交，不按原提交逐个导出。
+两个 FE 协议集成测试经用户确认一起纳入。
+
+包含路径（用户确认的生产代码 + 测试范围）：
+be/src
+fe/fe-core/src/main
+gensrc
+conf/fe.conf
+be/test
+fe/fe-core/src/test
+
+默认排除：
+仓库根 zc-docs/**，任意大小写的 *.md。
+上述范围之外的独立性能、故障注入工具/夹具/工具单测不带入。
+不夹带工作区改动、未跟踪文件、驱动 jar、二进制、构建缓存或 Tenant-TTL 差异。
+说明文件中的仓库路径均为相对路径，可在内网仓库根定位，不要求内网具有外网绝对路径。
+
+二、文件数量
+生产代码/配置/协议：31，+346/-9。
+BE 单元测试：3，+405/-12。
+FE 单元/计划/mock：8，+731/-1。
+FE 协议集成：2，+366/-0。
+BE 测试构建配置：1，+11/-0。
+净差异总计：45，+1859/-22，共 1881 行新增/删除。
+每个文件的基线/终点 blob 与净行数见 FILELIST.tsv。
+
+三、原提交映射（全部汇总到 0001-feat-query-corruption-add-local-OLAP-scan-tolerance.patch）
+原 SHA | 原标题 | 选中差异文件数 | 处理
+005fd4fc1cb03c8b888013775cf0d95645129774 | docs(query-corruption): [QCT-000] record approved scope and isolated build plan | 0 | 纯文档跳过
+ac1b5533b772032acf6aefb408e6f6a6596f0d01 | feat(query-corruption): [QCT-001] define opt-in policy and diagnostic wire fields | 6 | 保留代码差异
+c2202c3f0a9eeedebc600891099e295c6b27a2fd | feat(query-corruption): [QCT-002] tolerate corruption in independent OLAP scans | 5 | 保留代码/测试
+d59039631cb154ebf55268bb83bdb6404be95782 | test(exchange): [COMMUNITY-FIX] make pass-through fixture self-contained | 1 | 保留独立来源的测试夹具修复
+b6f85504bba965be4616969bd35a6b37e0d0689e | feat(query-corruption): [QCT-003] carry sticky diagnostics through existing exchanges | 10 | 保留代码/测试
+af53d8fd95c160e2f56463fb3272e5c14d62d73a | feat(query-corruption): [QCT-004] expose partial results as MySQL warnings | 16 | 保留代码/测试
+45cacacf0b02b747234d602dc9fb1d5c405efb51 | feat(query-corruption): [QCT-005] annotate standard HTTP SQL completion | 7 | 保留代码/测试
+22a4478221d94b27e24d006a36f3b15bf962aac2 | test(query-corruption): [QCT-006] validate faults and deliver product configuration | 2 | 保留配置/计划测试，排除独立工具和文档
+
+逐轮文件数有重叠，不能相加当成最终文件数。原作者、日期、标题、完整正文在 ORIGIN_COMMITS.txt 原样保存（git log --reverse --format=fuller）。
+原提交说明提及的文档、工具和历史测试不代表这些文件全部进入本包。
+
+四、新汇总提交
+提交：ef28cf6b99d99ebf4efe51cd05ed7fbd4a50fe8b
+父提交：9559176fab6e2cb885779f1e7b680133d58d6972
+完整 tree：4f0f87a489250890de13f9df0f61f376039e4535
+标题：feat(query-corruption): add local OLAP scan tolerance
+作者/提交者：Patch Verification <patch-verification@localhost>
+这只是独立临时仓库内的新迁移提交，不冒充原作者的原始提交。
+git am 会保留该迁移提交的作者信息；若内部身份规范要求不同，可选 APPLY.md 的 git apply 路线。
+
+五、导出方式
+先在独立临时 export 仓库检出精确起点，将以下冻结差异应用并暂存，创建单个汇总提交：
+
+git diff --binary --full-index --no-renames --no-ext-diff --no-textconv \
+  9559176fab6e2cb885779f1e7b680133d58d6972 \
+  22a4478221d94b27e24d006a36f3b15bf962aac2 \
+  -- be/src fe/fe-core/src/main gensrc conf/fe.conf be/test fe/fe-core/src/test \
+  ':(top,exclude)zc-docs/**' ':(exclude,icase,glob)**/*.md'
+
+实际 format-patch 导出命令（export 仓库 HEAD 固定为上述新提交）：
+
+git format-patch -1 --binary --full-index --no-renames --no-ext-diff --no-textconv \
+  --keep-subject --no-signature \
+  -o /Users/zhuchong/Documents/code/starrocks-query-corruption-tolerance/zc-docs/query-corruption-tolerance/qct-production-tests-4.0.11-20260920-211659
+
+series 只包含一个实际生成的文件名，不需要套用原来的逐轮补丁。
+原分支提交、工作区业务源码、review worktree、Tenant-TTL 构建缓存没有被修改。
+
+六、交付文件
+0001-feat-query-corruption-add-local-OLAP-scan-tolerance.patch：唯一代码邮件补丁。
+APPLY.md：中文内网校验/应用/冲突处理/构建测试/配置与回退步骤。
+MR_DESCRIPTION.md：可用于内网 MR 的说明，明确历史验证与未验证项。
+MANIFEST.txt：本清单。
+FILELIST.tsv：文件分类、净行数、起止 blob。
+ORIGIN_COMMITS.txt：原提交元数据全文。
+COMMIT_MESSAGE.txt：git apply 路线可使用的新汇总提交说明。
+VERIFICATION.txt：精确基线独立应用和完整树验证记录。
+series：一行补丁顺序表。
+SHA256SUMS：以上文件的 SHA-256（不包含它自身）。
+
+输出目录：
+/Users/zhuchong/Documents/code/starrocks-query-corruption-tolerance/zc-docs/query-corruption-tolerance/qct-production-tests-4.0.11-20260920-211659
+压缩包：
+/Users/zhuchong/Documents/code/starrocks-query-corruption-tolerance/zc-docs/query-corruption-tolerance/qct-production-tests-4.0.11-20260920-211659.tar.gz
+压缩包独立摘要：
+/Users/zhuchong/Documents/code/starrocks-query-corruption-tolerance/zc-docs/query-corruption-tolerance/qct-production-tests-4.0.11-20260920-211659.tar.gz.sha256
+
+说明 Markdown 位于补丁之外，仅作为交付附件；实际补丁不修改任何 Markdown。
+完整树验证不能证明内网定制分支无冲突，本次打包没有重新编译或重新跑功能/性能测试。

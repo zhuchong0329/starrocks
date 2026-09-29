@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1580" viewBox="0 0 1800 1580" role="img" aria-labelledby="title description">
+  <title id="title">损坏副本可能被选为修复源，导致损坏传播</title>
+  <desc id="description">非 PK clone 路径风险示意。同一 tablet 的 A 副本已标记 BAD，B 副本数据页损坏但尚未标记 BAD，C 副本实际健康。本例 FE 选择 B 修复 A。坏页所在文件进入快照，正常复制且通过长度与部分结构检查，clone 仍报告成功；A 后续查询或 compaction 读取该页时再次报错。文件长度和 footer 正常的数据页损坏可能漏过，footer、magic 损坏或文件丢失可能被拦截。此图不表示每次修复都会传播损坏，也不表示现场已发生传播。</desc>
+  <defs>
+    <style>
+      text { font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #172b3a; }
+      .title { font-size: 42px; font-weight: 600; }
+      .section { font-size: 29px; font-weight: 600; }
+      .heading { font-size: 26px; font-weight: 600; }
+      .node-title { font-size: 24px; font-weight: 600; }
+      .body { font-size: 23px; fill: #344b59; }
+      .small { font-size: 21px; fill: #526575; }
+      .blue { fill: #25648a; }
+      .red { fill: #a52c25; }
+      .orange { fill: #a65d19; }
+      .green { fill: #16634e; }
+      .flow { fill: none; stroke: #66869b; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#66869b"/>
+    </marker>
+    <marker id="selected-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#b66a25"/>
+    </marker>
+    <marker id="candidate-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#98a6af"/>
+    </marker>
+    <g id="bad-page">
+      <path d="M 0 0 H 40 L 60 20 V 76 H 0 Z" fill="#ffffff" stroke="#ba6857" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M 40 0 V 20 H 60" fill="#f8d8ce" stroke="#ba6857" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M 11 28 H 48 M 11 36 H 48" stroke="#c8d3db" stroke-width="3"/>
+      <rect x="8" y="44" width="44" height="23" rx="4" fill="#bd4f39"/>
+      <text x="30" y="61" text-anchor="middle" font-size="14" font-weight="600" style="fill:#ffffff">坏页</text>
+    </g>
+  </defs>
+
+  <rect width="1800" height="1580" fill="#ffffff"/>
+  <text x="48" y="75" class="title">损坏副本可能被选为修复源，导致损坏传播</text>
+  <text x="48" y="121" class="body">FE 判断的副本健康，不等于 segment 文件内容完整</text>
+  <rect x="1516" y="44" width="236" height="44" rx="22" fill="#edf1f5"/>
+  <text x="1634" y="74" text-anchor="middle" font-size="21" font-weight="600" fill="#526575">非 PK clone 风险示意</text>
+
+  <text x="48" y="179" class="section">同一 tablet 的三个副本</text>
+
+  <!-- A is the repair target, not a candidate source. -->
+  <rect x="48" y="206" width="528" height="276" rx="20" fill="#fff1ee"/>
+  <rect x="48" y="225" width="6" height="48" rx="3" fill="#b94b33"/>
+  <text x="80" y="256" class="heading red">A：待修复副本</text>
+  <rect x="444" y="229" width="100" height="36" rx="18" fill="#f5d8d0"/>
+  <text x="494" y="254" text-anchor="middle" font-size="20" font-weight="600" class="red">目标副本</text>
+  <text x="80" y="318" class="body">已标记 BAD，等待重建</text>
+  <text x="80" y="359" class="body">本次 clone 的目标副本</text>
+  <path d="M 80 390 H 544" stroke="#eccdc4" stroke-width="1.5"/>
+  <text x="80" y="436" class="small">等待其他副本提供修复数据</text>
+
+  <!-- B is physically corrupt but still passes metadata-based source selection. -->
+  <rect x="636" y="206" width="528" height="276" rx="20" fill="#fff4e5" stroke="#e2be8c" stroke-width="1.5"/>
+  <rect x="636" y="225" width="6" height="48" rx="3" fill="#b66a25"/>
+  <text x="668" y="256" class="heading orange">B：潜在损坏源</text>
+  <text x="668" y="318" class="body">数据页已损坏，但尚未标记 BAD</text>
+  <text x="668" y="359" class="body">仍满足 FE 选源条件</text>
+  <rect x="660" y="386" width="480" height="76" rx="12" fill="#ffe6c9"/>
+  <text x="680" y="416" class="small">文件长度正常 · footer 正常</text>
+  <text x="680" y="445" font-size="22" font-weight="600" class="red">但数据页已损坏</text>
+  <use href="#bad-page" transform="translate(1087 234) scale(0.64)"/>
+
+  <!-- C really is healthy but is not selected in this example. -->
+  <rect x="1224" y="206" width="528" height="276" rx="20" fill="#eff7f3"/>
+  <rect x="1224" y="225" width="6" height="48" rx="3" fill="#27745c"/>
+  <text x="1256" y="256" class="heading green">C：实际健康源</text>
+  <text x="1256" y="318" class="body">数据完整</text>
+  <text x="1256" y="359" class="body">同样可作为修复源</text>
+  <path d="M 1256 390 H 1720" stroke="#ccded4" stroke-width="1.5"/>
+  <text x="1256" y="436" font-size="23" font-weight="600" class="green">存在健康副本 ≠ 本次一定选中</text>
+
+  <!-- Solid B path is the chosen source; dashed C path is an unused candidate. -->
+  <path d="M 900 483 V 559" fill="none" stroke="#b66a25" stroke-width="3.5" marker-end="url(#selected-arrow)"/>
+  <text x="924" y="529" font-size="24" font-weight="600" class="orange">本次选中 B</text>
+  <path d="M 1488 483 V 620 H 1163" fill="none" stroke="#98a6af" stroke-width="2.5" stroke-dasharray="9 7" stroke-linejoin="round" marker-end="url(#candidate-arrow)"/>
+  <text x="1307" y="586" class="small">本次未选中</text>
+
+  <rect x="640" y="562" width="520" height="119" rx="16" fill="#eaf3fa" stroke="#bdd4e5" stroke-width="1.5"/>
+  <text x="900" y="607" text-anchor="middle" class="heading blue">FE 选择修复源</text>
+  <text x="900" y="650" text-anchor="middle" class="small">本例选中 B，用于修复 A</text>
+
+  <rect x="48" y="713" width="1704" height="65" rx="13" fill="#edf1f5"/>
+  <text x="80" y="755" font-size="24">FE 主要依据副本状态、版本和 BE 存活等信息选源，不直接校验 segment 文件内容。</text>
+
+  <!-- A possible propagation path; success is a task status, not a clean-data claim. -->
+  <text x="48" y="839" class="section">本次修复路径：从 B 复制到 A</text>
+  <rect x="48" y="870" width="390" height="315" rx="18" fill="#f5f7f9" stroke="#d6e0e7"/>
+  <text x="76" y="914" class="node-title">① 生成 B 的源快照</text>
+  <text x="76" y="960" class="small">坏页所在文件进入快照</text>
+  <text x="76" y="998" class="small">不逐页校验全部数据</text>
+  <rect x="76" y="1035" width="334" height="124" rx="12" fill="#fff1eb"/>
+  <use href="#bad-page" transform="translate(97 1058)"/>
+  <text x="180" y="1106" font-size="23" font-weight="600" class="red">源文件含坏页</text>
+
+  <path d="M 440 1027 H 484" class="flow"/>
+  <rect x="486" y="870" width="390" height="315" rx="18" fill="#f5f7f9" stroke="#d6e0e7"/>
+  <text x="514" y="914" class="node-title">② 复制文件并检查</text>
+  <text x="514" y="960" class="small">文件正常传输，长度检查通过</text>
+  <text x="514" y="998" class="small">footer 等结构检查通过</text>
+  <rect x="514" y="1035" width="334" height="124" rx="12" fill="#fff4e5"/>
+  <text x="681" y="1089" text-anchor="middle" font-size="24" font-weight="600" class="orange">坏数据页</text>
+  <text x="681" y="1128" text-anchor="middle" font-size="24" font-weight="600" class="orange">随文件一起复制</text>
+
+  <path d="M 878 1027 H 922" class="flow"/>
+  <rect x="924" y="870" width="390" height="315" rx="18" fill="#f0f6fa" stroke="#bdd4e5"/>
+  <text x="952" y="914" class="node-title blue">③ A 的 clone 报告成功</text>
+  <text x="952" y="960" class="small">A 已接收文件</text>
+  <text x="952" y="998" class="small">但仍包含损坏数据页</text>
+  <rect x="952" y="1035" width="334" height="124" rx="12" fill="#fff1eb"/>
+  <use href="#bad-page" transform="translate(973 1058)"/>
+  <text x="1054" y="1089" font-size="22" font-weight="600" class="red">目标文件</text>
+  <text x="1054" y="1127" font-size="22" font-weight="600" class="red">含同一坏页</text>
+
+  <path d="M 1316 1027 H 1360" class="flow"/>
+  <rect x="1362" y="870" width="390" height="315" rx="18" fill="#fff1ee" stroke="#e5c5bc"/>
+  <text x="1390" y="914" class="node-title red">④ A 后续读取再次报错</text>
+  <text x="1390" y="960" class="small">查询或 compaction 读取坏页</text>
+  <text x="1390" y="998" class="small">再次出现损坏错误</text>
+  <rect x="1390" y="1035" width="334" height="124" rx="12" fill="#f8ddd5"/>
+  <text x="1557" y="1087" text-anchor="middle" font-size="22" font-weight="600" class="red">checksum mismatch</text>
+  <text x="1557" y="1130" text-anchor="middle" font-size="21" class="red">读取该页时才暴露问题</text>
+
+  <!-- Explicit damage-type boundaries avoid suggesting that clone checks nothing. -->
+  <rect x="48" y="1220" width="830" height="121" rx="16" fill="#fff4e5"/>
+  <text x="80" y="1264" class="heading orange">可能漏过：数据页内容损坏</text>
+  <text x="80" y="1309" class="body">文件长度、footer 正常，但内部数据页已损坏</text>
+  <rect x="906" y="1220" width="846" height="121" rx="16" fill="#f0f6fa"/>
+  <text x="938" y="1264" class="heading blue">可能被拦截：结构损坏或文件缺失</text>
+  <text x="938" y="1309" class="body">footer／magic 损坏，或文件丢失</text>
+
+  <rect x="48" y="1373" width="1704" height="88" rx="16" fill="#fbe7e0"/>
+  <text x="900" y="1428" text-anchor="middle" font-size="30" font-weight="600" class="red">clone 成功，不代表复制的数据已经通过完整性校验。</text>
+  <text x="48" y="1511" class="small">以上为非 PK clone 路径的风险示意，不代表每次修复都会传播损坏，也不代表现场已发生传播。</text>
+</svg>

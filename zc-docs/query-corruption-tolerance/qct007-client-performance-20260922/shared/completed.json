@@ -1,0 +1,290 @@
+[
+  {
+    "name": "pair-1-pos-1-threads",
+    "variant": "A-baseline",
+    "client_mode": "threads",
+    "block": 1,
+    "position": 1,
+    "qps": 84.50572437008648,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 18.7095826149,
+          "median": 18.189996,
+          "p95": 26.983458,
+          "p99": 34.933853,
+          "min": 9.819512,
+          "max": 168.87217
+        },
+        "complete_ms": {
+          "mean": 47.1969921702,
+          "median": 42.874087,
+          "p95": 85.35969,
+          "p99": 96.749016,
+          "min": 13.921946,
+          "max": 241.325175
+        },
+        "after_first_ms": {
+          "p50": 24.622194999999998,
+          "p95": 63.690068999999994,
+          "p99": 72.807844
+        }
+      }
+    },
+    "warmup_samples": 4967
+  },
+  {
+    "name": "pair-1-pos-2-processes",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 1,
+    "position": 2,
+    "qps": 153.33697088086976,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 21.1038011893,
+          "median": 20.304019,
+          "p95": 29.571709,
+          "p99": 41.822919,
+          "min": 9.335493,
+          "max": 170.776888
+        },
+        "complete_ms": {
+          "mean": 25.9346057175,
+          "median": 24.843031,
+          "p95": 35.401025,
+          "p99": 51.274041,
+          "min": 12.794377,
+          "max": 221.006505
+        },
+        "after_first_ms": {
+          "p50": 4.103568999999997,
+          "p95": 7.869347000000001,
+          "p99": 13.293861
+        }
+      }
+    },
+    "warmup_samples": 8207
+  },
+  {
+    "name": "pair-2-pos-1-processes",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 2,
+    "position": 1,
+    "qps": 152.28619374317944,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 21.3524105276,
+          "median": 20.687234500000002,
+          "p95": 30.181748,
+          "p99": 39.664083,
+          "min": 9.915471,
+          "max": 109.525546
+        },
+        "complete_ms": {
+          "mean": 26.1407272262,
+          "median": 25.3465515,
+          "p95": 35.733435,
+          "p99": 46.499321,
+          "min": 13.490405,
+          "max": 120.602766
+        },
+        "after_first_ms": {
+          "p50": 4.169359,
+          "p95": 7.815780999999998,
+          "p99": 10.289099999999998
+        }
+      }
+    },
+    "warmup_samples": 8114
+  },
+  {
+    "name": "pair-2-pos-2-threads",
+    "variant": "A-baseline",
+    "client_mode": "threads",
+    "block": 2,
+    "position": 2,
+    "qps": 88.02382346853484,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 19.2017736147,
+          "median": 18.550373999999998,
+          "p95": 28.278216,
+          "p99": 36.559052,
+          "min": 9.794863,
+          "max": 250.381682
+        },
+        "complete_ms": {
+          "mean": 45.3265231496,
+          "median": 39.200458,
+          "p95": 83.270769,
+          "p99": 94.10307,
+          "min": 13.479713,
+          "max": 260.892612
+        },
+        "after_first_ms": {
+          "p50": 19.770255,
+          "p95": 61.161544000000006,
+          "p99": 69.99385900000001
+        }
+      }
+    },
+    "warmup_samples": 5081
+  },
+  {
+    "name": "pair-3-pos-1-processes",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 3,
+    "position": 1,
+    "qps": 151.7856616399417,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 21.3826878896,
+          "median": 20.661679499999998,
+          "p95": 30.362882,
+          "p99": 40.931858,
+          "min": 9.859121,
+          "max": 118.748828
+        },
+        "complete_ms": {
+          "mean": 26.2517690473,
+          "median": 25.312386500000002,
+          "p95": 36.189398,
+          "p99": 47.013054,
+          "min": 13.670952,
+          "max": 130.020964
+        },
+        "after_first_ms": {
+          "p50": 4.231918,
+          "p95": 8.024490000000004,
+          "p99": 11.078692999999998
+        }
+      }
+    },
+    "warmup_samples": 7939
+  },
+  {
+    "name": "pair-3-pos-2-threads",
+    "variant": "A-baseline",
+    "client_mode": "threads",
+    "block": 3,
+    "position": 2,
+    "qps": 84.37175155692067,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 19.7990122315,
+          "median": 18.784048,
+          "p95": 29.802151,
+          "p99": 43.662034,
+          "min": 9.320123,
+          "max": 290.518758
+        },
+        "complete_ms": {
+          "mean": 47.3025937513,
+          "median": 42.4195015,
+          "p95": 86.139858,
+          "p99": 109.599981,
+          "min": 13.686801,
+          "max": 361.356254
+        },
+        "after_first_ms": {
+          "p50": 22.797191,
+          "p95": 62.429052999999996,
+          "p99": 74.47892999999999
+        }
+      }
+    },
+    "warmup_samples": 4700
+  },
+  {
+    "name": "pair-4-pos-1-threads",
+    "variant": "A-baseline",
+    "client_mode": "threads",
+    "block": 4,
+    "position": 1,
+    "qps": 87.9716167305342,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 19.501121135,
+          "median": 18.6968745,
+          "p95": 29.257684,
+          "p99": 38.877016,
+          "min": 9.417098,
+          "max": 271.00442
+        },
+        "complete_ms": {
+          "mean": 45.3260739768,
+          "median": 40.8930055,
+          "p95": 81.07113,
+          "p99": 100.97756,
+          "min": 13.015376,
+          "max": 334.061699
+        },
+        "after_first_ms": {
+          "p50": 21.302173999999997,
+          "p95": 58.516888,
+          "p99": 71.510755
+        }
+      }
+    },
+    "warmup_samples": 5250
+  },
+  {
+    "name": "pair-4-pos-2-processes",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 4,
+    "position": 2,
+    "qps": 142.96239459248565,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 22.8121967883,
+          "median": 21.4915905,
+          "p95": 33.348249,
+          "p99": 48.378193,
+          "min": 10.800248,
+          "max": 263.206242
+        },
+        "complete_ms": {
+          "mean": 27.9039731856,
+          "median": 26.321271,
+          "p95": 39.703211,
+          "p99": 57.735179,
+          "min": 14.710833,
+          "max": 272.911893
+        },
+        "after_first_ms": {
+          "p50": 4.341301999999999,
+          "p95": 8.483441,
+          "p99": 12.524470999999998
+        }
+      }
+    },
+    "warmup_samples": 7750
+  }
+]

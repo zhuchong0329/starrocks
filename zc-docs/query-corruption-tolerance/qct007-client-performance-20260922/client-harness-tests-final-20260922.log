@@ -1,0 +1,12 @@
+test_abc_schedule (__main__.Tests) ... ok
+test_client_schedule_balances_order (__main__.Tests) ... ok
+test_output_scope (__main__.Tests) ... ok
+test_sql_and_full_results_unchanged (__main__.Tests) ... ok
+test_thread_and_spawn_barriers (__main__.Tests) ... {"utc": "2026-09-22T09:22:50.324094+00:00", "event": "measurement_start", "client_mode": "threads", "worker_pids": [306375, 306375, 306375, 306375]}
+{"utc": "2026-09-22T09:22:50.429998+00:00", "event": "measurement_start", "client_mode": "processes", "worker_pids": [306382, 306383, 306384, 306385]}
+ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.139s
+
+OK

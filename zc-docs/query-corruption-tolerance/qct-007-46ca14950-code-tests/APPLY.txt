@@ -1,0 +1,169 @@
+QCT-007 增量补丁：内网应用步骤
+
+0. 先理解范围与前提
+
+本包只包含开发分支 22a447822..46ca14950 的一个增量提交，含 3 个生产文件和 3 个测试文件。
+不是可以直接应用到裸社区 4.0.11 的完整功能包。
+内网必须已经具备之前 QCT-001～006 的等价生产代码和测试，通常即已应用：
+qct-production-tests-4.0.11-20260920-211659 中的
+0001-feat-query-corruption-add-local-OLAP-scan-tolerance.patch。
+只导入过 production-review 的生产代码版本不足以满足本包的测试前置，先补齐旧测试版本。
+内网 SHA 可以不同；旧导入被 squash 也可以，但不能仅凭提交标题判断前置完整。
+
+本包已验证两条路线：
+（1）开发分支固定起点 22a447822 → 本增量。
+（2）社区 4.0.11 → 上次大补丁 → 本增量。
+这不保证内网定制代码无冲突。
+
+补丁里保留源作者 Patch Verification <patch-verification@localhost>、原标题和正文。
+不要把 APPLY.txt、MANIFEST.txt 等交付附件复制进业务源码提交；实际 patch 不包含文档改动。
+以下路径请换成内网实际路径；建议在同一个 Bash 会话分段执行。任何命令失败都先停止，处理失败后再继续。
+
+1. 传输、校验与解压
+
+把以下两个文件一起传到内网同一目录：
+qct-007-46ca14950-code-tests.tar.gz
+qct-007-46ca14950-code-tests.tar.gz.sha256
+
+cd /实际的补丁传输目录
+sha256sum -c qct-007-46ca14950-code-tests.tar.gz.sha256
+tar -tzf qct-007-46ca14950-code-tests.tar.gz
+
+预期只有 qct-007-46ca14950-code-tests/ 下的 patch、清单和说明，无源码全集、缓存或旧补丁包。
+如果目标目录已存在，换到新的解压目录；不要覆盖以前的内容。
+
+test ! -e qct-007-46ca14950-code-tests
+tar -xzf qct-007-46ca14950-code-tests.tar.gz
+cd qct-007-46ca14950-code-tests
+sha256sum -c SHA256SUMS
+qct_patch_dir="$(pwd)"
+
+macOS 没有 sha256sum 时，对应替换为 shasum -a 256 -c。
+校验失败不要继续。SHA256SUMS 内不包含它自身；压缩包的外部校验覆盖整个包。
+
+2. 检查内网仓库状态
+
+cd /实际的内网StarRocks仓库
+git rev-parse --show-toplevel
+git branch --show-current
+git status --short
+git log -8 --oneline
+
+工作区和暂存区应干净；未跟踪文件也要核实归属。不要自动 stash、删除文件或覆盖本地修改。
+还需确认没有正在进行的 am/rebase/merge/cherry-pick/revert：
+
+for qct_state in rebase-apply rebase-merge MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD; do
+    if test -e "$(git rev-parse --git-path "$qct_state")"; then
+        printf '存在未完成的 Git 操作：%s，请先处理。\n' "$qct_state"
+        break
+    fi
+done
+
+上面如输出任何未完成操作提示，停止本次导入，不自动 abort 别人的操作。
+git am 的提交者取内网本地 Git 配置；若 git var GIT_COMMITTER_IDENT 失败，按内部规范配置当前仓库身份，不照抄验证用身份，不修改全局配置。
+
+3. 核对前置内容，创建迁移分支
+
+在仓库根目录执行：
+
+sha256sum -c "$qct_patch_dir/BASE_FILES.sha256"
+
+全部通过表示本次涉及的六个文件与确认起点一致；它不是整个 QCT-001～006 功能已经齐全的充分证明，仍须确认旧包已完整导入。
+若文件缺失，通常是前置测试/代码未带齐，先补前置；不要把新增功能勉强贴到缺失基础上。
+若文件存在但摘要不同，可能是内网定制修改。先检查补丁和差异，确认能兼容再人工合并，不能直接覆盖本地定制以满足摘要。
+如果六个文件已经符合 RESULT_FILES.sha256，可能已应用 QCT-007，核实后不要重复应用。
+
+记录导入前提交并创建新分支（示例名已存在时换一个新名字）：
+
+qct_before="$(git rev-parse HEAD)"
+git switch -c codex/qct-007-import
+
+无需改动原开发分支、强推或 reset。后续由内部正常 MR 流程合入开发分支。
+
+4. 预检并应用（推荐 git am，保留提交信息）
+
+git apply --stat "$qct_patch_dir/0001-perf-query-corruption-QCT-007-simplify-query-opt-in-.patch"
+git apply --check "$qct_patch_dir/0001-perf-query-corruption-QCT-007-simplify-query-opt-in-.patch"
+
+本包仅一份补丁，series 中列出了精确文件名。预检通过后：
+
+git am --keep "$qct_patch_dir/0001-perf-query-corruption-QCT-007-simplify-query-opt-in-.patch"
+
+预期新增一个提交。--keep 保留原邮件标题与正文；过滤文档和内网父提交不同导致 SHA 改变是正常的，不要求等于 46ca14950。
+本次不需要再次 git add/git commit；git am 已经创建提交。
+
+5. 失败与冲突处理
+
+如果 --check 失败，不进入 am；先查看目标文件与补丁上下文。
+若确认差异可合并且内网已有补丁 index 中对应的基线 blob，可选择三方应用：
+
+git am --keep --3way "$qct_patch_dir/0001-perf-query-corruption-QCT-007-simplify-query-opt-in-.patch"
+
+--3way 不是自动消除冲突；缺少基线 blob 时仍会失败，也不会自动访问外网补对象。
+若已经有失败的 am 进行中，不要直接重复上面的 git am 命令；先选择解决或 abort。
+
+git status
+git am --show-current-patch=diff
+
+人工解决后，只 git add 实际已核对的冲突文件，例如：
+
+git add fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java
+git am --continue
+
+如果还存在其他冲突，必须逐项解决并显式添加后才 continue，不使用 git add . 混入无关变更。
+如果决定放弃当前这批导入：
+
+git am --abort
+
+--abort 会撤销本次 am 批次已应用的提交及冲突处理，回到这次 am 开始前的状态，所以必须在干净工作区启动 am。本包只有一个提交。
+不要默认 git am --skip，否则会漏掉本次功能；不要用 git reset --hard 清理用户工作。
+注意：成功完成 am 后不存在进行中的批次，--abort 不用于撤销已完成提交。若之后决定撤销，应按内部流程使用 git revert 并核查依赖。
+
+6. 应用后核对
+
+git status --short
+git log -1 --format=fuller
+git rev-list --count "$qct_before..HEAD"
+git diff --stat "$qct_before..HEAD"
+git diff --name-only "$qct_before..HEAD"
+git diff --check "$qct_before..HEAD"
+git diff --exit-code "$qct_before" HEAD -- zc-docs ':(icase,glob)**/*.md'
+sha256sum -c "$qct_patch_dir/RESULT_FILES.sha256"
+
+未发生定制合并时，预期：工作区干净、新增 1 个提交、仅 6 个 Java 文件、+106/-71；文档比较无输出且返回 0，六个终点摘要全部通过。
+若合法保留了内网定制，完整文件摘要可能不同，不能为通过校验删除定制。须人工复核差异、记录例外并补测试；不要把摘要不一致默认为已验证。
+
+7. 编译与必要回归（不执行性能验收）
+
+只使用该项目允许的隔离编译环境和既有缓存。不要借用 Tenant-TTL 缓存、不要 clean，也不要照抄外网 Docker 名称到不存在的内网环境。
+在已具备 Java 17、项目依赖和代码生成工具的构建环境中，进入仓库 fe/ 目录。
+使用本地 Maven 缓存或内网镜像；离线环境缺依赖时由内部依赖管理补齐，不自动连接外网。
+
+最小改动相关单元/计划回归：
+
+MAVEN_OPTS=-Xmx2g mvn -B -pl fe-core -am \
+  -Dmaven.clean.skip=true -Dfe_ut_parallel=1 -DfailIfNoTests=false \
+  -Dtest=QueryCorruptionPolicyTest,QueryCorruptionWarningTest,QueryCorruptionPlanTest \
+  test
+
+建议随后运行与源提交相同的 41 项完整 FE 功能回归及 package。下列 JDBC jar 路径必须换成内网已有的 MySQL Connector/J 8.4.0；未提供时 Connector/J 用例会跳过，不能称为全部覆盖：
+
+qct_mysql_driver=/实际路径/mysql-connector-j-8.4.0.jar
+test -f "$qct_mysql_driver"
+STARROCKS_VERSION=4.0.11-QCT-007-internal \
+STARROCKS_COMMIT_HASH="$(git rev-parse HEAD)" \
+BUILD_TYPE=RELEASE MAVEN_OPTS=-Xmx2g mvn -B -pl fe-core -am \
+  -Dmaven.clean.skip=true -Dfe_ut_parallel=1 -DfailIfNoTests=false \
+  -Dtest=QueryCorruptionPolicyTest,QueryCorruptionWarningTest,QueryCorruptionPlanTest,QueryCorruptionJsonTest,QueryCorruptionHttpSenderTest,QueryCorruptionJdbcTest,QueryCorruptionHttpTest,MysqlEofPacketTest,MysqlOkPacketTest \
+  -Dqct.mysql.driver.jar="$qct_mysql_driver" \
+  package
+
+生产发包的版本命名遵循内部规范；上面 internal 标识仅为示例，不要让正式包带 UNKNOWN 或冒用旧源码 SHA。
+协议测试是实际 JDBC/HTTP 客户端与 FE、模拟 BE 统计，不是物理坏页测试。查看 surefire 报告确认失败/错误/跳过数，不仅看 BUILD SUCCESS。
+本次增量没有 BE 源码变化，不要求因此清理或重建 BE。性能验收按已确认要求等待后续命令，不运行性能矩阵或 JFR。
+
+8. 完成与后续
+
+确认代码审查、编译和功能回归后，按内网流程提交 MR；本说明不自动执行 push、merge、部署或集群升级。
+保留补丁包、校验文件、导入前 SHA、导入后 SHA、冲突记录和测试日志。
+本包生成时没有重新编译/测试，既有外网实现验收与本次补丁应用验证请分开记录。

@@ -1,0 +1,11 @@
+{
+  "utc": "2026-09-22T09:16:05.645943+00:00",
+  "nodes": {
+    "fe": null,
+    "be0": null,
+    "be1": null,
+    "be2": null
+  },
+  "physical_files_unchanged": true,
+  "memory_events": "low 0\nhigh 0\nmax 694920\noom 2\noom_kill 2\noom_group_kill 0\n"
+}

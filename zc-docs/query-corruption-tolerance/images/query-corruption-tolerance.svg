@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1800" viewBox="0 0 1800 1800" role="img" aria-labelledby="title description">
+  <title id="title">查询容错：允许返回部分结果，降低局部损坏对查询的影响</title>
+  <desc id="description">当前分支已实现。enable_query_corruption_tolerance 代码默认 false，当前产品配置 true。对用户只读 SELECT 已接入的本地 OLAP 独立扫描路径，明确物理损坏只终止出错任务，丢弃出错 Chunk，其他任务按原流程继续。结果可能不完整，全部输入被跳过时也允许返回计算结果或空结果。诊断沿既有通道尽力传递，FE 收到后通过 MySQL/JDBC Warning 或标准 HTTP SQL 的 partial_result、warnings 提示；没有提示不代表数据完整。公共准备、扫描任务拆分等未覆盖路径仍按原逻辑报错，不修改计划、调度、LIMIT 和取消流程，不新增诊断等待，不修复文件或设置 BAD。</desc>
+  <defs>
+    <style>
+      text { font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #172b3a; }
+      .title { font-size: 39px; font-weight: 600; }
+      .heading { font-size: 27px; font-weight: 600; }
+      .node-title { font-size: 25px; font-weight: 600; }
+      .body { font-size: 23px; fill: #344b59; }
+      .small { font-size: 21px; fill: #526575; }
+      .blue { fill: #25648a; }
+      .green { fill: #16634e; }
+      .red { fill: #a52c25; }
+      .flow { fill: none; stroke: #66869b; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+      .data { fill: none; stroke: #4c819f; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+      .diagnostic { fill: none; stroke: #b56a36; stroke-width: 2.5; stroke-dasharray: 8 7; stroke-linejoin: round; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#66869b"/>
+    </marker>
+    <marker id="data-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#4c819f"/>
+    </marker>
+    <marker id="diagnostic-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#b56a36"/>
+    </marker>
+  </defs>
+
+  <rect width="1800" height="1800" fill="#ffffff"/>
+  <text x="48" y="75" class="title">查询容错：允许返回部分结果，降低局部损坏对查询的影响</text>
+  <text x="48" y="121" class="body">只结束发生损坏的独立扫描任务，不修复文件，不改变原有查询执行流程</text>
+  <rect x="1500" y="42" width="252" height="46" rx="23" fill="#e6f3ec"/>
+  <text x="1626" y="73" text-anchor="middle" font-size="22" font-weight="600" class="green">当前分支已实现</text>
+
+  <!-- The static code default and product configuration are intentionally distinct. -->
+  <text x="48" y="186" font-size="29" font-weight="600">enable_query_corruption_tolerance</text>
+  <rect x="48" y="212" width="520" height="132" rx="18" fill="#f2f4f6"/>
+  <text x="80" y="255" class="heading">false：关闭（代码默认）</text>
+  <text x="80" y="294" class="small">保持原有错误处理</text>
+  <text x="80" y="326" class="small">遇到损坏仍可能导致查询失败</text>
+  <rect x="600" y="212" width="1152" height="132" rx="18" fill="#eaf3fa" stroke="#bdd4e5" stroke-width="1.5"/>
+  <text x="632" y="255" class="heading blue">true：开启（当前产品配置）</text>
+  <text x="632" y="306" class="body">仅在已接入的本地 OLAP 独立扫描路径中，容忍明确的物理损坏</text>
+
+  <path d="M 900 345 V 378" class="flow" marker-end="url(#arrow)"/>
+  <rect x="588" y="380" width="624" height="73" rx="16" fill="#f0f6fa" stroke="#bdd4e5" stroke-width="1.5"/>
+  <text x="900" y="427" text-anchor="middle" class="heading blue">用户只读 SELECT · 开启容错后的执行</text>
+
+  <!-- These are independent scan tasks, not three distinct tablets. -->
+  <path d="M 900 454 V 480" class="flow"/>
+  <path d="M 312 480 H 1488" class="flow"/>
+  <path d="M 312 480 V 509" class="flow" marker-end="url(#arrow)"/>
+  <path d="M 900 480 V 509" class="flow" marker-end="url(#arrow)"/>
+  <path d="M 1488 480 V 509" class="flow" marker-end="url(#arrow)"/>
+
+  <rect x="48" y="512" width="528" height="312" rx="20" fill="#eff7f3"/>
+  <rect x="48" y="531" width="6" height="48" rx="3" fill="#27745c"/>
+  <text x="80" y="560" class="heading green">扫描任务 A：正常</text>
+  <text x="80" y="614" class="body">正常读取</text>
+  <text x="80" y="656" class="body">按原流程产生数据</text>
+  <rect x="76" y="703" width="472" height="85" rx="12" fill="#ffffff"/>
+  <text x="312" y="755" text-anchor="middle" class="node-title green">已成功产生的数据</text>
+
+  <rect x="636" y="512" width="528" height="312" rx="20" fill="#fff3ec" stroke="#e8c9b9" stroke-width="1.5"/>
+  <rect x="636" y="531" width="6" height="48" rx="3" fill="#b94b33"/>
+  <text x="668" y="560" class="heading red">扫描任务 B：遇到物理损坏</text>
+  <text x="668" y="610" class="body">checksum／magic／footer 等明确损坏</text>
+  <rect x="660" y="642" width="480" height="155" rx="12" fill="#fbe1d8"/>
+  <text x="684" y="685" class="node-title red">丢弃出错 Chunk</text>
+  <text x="684" y="725" class="node-title red">结束该任务后续读取</text>
+  <text x="684" y="770" class="small">记录查询级损坏诊断</text>
+
+  <rect x="1224" y="512" width="528" height="312" rx="20" fill="#eff7f3"/>
+  <rect x="1224" y="531" width="6" height="48" rx="3" fill="#27745c"/>
+  <text x="1256" y="560" class="heading green">扫描任务 C：正常</text>
+  <text x="1256" y="614" class="body">不因 B 的损坏而被统一停止</text>
+  <text x="1256" y="656" class="body">按原流程继续执行</text>
+  <rect x="1252" y="703" width="472" height="85" rx="12" fill="#ffffff"/>
+  <text x="1488" y="755" text-anchor="middle" class="node-title green">已成功产生的数据</text>
+
+  <rect x="636" y="846" width="528" height="84" rx="12" fill="#fff9f4"/>
+  <text x="660" y="879" class="small">不是精确跳过一个坏页或一行数据</text>
+  <text x="660" y="913" class="small">不设置 tablet 级共享停止标记</text>
+
+  <!-- Data follows normal execution; diagnostics take an independent best-effort route. -->
+  <path d="M 312 825 V 974 H 1488 V 825" class="data"/>
+  <circle cx="438" cy="974" r="4" fill="#4c819f"/>
+  <path d="M 438 974 V 1055" class="data" marker-end="url(#data-arrow)"/>
+  <text x="467" y="1013" font-size="22" class="blue">已成功产生的数据 → 继续原有计算</text>
+
+  <!-- The tiny gap at the crossing denotes no connection to the blue data path. -->
+  <path d="M 1165 765 H 1192 V 959" class="diagnostic"/>
+  <path d="M 1192 989 V 1031 H 1318 V 1055" class="diagnostic" marker-end="url(#diagnostic-arrow)"/>
+  <text x="1220" y="1013" font-size="22" fill="#a65d19">诊断尽力传递，不额外等待</text>
+
+  <!-- Results can be partial, including the all-skipped case within supported paths. -->
+  <rect x="48" y="1058" width="780" height="360" rx="20" fill="#f0f6fa" stroke="#bdd4e5" stroke-width="1.5"/>
+  <text x="80" y="1107" class="heading blue">查询结果：返回可用结果</text>
+  <text x="80" y="1156" class="body">继续原有查询计算，结果可能不完整</text>
+  <rect x="80" y="1192" width="716" height="85" rx="13" fill="#e0edf6"/>
+  <text x="438" y="1246" text-anchor="middle" font-size="30" font-weight="600" class="blue">执行成功 ≠ 数据完整</text>
+  <text x="80" y="1322" class="body">容错路径内，全部输入因损坏被跳过时，</text>
+  <text x="80" y="1364" class="body">也允许返回计算结果或空结果。</text>
+
+  <!-- Warning transport is not a completion barrier and is not guaranteed. -->
+  <rect x="884" y="1058" width="868" height="360" rx="20" fill="#f5f7f9"/>
+  <text x="916" y="1107" class="heading">损坏提示：FE 收到诊断时</text>
+  <rect x="916" y="1140" width="372" height="112" rx="12" fill="#ffffff" stroke="#d2dee6"/>
+  <text x="940" y="1183" class="node-title blue">MySQL／JDBC</text>
+  <text x="940" y="1224" class="body">Warning</text>
+  <rect x="1308" y="1140" width="412" height="112" rx="12" fill="#ffffff" stroke="#d2dee6"/>
+  <text x="1332" y="1183" class="node-title blue">标准 HTTP SQL</text>
+  <text x="1332" y="1224" class="body">partial_result / warnings</text>
+  <rect x="916" y="1280" width="804" height="110" rx="12" fill="#fbe7e0"/>
+  <text x="940" y="1324" font-size="24" font-weight="600" class="red">已容忍的损坏，其提示也可能未送达</text>
+  <text x="940" y="1366" font-size="24" font-weight="600" class="red">没有提示，不代表数据完整</text>
+
+  <rect x="48" y="1450" width="1704" height="63" rx="13" fill="#edf1f5"/>
+  <text x="80" y="1490" font-size="23">其他任务若也遇到明确损坏，则各自停止；未遇到损坏的任务继续按原流程执行。</text>
+
+  <rect x="48" y="1543" width="1704" height="217" rx="18" fill="#f5f7f9"/>
+  <text x="80" y="1589" class="heading">容错边界</text>
+  <text x="80" y="1634" font-size="22" fill="#344b59">公共准备、扫描任务拆分报错仍可能使整条查询失败；未接入路径及非物理损坏错误仍按原逻辑处理。</text>
+  <text x="80" y="1679" font-size="22" fill="#344b59">不改变查询计划、调度、LIMIT 提前结束和取消流程，不新增诊断等待。</text>
+  <text x="80" y="1726" font-size="23" font-weight="600" class="red">不修复损坏文件，也不将副本标记 BAD。</text>
+</svg>

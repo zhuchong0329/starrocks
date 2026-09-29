@@ -1,0 +1,9 @@
+test_aa_runs_at_both_ends (__main__.HarnessTests) ... ok
+test_after_first_uses_paired_samples (__main__.HarnessTests) ... ok
+test_placement_ignores_heartbeat_but_not_version (__main__.HarnessTests) ... ok
+test_schedule_is_balanced (__main__.HarnessTests) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.000s
+
+OK

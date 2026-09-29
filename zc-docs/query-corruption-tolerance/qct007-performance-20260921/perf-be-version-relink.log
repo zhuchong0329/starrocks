@@ -1,0 +1,128 @@
+[1/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/binary_functions.cpp.o
+[2/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/array_functions.cpp.o
+[3/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/bitmap_functions.cpp.o
+[4/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/encryption_functions.cpp.o
+[5/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/es_functions.cpp.o
+[6/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/geo_functions.cpp.o
+[7/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/grouping_sets_functions.cpp.o
+[8/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/hyperloglog_functions.cpp.o
+[9/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/json_functions.cpp.o
+[10/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/like_predicate.cpp.o
+[11/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/map_functions.cpp.o
+[12/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/struct_functions.cpp.o
+[13/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/math_functions.cpp.o
+In file included from /usr/include/c++/12/bits/stl_pair.h:61,
+                 from /usr/include/c++/12/bits/stl_algobase.h:64,
+                 from /usr/include/c++/12/bits/specfun.h:45,
+                 from /usr/include/c++/12/cmath:1935,
+                 from /var/local/thirdparty/installed/include/fmt/format.h:36,
+                 from ../src/runtime/decimalv3.h:17,
+                 from ../src/exprs/math_functions.cpp:19:
+In function ‘constexpr std::_Require<std::__not_<std::__is_tuple_like<_Tp> >, std::is_move_constructible<_Tp>, std::is_move_assignable<_Tp> > std::swap(_Tp&, _Tp&) [with _Tp = unsigned char]’,
+    inlined from ‘constexpr void std::iter_swap(_ForwardIterator1, _ForwardIterator2) [with _ForwardIterator1 = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >; _ForwardIterator2 = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >]’ at /usr/include/c++/12/bits/stl_algobase.h:182:11,
+    inlined from ‘constexpr void std::__reverse(_RandomAccessIterator, _RandomAccessIterator, random_access_iterator_tag) [with _RandomAccessIterator = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >]’ at /usr/include/c++/12/bits/stl_algo.h:1107:18,
+    inlined from ‘constexpr void std::reverse(_BIter, _BIter) [with _BIter = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >]’ at /usr/include/c++/12/bits/stl_algo.h:1134:21,
+    inlined from ‘static std::vector<unsigned char, std::allocator<unsigned char> > starrocks::MathFunctions::int_to_byte_array(T) [with T = int]’ at ../src/exprs/math_functions.cpp:536:17:
+/usr/include/c++/12/bits/move.h:206:11: warning: writing 8 bytes into a region of size 0 [-Wstringop-overflow=]
+  206 |       __b = _GLIBCXX_MOVE(__tmp);
+      |           ^
+In file included from /usr/include/aarch64-linux-gnu/c++/12/bits/c++allocator.h:33,
+                 from /usr/include/c++/12/bits/allocator.h:46,
+                 from /usr/include/c++/12/memory:63,
+                 from /var/local/thirdparty/installed/include/fmt/format.h:39:
+In member function ‘_Tp* std::__new_allocator<_Tp>::allocate(size_type, const void*) [with _Tp = unsigned char]’,
+    inlined from ‘constexpr _Tp* std::allocator< <template-parameter-1-1> >::allocate(std::size_t) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/allocator.h:188:40,
+    inlined from ‘static constexpr _Tp* std::allocator_traits<std::allocator<_Up> >::allocate(allocator_type&, size_type) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/alloc_traits.h:464:28,
+    inlined from ‘constexpr std::_Vector_base<_Tp, _Alloc>::pointer std::_Vector_base<_Tp, _Alloc>::_M_allocate(std::size_t) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:378:33,
+    inlined from ‘constexpr void std::vector<_Tp, _Alloc>::_M_default_append(size_type) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/vector.tcc:657:45,
+    inlined from ‘constexpr void std::vector<_Tp, _Alloc>::resize(size_type) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:1011:21,
+    inlined from ‘static std::vector<unsigned char, std::allocator<unsigned char> > starrocks::MathFunctions::int_to_byte_array(T) [with T = int]’ at ../src/exprs/math_functions.cpp:535:21:
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset 9223372036854775801 into destination object of size [8, 268435456] allocated by ‘operator new’
+  137 |         return static_cast<_Tp*>(_GLIBCXX_OPERATOR_NEW(__n * sizeof(_Tp)));
+      |                                                       ^
+In member function ‘_Tp* std::__new_allocator<_Tp>::allocate(size_type, const void*) [with _Tp = unsigned char]’,
+    inlined from ‘constexpr _Tp* std::allocator< <template-parameter-1-1> >::allocate(std::size_t) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/allocator.h:188:40,
+    inlined from ‘static constexpr _Tp* std::allocator_traits<std::allocator<_Up> >::allocate(allocator_type&, size_type) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/alloc_traits.h:464:28,
+    inlined from ‘constexpr std::_Vector_base<_Tp, _Alloc>::pointer std::_Vector_base<_Tp, _Alloc>::_M_allocate(std::size_t) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:378:33,
+    inlined from ‘constexpr void std::_Vector_base<_Tp, _Alloc>::_M_create_storage(std::size_t) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:395:44,
+    inlined from ‘constexpr std::_Vector_base<_Tp, _Alloc>::_Vector_base(std::size_t, const allocator_type&) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:332:26,
+    inlined from ‘constexpr std::vector<_Tp, _Alloc>::vector(size_type, const allocator_type&) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:552:47,
+    inlined from ‘static std::vector<unsigned char, std::allocator<unsigned char> > starrocks::MathFunctions::int_to_byte_array(T) [with T = int]’ at ../src/exprs/math_functions.cpp:524:26:
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset [9223372036854775801, 9223372036854775805] into destination object of size 4 allocated by ‘operator new’
+  137 |         return static_cast<_Tp*>(_GLIBCXX_OPERATOR_NEW(__n * sizeof(_Tp)));
+      |                                                       ^
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset [9223372036854775801, 9223372036854775805] into destination object of size 4 allocated by ‘operator new’
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset [9223372036854775804, 9223372036854775805] into destination object of size 4 allocated by ‘operator new’
+In function ‘constexpr std::_Require<std::__not_<std::__is_tuple_like<_Tp> >, std::is_move_constructible<_Tp>, std::is_move_assignable<_Tp> > std::swap(_Tp&, _Tp&) [with _Tp = unsigned char]’,
+    inlined from ‘constexpr void std::iter_swap(_ForwardIterator1, _ForwardIterator2) [with _ForwardIterator1 = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >; _ForwardIterator2 = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >]’ at /usr/include/c++/12/bits/stl_algobase.h:182:11,
+    inlined from ‘constexpr void std::__reverse(_RandomAccessIterator, _RandomAccessIterator, random_access_iterator_tag) [with _RandomAccessIterator = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >]’ at /usr/include/c++/12/bits/stl_algo.h:1107:18,
+    inlined from ‘constexpr void std::reverse(_BIter, _BIter) [with _BIter = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >]’ at /usr/include/c++/12/bits/stl_algo.h:1134:21,
+    inlined from ‘static std::vector<unsigned char, std::allocator<unsigned char> > starrocks::MathFunctions::int_to_byte_array(T) [with T = long int]’ at ../src/exprs/math_functions.cpp:536:17:
+/usr/include/c++/12/bits/move.h:206:11: warning: writing 8 bytes into a region of size 0 [-Wstringop-overflow=]
+  206 |       __b = _GLIBCXX_MOVE(__tmp);
+      |           ^
+In member function ‘_Tp* std::__new_allocator<_Tp>::allocate(size_type, const void*) [with _Tp = unsigned char]’,
+    inlined from ‘constexpr _Tp* std::allocator< <template-parameter-1-1> >::allocate(std::size_t) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/allocator.h:188:40,
+    inlined from ‘static constexpr _Tp* std::allocator_traits<std::allocator<_Up> >::allocate(allocator_type&, size_type) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/alloc_traits.h:464:28,
+    inlined from ‘constexpr std::_Vector_base<_Tp, _Alloc>::pointer std::_Vector_base<_Tp, _Alloc>::_M_allocate(std::size_t) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:378:33,
+    inlined from ‘constexpr void std::vector<_Tp, _Alloc>::_M_default_append(size_type) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/vector.tcc:657:45,
+    inlined from ‘constexpr void std::vector<_Tp, _Alloc>::resize(size_type) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:1011:21,
+    inlined from ‘static std::vector<unsigned char, std::allocator<unsigned char> > starrocks::MathFunctions::int_to_byte_array(T) [with T = long int]’ at ../src/exprs/math_functions.cpp:535:21:
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset 9223372036854775801 into destination object of size [16, 268435456] allocated by ‘operator new’
+  137 |         return static_cast<_Tp*>(_GLIBCXX_OPERATOR_NEW(__n * sizeof(_Tp)));
+      |                                                       ^
+In member function ‘_Tp* std::__new_allocator<_Tp>::allocate(size_type, const void*) [with _Tp = unsigned char]’,
+    inlined from ‘constexpr _Tp* std::allocator< <template-parameter-1-1> >::allocate(std::size_t) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/allocator.h:188:40,
+    inlined from ‘static constexpr _Tp* std::allocator_traits<std::allocator<_Up> >::allocate(allocator_type&, size_type) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/alloc_traits.h:464:28,
+    inlined from ‘constexpr std::_Vector_base<_Tp, _Alloc>::pointer std::_Vector_base<_Tp, _Alloc>::_M_allocate(std::size_t) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:378:33,
+    inlined from ‘constexpr void std::_Vector_base<_Tp, _Alloc>::_M_create_storage(std::size_t) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:395:44,
+    inlined from ‘constexpr std::_Vector_base<_Tp, _Alloc>::_Vector_base(std::size_t, const allocator_type&) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:332:26,
+    inlined from ‘constexpr std::vector<_Tp, _Alloc>::vector(size_type, const allocator_type&) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:552:47,
+    inlined from ‘static std::vector<unsigned char, std::allocator<unsigned char> > starrocks::MathFunctions::int_to_byte_array(T) [with T = long int]’ at ../src/exprs/math_functions.cpp:524:26:
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset 9223372036854775801 into destination object of size 8 allocated by ‘operator new’
+  137 |         return static_cast<_Tp*>(_GLIBCXX_OPERATOR_NEW(__n * sizeof(_Tp)));
+      |                                                       ^
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset 9223372036854775801 into destination object of size 8 allocated by ‘operator new’
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset 9223372036854775807 into destination object of size 8 allocated by ‘operator new’
+In function ‘constexpr std::_Require<std::__not_<std::__is_tuple_like<_Tp> >, std::is_move_constructible<_Tp>, std::is_move_assignable<_Tp> > std::swap(_Tp&, _Tp&) [with _Tp = unsigned char]’,
+    inlined from ‘constexpr void std::iter_swap(_ForwardIterator1, _ForwardIterator2) [with _ForwardIterator1 = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >; _ForwardIterator2 = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >]’ at /usr/include/c++/12/bits/stl_algobase.h:182:11,
+    inlined from ‘constexpr void std::__reverse(_RandomAccessIterator, _RandomAccessIterator, random_access_iterator_tag) [with _RandomAccessIterator = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >]’ at /usr/include/c++/12/bits/stl_algo.h:1107:18,
+    inlined from ‘constexpr void std::reverse(_BIter, _BIter) [with _BIter = __gnu_cxx::__normal_iterator<unsigned char*, vector<unsigned char, allocator<unsigned char> > >]’ at /usr/include/c++/12/bits/stl_algo.h:1134:21,
+    inlined from ‘static std::vector<unsigned char, std::allocator<unsigned char> > starrocks::MathFunctions::int_to_byte_array(T) [with T = __int128]’ at ../src/exprs/math_functions.cpp:536:17:
+/usr/include/c++/12/bits/move.h:206:11: warning: writing 8 bytes into a region of size 0 [-Wstringop-overflow=]
+  206 |       __b = _GLIBCXX_MOVE(__tmp);
+      |           ^
+In member function ‘_Tp* std::__new_allocator<_Tp>::allocate(size_type, const void*) [with _Tp = unsigned char]’,
+    inlined from ‘constexpr _Tp* std::allocator< <template-parameter-1-1> >::allocate(std::size_t) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/allocator.h:188:40,
+    inlined from ‘static constexpr _Tp* std::allocator_traits<std::allocator<_Up> >::allocate(allocator_type&, size_type) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/alloc_traits.h:464:28,
+    inlined from ‘constexpr std::_Vector_base<_Tp, _Alloc>::pointer std::_Vector_base<_Tp, _Alloc>::_M_allocate(std::size_t) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:378:33,
+    inlined from ‘constexpr void std::vector<_Tp, _Alloc>::_M_default_append(size_type) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/vector.tcc:657:45,
+    inlined from ‘constexpr void std::vector<_Tp, _Alloc>::resize(size_type) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:1011:21,
+    inlined from ‘static std::vector<unsigned char, std::allocator<unsigned char> > starrocks::MathFunctions::int_to_byte_array(T) [with T = __int128]’ at ../src/exprs/math_functions.cpp:535:21:
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset 9223372036854775801 into destination object of size [32, 268435456] allocated by ‘operator new’
+  137 |         return static_cast<_Tp*>(_GLIBCXX_OPERATOR_NEW(__n * sizeof(_Tp)));
+      |                                                       ^
+In member function ‘_Tp* std::__new_allocator<_Tp>::allocate(size_type, const void*) [with _Tp = unsigned char]’,
+    inlined from ‘constexpr _Tp* std::allocator< <template-parameter-1-1> >::allocate(std::size_t) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/allocator.h:188:40,
+    inlined from ‘static constexpr _Tp* std::allocator_traits<std::allocator<_Up> >::allocate(allocator_type&, size_type) [with _Tp = unsigned char]’ at /usr/include/c++/12/bits/alloc_traits.h:464:28,
+    inlined from ‘constexpr std::_Vector_base<_Tp, _Alloc>::pointer std::_Vector_base<_Tp, _Alloc>::_M_allocate(std::size_t) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:378:33,
+    inlined from ‘constexpr void std::_Vector_base<_Tp, _Alloc>::_M_create_storage(std::size_t) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:395:44,
+    inlined from ‘constexpr std::_Vector_base<_Tp, _Alloc>::_Vector_base(std::size_t, const allocator_type&) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:332:26,
+    inlined from ‘constexpr std::vector<_Tp, _Alloc>::vector(size_type, const allocator_type&) [with _Tp = unsigned char; _Alloc = std::allocator<unsigned char>]’ at /usr/include/c++/12/bits/stl_vector.h:552:47,
+    inlined from ‘static std::vector<unsigned char, std::allocator<unsigned char> > starrocks::MathFunctions::int_to_byte_array(T) [with T = __int128]’ at ../src/exprs/math_functions.cpp:524:26:
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset 9223372036854775801 into destination object of size 16 allocated by ‘operator new’
+  137 |         return static_cast<_Tp*>(_GLIBCXX_OPERATOR_NEW(__n * sizeof(_Tp)));
+      |                                                       ^
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset 9223372036854775801 into destination object of size 16 allocated by ‘operator new’
+/usr/include/c++/12/bits/new_allocator.h:137:55: note: at offset 9223372036854775807 into destination object of size 16 allocated by ‘operator new’
+[14/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/percentile_functions.cpp.o
+[15/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/string_functions.cpp.o
+[16/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/time_functions.cpp.o
+[17/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/utility_functions.cpp.o
+[18/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/bit_functions.cpp.o
+[19/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/hash_functions.cpp.o
+[20/24] Building CXX object src/exprs/CMakeFiles/Exprs.dir/gin_functions.cpp.o
+[21/24] Linking CXX static library ../output/tmp/RELEASE/libExprs.a
+[22/24] Building CXX object src/gen_cpp/CMakeFiles/StarRocksGen.dir/build/gen_cpp/version.cpp.o
+[23/24] Linking CXX static library ../output/tmp/RELEASE/libStarRocksGen.a
+[24/24] Linking CXX executable ../output/lib/starrocks_be

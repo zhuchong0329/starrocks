@@ -1,0 +1,1949 @@
+{
+  "runs": [
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r1/A-baseline-mysql-cache-off-c1.jsonl",
+      "variant": "A-baseline",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 1,
+        "warmup": 50,
+        "repetitions": 200,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 200,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 8.176605695,
+            "median": 7.712161500000001,
+            "p95": 10.232143,
+            "p99": 13.939418,
+            "min": 6.100197,
+            "max": 29.951962
+          },
+          "complete_ms": {
+            "mean": 8.177739705,
+            "median": 7.7132445,
+            "p95": 10.233185,
+            "p99": 13.940501,
+            "min": 6.10128,
+            "max": 29.953212
+          }
+        },
+        "full_scan": {
+          "samples": 200,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 23.47935061,
+            "median": 22.6664435,
+            "p95": 28.065633,
+            "p99": 30.762031,
+            "min": 20.055953,
+            "max": 50.672834
+          },
+          "complete_ms": {
+            "mean": 23.487320755,
+            "median": 22.673298,
+            "p95": 28.073008,
+            "p99": 30.774365,
+            "min": 20.062953,
+            "max": 50.687585
+          }
+        },
+        "small_limit": {
+          "samples": 200,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 7.26177921,
+            "median": 6.8515014999999995,
+            "p95": 8.856952,
+            "p99": 14.046171,
+            "min": 5.397349,
+            "max": 39.414758
+          },
+          "complete_ms": {
+            "mean": 7.304139355,
+            "median": 6.8912315,
+            "p95": 8.897578,
+            "p99": 14.087255,
+            "min": 5.436767,
+            "max": 39.455884
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 7.805099505,
+        "measured_queries_per_second": 76.87281880463354
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 10.492405,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 13.379999999999999,
+            "average_cores": 1.2752081148221022,
+            "rss_before_kib": 543600,
+            "rss_after_kib": 848400
+          },
+          "be0": {
+            "cpu_seconds": 9.71,
+            "average_cores": 0.9254313000689547,
+            "rss_before_kib": 399016,
+            "rss_after_kib": 491060
+          },
+          "be1": {
+            "cpu_seconds": 3.2300000000000004,
+            "average_cores": 0.30784171979636704,
+            "rss_before_kib": 399988,
+            "rss_after_kib": 497188
+          },
+          "be2": {
+            "cpu_seconds": 3.21,
+            "average_cores": 0.3059355791165133,
+            "rss_before_kib": 395240,
+            "rss_after_kib": 494784
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 2.8144167138039373,
+        "client_cpu_seconds": 0.16999999999999998
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r1/A-baseline-mysql-cache-off-c4.jsonl",
+      "variant": "A-baseline",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 4,
+        "warmup": 50,
+        "repetitions": 200,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 15.30663470375,
+            "median": 12.942333999999999,
+            "p95": 33.888689,
+            "p99": 49.883705,
+            "min": 4.042538,
+            "max": 61.511106
+          },
+          "complete_ms": {
+            "mean": 15.30776738625,
+            "median": 12.943417499999999,
+            "p95": 33.890064,
+            "p99": 49.884538,
+            "min": 4.043455,
+            "max": 61.512232
+          }
+        },
+        "full_scan": {
+          "samples": 800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 39.21232467,
+            "median": 36.390952,
+            "p95": 63.855391,
+            "p99": 71.830448,
+            "min": 18.452406,
+            "max": 88.964006
+          },
+          "complete_ms": {
+            "mean": 39.225505355,
+            "median": 36.3992645,
+            "p95": 63.864308,
+            "p99": 71.835698,
+            "min": 18.459573,
+            "max": 88.969214
+          }
+        },
+        "small_limit": {
+          "samples": 800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 11.029329745,
+            "median": 9.302869,
+            "p95": 22.98911,
+            "p99": 36.382727,
+            "min": 3.609489,
+            "max": 48.240683
+          },
+          "complete_ms": {
+            "mean": 11.1113131675,
+            "median": 9.411389,
+            "p95": 23.031027,
+            "p99": 36.424061,
+            "min": 3.731574,
+            "max": 48.308393
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 13.229243954,
+        "measured_queries_per_second": 181.41626296598264
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 17.080342,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 27.57,
+            "average_cores": 1.614136297739237,
+            "rss_before_kib": 856132,
+            "rss_after_kib": 982616
+          },
+          "be0": {
+            "cpu_seconds": 37.519999999999996,
+            "average_cores": 2.196677326484446,
+            "rss_before_kib": 491184,
+            "rss_after_kib": 526748
+          },
+          "be1": {
+            "cpu_seconds": 11.989999999999998,
+            "average_cores": 0.7019765763472416,
+            "rss_before_kib": 498132,
+            "rss_after_kib": 534756
+          },
+          "be2": {
+            "cpu_seconds": 11.98,
+            "average_cores": 0.7013911079766435,
+            "rss_before_kib": 495604,
+            "rss_after_kib": 526108
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 5.214181308547568,
+        "client_cpu_seconds": 0.6699999999999999
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r1/B-off-mysql-cache-off-c1.jsonl",
+      "variant": "B-off",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 1,
+        "warmup": 50,
+        "repetitions": 200,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 200,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 7.991562695,
+            "median": 7.4064119999999996,
+            "p95": 9.793462,
+            "p99": 20.05036,
+            "min": 5.869297,
+            "max": 32.755963
+          },
+          "complete_ms": {
+            "mean": 7.99264545,
+            "median": 7.407495,
+            "p95": 9.79442,
+            "p99": 20.051527,
+            "min": 5.870255,
+            "max": 32.757171
+          }
+        },
+        "full_scan": {
+          "samples": 200,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 23.27301812,
+            "median": 22.704497,
+            "p95": 27.981899,
+            "p99": 31.496555,
+            "min": 19.860857,
+            "max": 42.046873
+          },
+          "complete_ms": {
+            "mean": 23.28048832,
+            "median": 22.711517999999998,
+            "p95": 27.988566,
+            "p99": 31.504972,
+            "min": 19.867316,
+            "max": 42.05404
+          }
+        },
+        "small_limit": {
+          "samples": 200,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 6.962680295,
+            "median": 6.75071,
+            "p95": 8.682854,
+            "p99": 9.617792,
+            "min": 5.334076,
+            "max": 15.373001
+          },
+          "complete_ms": {
+            "mean": 7.004625785,
+            "median": 6.7907735,
+            "p95": 8.729481,
+            "p99": 9.657418,
+            "min": 5.37316,
+            "max": 15.412918
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 7.666364844,
+        "measured_queries_per_second": 78.26395067403864
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 10.29863,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 13.12,
+            "average_cores": 1.273955856264377,
+            "rss_before_kib": 526564,
+            "rss_after_kib": 793232
+          },
+          "be0": {
+            "cpu_seconds": 9.629999999999999,
+            "average_cores": 0.9350758304745388,
+            "rss_before_kib": 398640,
+            "rss_after_kib": 492640
+          },
+          "be1": {
+            "cpu_seconds": 3.13,
+            "average_cores": 0.3039239199777058,
+            "rss_before_kib": 397320,
+            "rss_after_kib": 492480
+          },
+          "be2": {
+            "cpu_seconds": 3.12,
+            "average_cores": 0.30295291703847993,
+            "rss_before_kib": 392608,
+            "rss_after_kib": 488848
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 2.815908523755102,
+        "client_cpu_seconds": 0.16999999999999998
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r1/B-off-mysql-cache-off-c4.jsonl",
+      "variant": "B-off",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 4,
+        "warmup": 50,
+        "repetitions": 200,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 15.09423264375,
+            "median": 12.7537305,
+            "p95": 33.929352,
+            "p99": 46.174216,
+            "min": 4.156346,
+            "max": 63.81495
+          },
+          "complete_ms": {
+            "mean": 15.0954674575,
+            "median": 12.754918,
+            "p95": 33.930477,
+            "p99": 46.175341,
+            "min": 4.157388,
+            "max": 63.816325
+          }
+        },
+        "full_scan": {
+          "samples": 800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 38.9563596,
+            "median": 36.3152605,
+            "p95": 62.832141,
+            "p99": 78.617777,
+            "min": 17.918916,
+            "max": 107.104066
+          },
+          "complete_ms": {
+            "mean": 38.9654719625,
+            "median": 36.3217815,
+            "p95": 62.840057,
+            "p99": 78.627319,
+            "min": 17.924625,
+            "max": 107.109608
+          }
+        },
+        "small_limit": {
+          "samples": 800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 11.33309500875,
+            "median": 10.0032075,
+            "p95": 24.356259,
+            "p99": 33.323334,
+            "min": 3.369036,
+            "max": 45.753764
+          },
+          "complete_ms": {
+            "mean": 11.42129037875,
+            "median": 10.058414,
+            "p95": 24.470895,
+            "p99": 33.363626,
+            "min": 3.407954,
+            "max": 45.789014
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 13.167332667,
+        "measured_queries_per_second": 182.26926141350447
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 16.983774,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 27.400000000000002,
+            "average_cores": 1.6133045576324792,
+            "rss_before_kib": 797592,
+            "rss_after_kib": 852328
+          },
+          "be0": {
+            "cpu_seconds": 37.730000000000004,
+            "average_cores": 2.2215321518056,
+            "rss_before_kib": 492736,
+            "rss_after_kib": 533152
+          },
+          "be1": {
+            "cpu_seconds": 11.939999999999998,
+            "average_cores": 0.703023956866124,
+            "rss_before_kib": 493648,
+            "rss_after_kib": 520828
+          },
+          "be2": {
+            "cpu_seconds": 11.830000000000002,
+            "average_cores": 0.696547186744242,
+            "rss_before_kib": 489844,
+            "rss_after_kib": 519352
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 5.234407853048445,
+        "client_cpu_seconds": 0.69
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r1/C-on-mysql-cache-off-c1.jsonl",
+      "variant": "C-on",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 1,
+        "warmup": 50,
+        "repetitions": 200,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 200,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 7.838018855,
+            "median": 7.451185,
+            "p95": 9.95262,
+            "p99": 10.694929,
+            "min": 6.063693,
+            "max": 35.271287
+          },
+          "complete_ms": {
+            "mean": 7.839117205,
+            "median": 7.4522685,
+            "p95": 9.953704,
+            "p99": 10.696138,
+            "min": 6.064735,
+            "max": 35.272329
+          }
+        },
+        "full_scan": {
+          "samples": 200,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 23.0863364,
+            "median": 22.351951,
+            "p95": 26.58632,
+            "p99": 32.940315,
+            "min": 19.842287,
+            "max": 58.967414
+          },
+          "complete_ms": {
+            "mean": 23.09394119,
+            "median": 22.359076,
+            "p95": 26.59357,
+            "p99": 32.947565,
+            "min": 19.849704,
+            "max": 58.973539
+          }
+        },
+        "small_limit": {
+          "samples": 200,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 6.892812085,
+            "median": 6.567684,
+            "p95": 8.526252,
+            "p99": 11.080691,
+            "min": 5.536846,
+            "max": 17.629772
+          },
+          "complete_ms": {
+            "mean": 6.934567105,
+            "median": 6.6353729999999995,
+            "p95": 8.612421,
+            "p99": 11.168819,
+            "min": 5.572139,
+            "max": 17.668065
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 7.584090184,
+        "measured_queries_per_second": 79.11298329044237
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 10.244288,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 13.360000000000001,
+            "average_cores": 1.3041413907926058,
+            "rss_before_kib": 538824,
+            "rss_after_kib": 789172
+          },
+          "be0": {
+            "cpu_seconds": 9.55,
+            "average_cores": 0.9322268175201636,
+            "rss_before_kib": 398852,
+            "rss_after_kib": 493504
+          },
+          "be1": {
+            "cpu_seconds": 3.13,
+            "average_cores": 0.3055361192500641,
+            "rss_before_kib": 399908,
+            "rss_after_kib": 493612
+          },
+          "be2": {
+            "cpu_seconds": 3.15,
+            "average_cores": 0.3074884267213105,
+            "rss_before_kib": 395336,
+            "rss_after_kib": 492916
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 2.849392754284144,
+        "client_cpu_seconds": 0.16999999999999998
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r1/C-on-mysql-cache-off-c4.jsonl",
+      "variant": "C-on",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 4,
+        "warmup": 50,
+        "repetitions": 200,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 17.588640145,
+            "median": 13.047668,
+            "p95": 37.020033,
+            "p99": 66.36782,
+            "min": 4.410695,
+            "max": 379.692241
+          },
+          "complete_ms": {
+            "mean": 17.58996838375,
+            "median": 13.048646999999999,
+            "p95": 37.021242,
+            "p99": 66.371654,
+            "min": 4.411362,
+            "max": 379.693449
+          }
+        },
+        "full_scan": {
+          "samples": 800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 45.86089489875,
+            "median": 39.463108,
+            "p95": 75.188408,
+            "p99": 241.464884,
+            "min": 18.904785,
+            "max": 413.789403
+          },
+          "complete_ms": {
+            "mean": 45.9117630325,
+            "median": 39.4712745,
+            "p95": 75.196492,
+            "p99": 241.484968,
+            "min": 18.910951,
+            "max": 413.811654
+          }
+        },
+        "small_limit": {
+          "samples": 800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 13.752746655,
+            "median": 10.991388,
+            "p95": 29.061246,
+            "p99": 56.452695,
+            "min": 3.597301,
+            "max": 340.872749
+          },
+          "complete_ms": {
+            "mean": 13.8361405025,
+            "median": 11.131658,
+            "p95": 29.112122,
+            "p99": 57.077669,
+            "min": 3.8516,
+            "max": 341.148881
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 15.605906592,
+        "measured_queries_per_second": 153.787925478825
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 19.413253,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 31.75,
+            "average_cores": 1.635480668798784,
+            "rss_before_kib": 793588,
+            "rss_after_kib": 848868
+          },
+          "be0": {
+            "cpu_seconds": 42.4,
+            "average_cores": 2.1840749718761714,
+            "rss_before_kib": 494536,
+            "rss_after_kib": 531264
+          },
+          "be1": {
+            "cpu_seconds": 14.020000000000001,
+            "average_cores": 0.7221870543798096,
+            "rss_before_kib": 494652,
+            "rss_after_kib": 527420
+          },
+          "be2": {
+            "cpu_seconds": 14.240000000000002,
+            "average_cores": 0.7335195188565256,
+            "rss_before_kib": 493884,
+            "rss_after_kib": 526928
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 5.27526221391129,
+        "client_cpu_seconds": 0.7899999999999999
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r2/A-baseline-mysql-cache-off-c1.jsonl",
+      "variant": "A-baseline",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 1,
+        "warmup": 200,
+        "repetitions": 500,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 500,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 5.985127502,
+            "median": 5.8128150000000005,
+            "p95": 7.559166,
+            "p99": 8.339266,
+            "min": 4.424723,
+            "max": 20.525867
+          },
+          "complete_ms": {
+            "mean": 5.9862604059999995,
+            "median": 5.8138775,
+            "p95": 7.560333,
+            "p99": 8.340308,
+            "min": 4.425764,
+            "max": 20.526908
+          }
+        },
+        "full_scan": {
+          "samples": 500,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 20.458069158,
+            "median": 20.0707125,
+            "p95": 23.230967,
+            "p99": 27.710109,
+            "min": 17.953648,
+            "max": 30.166954
+          },
+          "complete_ms": {
+            "mean": 20.465213768,
+            "median": 20.0775455,
+            "p95": 23.239092,
+            "p99": 27.717984,
+            "min": 17.960815,
+            "max": 30.174038
+          }
+        },
+        "small_limit": {
+          "samples": 500,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 5.257715998,
+            "median": 5.1981565,
+            "p95": 6.507559,
+            "p99": 7.011112,
+            "min": 3.849752,
+            "max": 8.040218
+          },
+          "complete_ms": {
+            "mean": 5.298277714,
+            "median": 5.238324,
+            "p95": 6.546936,
+            "p99": 7.068488,
+            "min": 3.892836,
+            "max": 8.079011
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 15.900251428,
+        "measured_queries_per_second": 94.33813086493288
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 24.404484,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 27.1,
+            "average_cores": 1.1104516694554984,
+            "rss_before_kib": 543172,
+            "rss_after_kib": 1024864
+          },
+          "be0": {
+            "cpu_seconds": 26.43,
+            "average_cores": 1.0829976982918386,
+            "rss_before_kib": 397664,
+            "rss_after_kib": 488400
+          },
+          "be1": {
+            "cpu_seconds": 8.6,
+            "average_cores": 0.35239425672757513,
+            "rss_before_kib": 397260,
+            "rss_after_kib": 489504
+          },
+          "be2": {
+            "cpu_seconds": 8.55,
+            "average_cores": 0.3503454529093916,
+            "rss_before_kib": 393404,
+            "rss_after_kib": 496900
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 2.8961890773843035,
+        "client_cpu_seconds": 0.42
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r2/A-baseline-mysql-cache-off-c4.jsonl",
+      "variant": "A-baseline",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 4,
+        "warmup": 200,
+        "repetitions": 500,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 2000,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 14.0123006995,
+            "median": 11.63517,
+            "p95": 33.516348,
+            "p99": 48.879799,
+            "min": 3.371139,
+            "max": 66.232268
+          },
+          "complete_ms": {
+            "mean": 14.013458092,
+            "median": 11.636376,
+            "p95": 33.517434,
+            "p99": 48.880633,
+            "min": 3.372265,
+            "max": 66.23331
+          }
+        },
+        "full_scan": {
+          "samples": 2000,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 37.465084474,
+            "median": 34.653389000000004,
+            "p95": 62.247828,
+            "p99": 73.731375,
+            "min": 17.234587,
+            "max": 104.391897
+          },
+          "complete_ms": {
+            "mean": 37.4743160155,
+            "median": 34.659069,
+            "p95": 62.254546,
+            "p99": 73.735797,
+            "min": 17.240042,
+            "max": 104.39816
+          }
+        },
+        "small_limit": {
+          "samples": 2000,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 10.5231665415,
+            "median": 8.843366,
+            "p95": 23.234899,
+            "p99": 34.43257,
+            "min": 2.950518,
+            "max": 62.089104
+          },
+          "complete_ms": {
+            "mean": 10.5990393215,
+            "median": 8.9046545,
+            "p95": 23.271265,
+            "p99": 34.471436,
+            "min": 2.988731,
+            "max": 62.265196
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 31.312858049,
+        "measured_queries_per_second": 191.61457541214813
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 44.101238,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 55.24,
+            "average_cores": 1.2525725468296378,
+            "rss_before_kib": 1029192,
+            "rss_after_kib": 1161964
+          },
+          "be0": {
+            "cpu_seconds": 103.28,
+            "average_cores": 2.341884370683653,
+            "rss_before_kib": 489296,
+            "rss_after_kib": 539940
+          },
+          "be1": {
+            "cpu_seconds": 32.99,
+            "average_cores": 0.7480515626341374,
+            "rss_before_kib": 490336,
+            "rss_after_kib": 544876
+          },
+          "be2": {
+            "cpu_seconds": 32.78,
+            "average_cores": 0.7432897915473484,
+            "rss_before_kib": 497820,
+            "rss_after_kib": 538156
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 5.0857982716947765,
+        "client_cpu_seconds": 1.8
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r2/B-off-mysql-cache-off-c1.jsonl",
+      "variant": "B-off",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 1,
+        "warmup": 200,
+        "repetitions": 500,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 500,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 6.015101716,
+            "median": 5.911475,
+            "p95": 7.554655,
+            "p99": 9.260355,
+            "min": 4.319089,
+            "max": 11.334815
+          },
+          "complete_ms": {
+            "mean": 6.016188454,
+            "median": 5.9126205,
+            "p95": 7.555738,
+            "p99": 9.261355,
+            "min": 4.320089,
+            "max": 11.335856
+          }
+        },
+        "full_scan": {
+          "samples": 500,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 20.742455832,
+            "median": 20.147804999999998,
+            "p95": 24.91063,
+            "p99": 32.272579,
+            "min": 18.059369,
+            "max": 42.168575
+          },
+          "complete_ms": {
+            "mean": 20.750312396,
+            "median": 20.156806,
+            "p95": 24.918297,
+            "p99": 32.282412,
+            "min": 18.067286,
+            "max": 42.178909
+          }
+        },
+        "small_limit": {
+          "samples": 500,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 5.308024438,
+            "median": 5.258003,
+            "p95": 6.533465,
+            "p99": 7.475193,
+            "min": 3.57049,
+            "max": 8.336044
+          },
+          "complete_ms": {
+            "mean": 5.350009254,
+            "median": 5.3003165,
+            "p95": 6.572341,
+            "p99": 7.557322,
+            "min": 3.637116,
+            "max": 8.377878
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 16.084113421,
+        "measured_queries_per_second": 93.25972534125168
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 24.696643,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 26.480000000000004,
+            "average_cores": 1.0722105024557387,
+            "rss_before_kib": 520092,
+            "rss_after_kib": 818984
+          },
+          "be0": {
+            "cpu_seconds": 26.87,
+            "average_cores": 1.0880021223937197,
+            "rss_before_kib": 397280,
+            "rss_after_kib": 497200
+          },
+          "be1": {
+            "cpu_seconds": 8.74,
+            "average_cores": 0.3538942519434726,
+            "rss_before_kib": 399216,
+            "rss_after_kib": 499260
+          },
+          "be2": {
+            "cpu_seconds": 8.73,
+            "average_cores": 0.35348933861172954,
+            "rss_before_kib": 393332,
+            "rss_after_kib": 493348
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 2.8675962154046606,
+        "client_cpu_seconds": 0.42
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r2/B-off-mysql-cache-off-c4.jsonl",
+      "variant": "B-off",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 4,
+        "warmup": 200,
+        "repetitions": 500,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 2000,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 14.223789434,
+            "median": 11.7923095,
+            "p95": 35.426499,
+            "p99": 47.40266,
+            "min": 3.361905,
+            "max": 126.588451
+          },
+          "complete_ms": {
+            "mean": 14.2250004175,
+            "median": 11.793768,
+            "p95": 35.427541,
+            "p99": 47.40366,
+            "min": 3.362863,
+            "max": 126.598368
+          }
+        },
+        "full_scan": {
+          "samples": 2000,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 38.844772899,
+            "median": 35.4227245,
+            "p95": 63.208874,
+            "p99": 85.501462,
+            "min": 16.687232,
+            "max": 146.975086
+          },
+          "complete_ms": {
+            "mean": 38.854182531,
+            "median": 35.428495,
+            "p95": 63.221916,
+            "p99": 85.525171,
+            "min": 16.692483,
+            "max": 147.00092
+          }
+        },
+        "small_limit": {
+          "samples": 2000,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 10.615693971,
+            "median": 8.4215125,
+            "p95": 24.035804,
+            "p99": 36.082471,
+            "min": 2.988523,
+            "max": 91.451426
+          },
+          "complete_ms": {
+            "mean": 10.6924992155,
+            "median": 8.479701500000001,
+            "p95": 24.072888,
+            "p99": 36.124681,
+            "min": 3.149317,
+            "max": 91.575928
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 32.206642323,
+        "measured_queries_per_second": 186.29697376789787
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 45.114979,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 54.56999999999999,
+            "average_cores": 1.209576092233136,
+            "rss_before_kib": 823408,
+            "rss_after_kib": 945120
+          },
+          "be0": {
+            "cpu_seconds": 105.46,
+            "average_cores": 2.337582823655975,
+            "rss_before_kib": 498168,
+            "rss_after_kib": 531952
+          },
+          "be1": {
+            "cpu_seconds": 33.58,
+            "average_cores": 0.7443204173939657,
+            "rss_before_kib": 500280,
+            "rss_after_kib": 542104
+          },
+          "be2": {
+            "cpu_seconds": 33.3,
+            "average_cores": 0.7381140529844865,
+            "rss_before_kib": 494224,
+            "rss_after_kib": 529132
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 5.029593386267563,
+        "client_cpu_seconds": 1.8499999999999999
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r2/C-on-mysql-cache-off-c1.jsonl",
+      "variant": "C-on",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 1,
+        "warmup": 200,
+        "repetitions": 500,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 500,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 6.189152488,
+            "median": 6.043382,
+            "p95": 7.619055,
+            "p99": 9.287506,
+            "min": 4.323914,
+            "max": 20.87684
+          },
+          "complete_ms": {
+            "mean": 6.19026652,
+            "median": 6.044382,
+            "p95": 7.62018,
+            "p99": 9.289756,
+            "min": 4.324914,
+            "max": 20.878465
+          }
+        },
+        "full_scan": {
+          "samples": 500,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 20.910454376,
+            "median": 20.5706895,
+            "p95": 24.330904,
+            "p99": 29.011661,
+            "min": 17.801789,
+            "max": 30.947327
+          },
+          "complete_ms": {
+            "mean": 20.91832664,
+            "median": 20.577772500000002,
+            "p95": 24.338362,
+            "p99": 29.026078,
+            "min": 17.808956,
+            "max": 30.959244
+          }
+        },
+        "small_limit": {
+          "samples": 500,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 5.44670836,
+            "median": 5.375808,
+            "p95": 6.899337,
+            "p99": 7.927146,
+            "min": 3.802071,
+            "max": 11.424794
+          },
+          "complete_ms": {
+            "mean": 5.488656612,
+            "median": 5.417183,
+            "p95": 6.98542,
+            "p99": 7.966563,
+            "min": 3.841072,
+            "max": 11.463961
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 16.324482358,
+        "measured_queries_per_second": 91.88652767693475
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 24.829405,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 27.779999999999998,
+            "average_cores": 1.1188347042548943,
+            "rss_before_kib": 536156,
+            "rss_after_kib": 1012056
+          },
+          "be0": {
+            "cpu_seconds": 26.66,
+            "average_cores": 1.0737268976038692,
+            "rss_before_kib": 397252,
+            "rss_after_kib": 498972
+          },
+          "be1": {
+            "cpu_seconds": 8.639999999999999,
+            "average_cores": 0.3479745084507663,
+            "rss_before_kib": 396140,
+            "rss_after_kib": 491640
+          },
+          "be2": {
+            "cpu_seconds": 8.67,
+            "average_cores": 0.34918275327177595,
+            "rss_before_kib": 392120,
+            "rss_after_kib": 490856
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 2.8897188635813054,
+        "client_cpu_seconds": 0.43
+      }
+    },
+    {
+      "file": "/query-corruption-workspace/logs/QCT-006/qct007-20260921-page-cache-off-r2/C-on-mysql-cache-off-c4.jsonl",
+      "variant": "C-on",
+      "protocol": "mysql",
+      "settings": {
+        "cache": false,
+        "dop": 2,
+        "concurrency": 4,
+        "warmup": 200,
+        "repetitions": 500,
+        "seed": 20260919
+      },
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 2000,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 14.8607379975,
+            "median": 12.2235895,
+            "p95": 36.238731,
+            "p99": 50.181609,
+            "min": 3.182021,
+            "max": 87.332905
+          },
+          "complete_ms": {
+            "mean": 14.861954873,
+            "median": 12.224548,
+            "p95": 36.240022,
+            "p99": 50.182651,
+            "min": 3.183312,
+            "max": 87.336405
+          }
+        },
+        "full_scan": {
+          "samples": 2000,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 37.6507283475,
+            "median": 34.9174515,
+            "p95": 61.85393,
+            "p99": 75.391549,
+            "min": 16.860373,
+            "max": 188.784667
+          },
+          "complete_ms": {
+            "mean": 37.6602538535,
+            "median": 34.927681,
+            "p95": 61.859097,
+            "p99": 75.397924,
+            "min": 16.865165,
+            "max": 188.792167
+          }
+        },
+        "small_limit": {
+          "samples": 2000,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 10.51566407,
+            "median": 8.021655500000001,
+            "p95": 23.450579,
+            "p99": 36.974173,
+            "min": 2.94535,
+            "max": 160.407658
+          },
+          "complete_ms": {
+            "mean": 10.5914563315,
+            "median": 8.1023625,
+            "p95": 23.48958,
+            "p99": 37.017757,
+            "min": 3.010809,
+            "max": 160.524785
+          }
+        }
+      },
+      "throughput": {
+        "measured_wall_seconds": 31.785917193,
+        "measured_queries_per_second": 188.76283995735508
+      },
+      "resources_including_warmup": {
+        "snapshot_wall_seconds": 44.840101,
+        "nodes": {
+          "fe": {
+            "cpu_seconds": 54.53000000000001,
+            "average_cores": 1.2160989557093105,
+            "rss_before_kib": 1016432,
+            "rss_after_kib": 1150984
+          },
+          "be0": {
+            "cpu_seconds": 105.00000000000001,
+            "average_cores": 2.3416539583619587,
+            "rss_before_kib": 500040,
+            "rss_after_kib": 542588
+          },
+          "be1": {
+            "cpu_seconds": 33.260000000000005,
+            "average_cores": 0.7417467681439881,
+            "rss_before_kib": 492704,
+            "rss_after_kib": 531904
+          },
+          "be2": {
+            "cpu_seconds": 33.41,
+            "average_cores": 0.7450919880845049,
+            "rss_before_kib": 492072,
+            "rss_after_kib": 535716
+          }
+        },
+        "query_cache": {
+          "19400": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19500": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          },
+          "19600": {
+            "query_cache_lookup_count_delta": 0.0,
+            "query_cache_hit_count_delta": 0.0
+          }
+        },
+        "server_average_cores": 5.044591670299763,
+        "client_cpu_seconds": 1.82
+      }
+    }
+  ],
+  "plan_comparison": [
+    {
+      "protocol": "mysql",
+      "query_cache": false,
+      "dop": 2,
+      "case": "empty_scan",
+      "distinct_plan_sha256": [
+        "a4df461aa1eabebb93f4e0c28cce08bfafbe8a2a3db1d22887320f9b47c99bbf"
+      ]
+    },
+    {
+      "protocol": "mysql",
+      "query_cache": false,
+      "dop": 2,
+      "case": "full_scan",
+      "distinct_plan_sha256": [
+        "f758d285d0a1ecd9b2b9e84fd04055484901f332855d981e9933b5dd6101e890"
+      ]
+    },
+    {
+      "protocol": "mysql",
+      "query_cache": false,
+      "dop": 2,
+      "case": "small_limit",
+      "distinct_plan_sha256": [
+        "bd2bfe36b9c861f583015d3b0ffb6f8f7f1c168d890715a7b56003c396639d25"
+      ]
+    }
+  ],
+  "pooled_latency": [
+    {
+      "variant": "A-baseline",
+      "protocol": "mysql",
+      "query_cache": false,
+      "concurrency": 1,
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 700,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 6.611264128571428,
+            "median": 6.287888499999999,
+            "p95": 8.977162,
+            "p99": 11.580835,
+            "min": 4.424723,
+            "max": 29.951962
+          },
+          "complete_ms": {
+            "mean": 6.612397348571428,
+            "median": 6.288951,
+            "p95": 8.978246,
+            "p99": 11.581918,
+            "min": 4.425764,
+            "max": 29.953212
+          }
+        },
+        "full_scan": {
+          "samples": 700,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 21.32129243,
+            "median": 20.803609,
+            "p95": 25.647464,
+            "p99": 29.020528,
+            "min": 17.953648,
+            "max": 50.672834
+          },
+          "complete_ms": {
+            "mean": 21.328672907142856,
+            "median": 20.810546000000002,
+            "p95": 25.654298,
+            "p99": 29.028194,
+            "min": 17.960815,
+            "max": 50.687585
+          }
+        },
+        "small_limit": {
+          "samples": 700,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 5.830305487142857,
+            "median": 5.594415,
+            "p95": 8.023107,
+            "p99": 8.986579,
+            "min": 3.849752,
+            "max": 39.414758
+          },
+          "complete_ms": {
+            "mean": 5.87138104,
+            "median": 5.632999,
+            "p95": 8.063566,
+            "p99": 9.032455,
+            "min": 3.892836,
+            "max": 39.455884
+          }
+        }
+      }
+    },
+    {
+      "variant": "A-baseline",
+      "protocol": "mysql",
+      "query_cache": false,
+      "concurrency": 4,
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 2800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 14.382110415,
+            "median": 12.0064205,
+            "p95": 33.703782,
+            "p99": 49.058083,
+            "min": 3.371139,
+            "max": 66.232268
+          },
+          "complete_ms": {
+            "mean": 14.3832607475,
+            "median": 12.007608000000001,
+            "p95": 33.706784,
+            "p99": 49.059378,
+            "min": 3.372265,
+            "max": 66.23331
+          }
+        },
+        "full_scan": {
+          "samples": 2800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 37.96429595857143,
+            "median": 35.184201,
+            "p95": 62.81963,
+            "p99": 73.731375,
+            "min": 17.234587,
+            "max": 104.391897
+          },
+          "complete_ms": {
+            "mean": 37.974655826785714,
+            "median": 35.197746499999994,
+            "p95": 62.828683,
+            "p99": 73.735797,
+            "min": 17.240042,
+            "max": 104.39816
+          }
+        },
+        "small_limit": {
+          "samples": 2800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 10.667784599642857,
+            "median": 8.968743,
+            "p95": 23.158973,
+            "p99": 35.339665,
+            "min": 2.950518,
+            "max": 62.089104
+          },
+          "complete_ms": {
+            "mean": 10.7454032775,
+            "median": 9.043166,
+            "p95": 23.198916,
+            "p99": 35.465378,
+            "min": 2.988731,
+            "max": 62.265196
+          }
+        }
+      }
+    },
+    {
+      "variant": "B-off",
+      "protocol": "mysql",
+      "query_cache": false,
+      "concurrency": 1,
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 700,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 6.5798048528571424,
+            "median": 6.258774,
+            "p95": 8.980516,
+            "p99": 10.389979,
+            "min": 4.319089,
+            "max": 32.755963
+          },
+          "complete_ms": {
+            "mean": 6.580890452857143,
+            "median": 6.2599195000000005,
+            "p95": 8.981516,
+            "p99": 10.391312,
+            "min": 4.320089,
+            "max": 32.757171
+          }
+        },
+        "full_scan": {
+          "samples": 700,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 21.465473628571427,
+            "median": 20.663565,
+            "p95": 26.525251,
+            "p99": 32.272579,
+            "min": 18.059369,
+            "max": 42.168575
+          },
+          "complete_ms": {
+            "mean": 21.473219802857145,
+            "median": 20.67094,
+            "p95": 26.532502,
+            "p99": 32.282412,
+            "min": 18.067286,
+            "max": 42.178909
+          }
+        },
+        "small_limit": {
+          "samples": 700,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 5.780783254285715,
+            "median": 5.5786134999999994,
+            "p95": 7.875671,
+            "p99": 8.729772,
+            "min": 3.57049,
+            "max": 15.373001
+          },
+          "complete_ms": {
+            "mean": 5.822756834285714,
+            "median": 5.61801,
+            "p95": 7.926496,
+            "p99": 8.769189,
+            "min": 3.637116,
+            "max": 15.412918
+          }
+        }
+      }
+    },
+    {
+      "variant": "B-off",
+      "protocol": "mysql",
+      "query_cache": false,
+      "concurrency": 4,
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 2800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 14.472487493928572,
+            "median": 12.10481,
+            "p95": 34.713265,
+            "p99": 46.804413,
+            "min": 3.361905,
+            "max": 126.588451
+          },
+          "complete_ms": {
+            "mean": 14.473705286071429,
+            "median": 12.1058725,
+            "p95": 34.714682,
+            "p99": 46.805579,
+            "min": 3.362863,
+            "max": 126.598368
+          }
+        },
+        "full_scan": {
+          "samples": 2800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 38.87665481357143,
+            "median": 35.682184500000005,
+            "p95": 63.107919,
+            "p99": 83.946324,
+            "min": 16.687232,
+            "max": 146.975086
+          },
+          "complete_ms": {
+            "mean": 38.88597951142857,
+            "median": 35.6883305,
+            "p95": 63.116169,
+            "p99": 83.97545,
+            "min": 16.692483,
+            "max": 147.00092
+          }
+        },
+        "small_limit": {
+          "samples": 2800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 10.820665696071428,
+            "median": 8.888501000000002,
+            "p95": 24.194468,
+            "p99": 35.4747,
+            "min": 2.988523,
+            "max": 91.451426
+          },
+          "complete_ms": {
+            "mean": 10.900725262142856,
+            "median": 8.9697255,
+            "p95": 24.353222,
+            "p99": 35.512242,
+            "min": 3.149317,
+            "max": 91.575928
+          }
+        }
+      }
+    },
+    {
+      "variant": "C-on",
+      "protocol": "mysql",
+      "query_cache": false,
+      "concurrency": 1,
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 700,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 6.6602571642857145,
+            "median": 6.460806,
+            "p95": 8.721964,
+            "p99": 10.31517,
+            "min": 4.323914,
+            "max": 35.271287
+          },
+          "complete_ms": {
+            "mean": 6.661366715714285,
+            "median": 6.461785,
+            "p95": 8.722923,
+            "p99": 10.316253,
+            "min": 4.324914,
+            "max": 35.272329
+          }
+        },
+        "full_scan": {
+          "samples": 700,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 21.532134954285713,
+            "median": 21.0834555,
+            "p95": 25.596965,
+            "p99": 29.542958,
+            "min": 17.801789,
+            "max": 58.967414
+          },
+          "complete_ms": {
+            "mean": 21.53993079714286,
+            "median": 21.0907055,
+            "p95": 25.606757,
+            "p99": 29.550541,
+            "min": 17.808956,
+            "max": 58.973539
+          }
+        },
+        "small_limit": {
+          "samples": 700,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 5.859880852857143,
+            "median": 5.702647000000001,
+            "p95": 7.824151,
+            "p99": 8.943803,
+            "min": 3.802071,
+            "max": 17.629772
+          },
+          "complete_ms": {
+            "mean": 5.901773895714285,
+            "median": 5.747897999999999,
+            "p95": 7.886694,
+            "p99": 8.985054,
+            "min": 3.841072,
+            "max": 17.668065
+          }
+        }
+      }
+    },
+    {
+      "variant": "C-on",
+      "protocol": "mysql",
+      "query_cache": false,
+      "concurrency": 4,
+      "storage_page_cache": false,
+      "measured": {
+        "empty_scan": {
+          "samples": 2800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 15.640138611071428,
+            "median": 12.4596165,
+            "p95": 36.64594,
+            "p99": 53.777161,
+            "min": 3.182021,
+            "max": 379.692241
+          },
+          "complete_ms": {
+            "mean": 15.641387304642857,
+            "median": 12.4607,
+            "p95": 36.647274,
+            "p99": 53.777828,
+            "min": 3.183312,
+            "max": 379.693449
+          }
+        },
+        "full_scan": {
+          "samples": 2800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 39.99649021928571,
+            "median": 35.994794999999996,
+            "p95": 65.24773,
+            "p99": 85.390877,
+            "min": 16.860373,
+            "max": 413.789403
+          },
+          "complete_ms": {
+            "mean": 40.01782790464286,
+            "median": 36.0029905,
+            "p95": 65.253772,
+            "p99": 85.39821,
+            "min": 16.865165,
+            "max": 413.811654
+          }
+        },
+        "small_limit": {
+          "samples": 2800,
+          "warnings": 0,
+          "first_row_ms": {
+            "mean": 11.44054480857143,
+            "median": 8.850858500000001,
+            "p95": 24.980016,
+            "p99": 44.055892,
+            "min": 2.94535,
+            "max": 340.872749
+          },
+          "complete_ms": {
+            "mean": 11.518508951785714,
+            "median": 8.9184915,
+            "p95": 25.036476,
+            "p99": 44.098976,
+            "min": 3.010809,
+            "max": 341.148881
+          }
+        }
+      }
+    }
+  ]
+}

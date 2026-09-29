@@ -1,0 +1,88 @@
+ 2026-09-21 10:40:46.122Z WARN (starrocks-mysql-nio-pool-0|145) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.122Z WARN (starrocks-mysql-nio-pool-0|145) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.122Z WARN (starrocks-mysql-nio-pool-0|145) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.122Z WARN (starrocks-mysql-nio-pool-0|145) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.126Z WARN (Thread-67|100) [CoordinatorMonitor$DeadBackendAndComputeNodeChecker.run():91] Cancel query [01a0c38d-d029-7637-a216-3788def582b9], because some related backend is not alive
+ 2026-09-21 10:40:46.126Z WARN (starrocks-mysql-nio-pool-0|145) [DefaultCoordinator.getNext():1006] get next fail, need cancel. status errorCode CANCELLED Cancelled, query id: 01a0c38d-d029-7637-a216-3788def582b9
+ 2026-09-21 10:40:46.128Z WARN (starrocks-mysql-nio-pool-0|145) [DefaultCoordinator.dealStatusToTryRetry():950] query 01a0c38d-d029-7637-a216-3788def582b9 failed: Backend node not found. Check if any backend node is down.
+ 2026-09-21 10:40:46.131Z WARN (starrocks-mysql-nio-pool-0|145) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.131Z WARN (starrocks-mysql-nio-pool-0|145) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.131Z WARN (starrocks-mysql-nio-pool-1|235) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.131Z WARN (starrocks-mysql-nio-pool-1|235) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.131Z WARN (starrocks-mysql-nio-pool-0|145) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.131Z WARN (starrocks-mysql-nio-pool-1|235) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.131Z WARN (starrocks-mysql-nio-pool-0|145) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.131Z WARN (starrocks-mysql-nio-pool-1|235) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.131Z WARN (starrocks-mysql-nio-pool-0|145) [StatisticUtils.checkStatisticTables():223] Statistics table table_statistic_v1 not found in database _statistics_
+ 2026-09-21 10:40:46.132Z WARN (starrocks-mysql-nio-pool-0|145) [StmtExecutor.execute():899] retry 1 times. stmt: select k, message from qct_faults.healthy order by k
+ 2026-09-21 10:40:46.137Z WARN (starrocks-mysql-nio-pool-0|145) [StmtExecutor.execute():938] Query 01a0c38d-d029-7637-a216-3788def582b9 failed. Planner profile : Planner:
+   - -- Parser[1] 0
+   - -- Total[1] 1ms
+   -     -- Analyzer[1] 0
+   -         -- Lock[1] 0
+   -         -- AnalyzeDatabase[1] 0
+   -         -- AnalyzeTemporaryTable[1] 0
+   -         -- AnalyzeTable[1] 0
+   -     -- Transformer[1] 0
+   -     -- Optimizer[1] 0
+   -         -- MVPreprocess[1] 0
+   -         -- MVTextRewrite[1] 0
+   -         -- RuleBaseOptimize[1] 0
+   -         -- CostBaseOptimize[1] 0
+   -         -- PhysicalRewrite[1] 0
+   -         -- DynamicRewrite[1] 0
+   -         -- PlanValidate[1] 0
+   -             -- TypeChecker[1] 0
+   -             -- CTEUniqueChecker[1] 0
+   -             -- InputDependenciesChecker[1] 0
+   -             -- ColumnReuseChecker[1] 0
+   -     -- ExecPlanBuild[1] 0
+   - -- Pending[1] 0
+   - -- Prepare[1] 0
+   - -- Deploy[1] 1ms
+   -     -- DeployLockInternalTime[1] 1ms
+   -         -- DeploySerializeConcurrencyTime[2] 0
+   -         -- DeployStageByStageTime[6] 0
+   -         -- DeployWaitTime[6] 1ms
+   -             -- DeployAsyncSendTime[2] 0
+   - -- DeployScanRanges[1] 0
+   - -- Analyzer[1] 0
+   -     -- Lock[1] 0
+   -     -- AnalyzeDatabase[1] 0
+   -     -- AnalyzeTemporaryTable[1] 0
+   -     -- AnalyzeTable[1] 0
+   - -- Transformer[1] 0
+   - -- Optimizer[1] 1ms
+   -     -- MVPreprocess[1] 0
+   -     -- MVTextRewrite[1] 0
+   -     -- RuleBaseOptimize[1] 0
+   -     -- CostBaseOptimize[1] 0
+   -     -- PhysicalRewrite[1] 0
+   -     -- DynamicRewrite[1] 0
+   -     -- PlanValidate[1] 0
+   -         -- TypeChecker[1] 0
+   -         -- CTEUniqueChecker[1] 0
+   -         -- InputDependenciesChecker[1] 0
+   -         -- ColumnReuseChecker[1] 0
+   - -- ExecPlanBuild[1] 0
+   - DeployDataSize: 4838
+  Reason:
+
+ 2026-09-21 10:40:46.141Z WARN (starrocks-mysql-nio-pool-0|145) [MySQLReadListener.handleRequest():162] Exception happened in one session(com.starrocks.qe.ConnectContext@7435a70f).
+ java.nio.channels.ClosedChannelException
+	at java.base/sun.nio.ch.SocketChannelImpl.ensureOpenAndConnected(SocketChannelImpl.java:215)
+	at java.base/sun.nio.ch.SocketChannelImpl.write(SocketChannelImpl.java:527)
+	at org.xnio.nio.NioSocketConduit.write(NioSocketConduit.java:153)
+	at org.xnio.conduits.ConduitStreamSinkChannel.write(ConduitStreamSinkChannel.java:150)
+	at org.xnio.channels.Channels.writeBlocking(Channels.java:147)
+	at com.starrocks.mysql.MysqlChannel.realNetSend(MysqlChannel.java:247)
+	at com.starrocks.mysql.MysqlChannel.send(MysqlChannel.java:240)
+	at com.starrocks.mysql.MysqlChannel.flush(MysqlChannel.java:264)
+	at com.starrocks.mysql.MysqlChannel.sendAndFlush(MysqlChannel.java:332)
+	at com.starrocks.qe.ConnectProcessor.finalizeCommand(ConnectProcessor.java:883)
+	at com.starrocks.qe.ConnectProcessor.processOnce(ConnectProcessor.java:1172)
+	at com.starrocks.mysql.nio.MySQLReadListener.handleRequest(MySQLReadListener.java:152)
+	at com.starrocks.mysql.nio.MySQLReadListener.lambda$handleEvent$0(MySQLReadListener.java:92)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)

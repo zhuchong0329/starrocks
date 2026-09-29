@@ -1,0 +1,48 @@
+QCT-007 补丁验证记录（2026-09-21）
+
+一、范围与路径检查
+固定区间：22a4478221d94b27e24d006a36f3b15bf962aac2..46ca14950dc76004c5df355ce2c975a77c50041a。
+已确认起点为终点祖先、仅一条非 merge 提交。
+git apply --numstat 显示六个文件，路径均不属于 zc-docs/ 或任意大小写 .md。
+使用 --no-renames 导出，不存在通过重命名绕过过滤的路径。
+保留六个代码/测试文件；其余六个文档文件仅过滤 diff，不删除原提交正文中的说明。
+
+二、固定起点验证：已通过
+临时仓库：/private/tmp/qct-007-patch-verify.ptMWhR/repo
+创建方式：git clone --shared --no-checkout，仅读共享源对象，临时仓库独立 index/HEAD/配置。
+只在临时仓库配置验证提交者身份，不修改用户仓库或全局 Git 身份。
+sparse checkout 展开六个变更文件；验证使用完整 Git tree，不局限于磁盘展开文件。
+从 22a4478221d94b27e24d006a36f3b15bf962aac2 detached checkout 后执行：
+git am --keep 0001-perf-query-corruption-QCT-007-simplify-query-opt-in-.patch
+结果提交：d3c8c6e3aaf3fe1330e5588d14e7b55ae7a7a527
+
+以下完整树比较均返回 0：
+git diff --exit-code 46ca14950dc76004c5df355ce2c975a77c50041a HEAD \
+  -- . ':(top,exclude)zc-docs/**' ':(exclude,icase,glob)**/*.md'
+git diff --exit-code 22a4478221d94b27e24d006a36f3b15bf962aac2 HEAD \
+  -- zc-docs ':(icase,glob)**/*.md'
+git diff --check 22a4478221d94b27e24d006a36f3b15bf962aac2 HEAD
+
+应用后新增提交数为 1、工作区干净。
+使用 git show 的作者名、作者邮箱、作者日期、完整 %B 输出逐字节 cmp，与原提交一致。
+过滤文档后的提交 SHA 与原 SHA 不同是正常现象。
+
+三、上一份大补丁衔接验证：已通过
+临时仓库：/private/tmp/qct-007-chain-verify.NQrOvT/repo
+起点：9559176fab6e2cb885779f1e7b680133d58d6972（社区 4.0.11）。
+先 git am --keep 上次已交付包中的：
+0001-feat-query-corruption-add-local-OLAP-scan-tolerance.patch
+得到：b33d296e009d5bc81d3e7a23efa9956c3096386f。
+再 git am --keep 本次增量补丁，得到：
+6ed1f0042ecab7d7156a72a88f43893008f9e6e0。
+
+验证完整 Git tree 中上次交付的范围（be/src、fe/fe-core/src/main、gensrc、conf/fe.conf、be/test、fe/fe-core/src/test，排除文档）与本次源终点一致。
+验证本次补丁未修改六个选中文件以外的任何路径。
+检查从社区基线起恰有两个迁移提交、diff --check 通过、工作区干净；本次提交元数据仍与原提交一致。
+上次大补丁本就不含独立 tools/query_corruption 工具，故该路线不冒称整个非文档树与开发分支相同。
+
+四、不在本次验证范围
+没有访问内网仓库，未确认内网定制分支无冲突。
+没有重复编译、单元/集成测试、物理损坏注入、性能验收或 JFR。
+源提交的既有验收是 FE package + 41 项测试两轮通过；协议集成使用真实客户端/FE 和模拟 BE，不代表本轮新做物理故障验证。
+本次只进行补丁生成、应用与内容/元数据/校验值验证，不启动构建容器，不改变任何集群或缓存。

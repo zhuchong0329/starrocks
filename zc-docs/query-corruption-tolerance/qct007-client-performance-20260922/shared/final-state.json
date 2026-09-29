@@ -1,0 +1,12 @@
+{
+  "utc": "2026-09-22T08:14:15.771534+00:00",
+  "completed_groups": 8,
+  "nodes": {
+    "fe": null,
+    "be0": null,
+    "be1": null,
+    "be2": null
+  },
+  "physical_files_unchanged": true,
+  "memory_events": "low 0\nhigh 0\nmax 694920\noom 2\noom_kill 2\noom_group_kill 0\n"
+}

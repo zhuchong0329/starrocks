@@ -1,0 +1,1979 @@
+[INFO] Scanning for projects...
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.starrocks:fe-common:jar:1.0.0
+[WARNING] 'build.plugins.plugin.version' for org.apache.maven.plugins:maven-surefire-plugin is missing. @ line 75, column 21
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.starrocks:spark-dpp:jar:1.0.0
+[WARNING] The expression ${version} is deprecated. Please use ${project.version} instead.
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.starrocks:hive-udf:jar:1.0.0
+[WARNING] 'build.plugins.plugin.version' for org.apache.maven.plugins:maven-surefire-plugin is missing. @ line 78, column 21
+[WARNING] 
+[WARNING] It is highly recommended to fix these problems because they threaten the stability of your build.
+[WARNING] 
+[WARNING] For this reason, future Maven versions might no longer support building such malformed projects.
+[WARNING] 
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] starrocks-fe                                                       [pom]
+[INFO] plugin-common                                                      [jar]
+[INFO] fe-common                                                          [jar]
+[INFO] spark-dpp                                                          [jar]
+[INFO] fe-core                                                            [jar]
+[INFO] 
+[INFO] ---------------------< com.starrocks:starrocks-fe >---------------------
+[INFO] Building starrocks-fe 3.4.0                                        [1/5]
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --------------------< com.starrocks:plugin-common >---------------------
+[INFO] Building plugin-common 1.0.0                                       [2/5]
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:resources (default-resources) @ plugin-common ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /query-corruption-workspace/src/fe/plugin-common/src/main/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.13.0:compile (default-compile) @ plugin-common ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:testResources (default-testResources) @ plugin-common ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /query-corruption-workspace/src/fe/plugin-common/src/test/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.13.0:testCompile (default-testCompile) @ plugin-common ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- maven-surefire-plugin:2.22.2:test (default-test) @ plugin-common ---
+[INFO] 
+[INFO] --- maven-jar-plugin:2.4:jar (default-jar) @ plugin-common ---
+[INFO] 
+[INFO] ----------------------< com.starrocks:fe-common >-----------------------
+[INFO] Building fe-common 1.0.0                                           [3/5]
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- maven-checkstyle-plugin:3.1.1:check (validate) @ fe-common ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:resources (default-resources) @ fe-common ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /query-corruption-workspace/src/fe/fe-common/src/main/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.13.0:compile (default-compile) @ fe-common ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:testResources (default-testResources) @ fe-common ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /query-corruption-workspace/src/fe/fe-common/src/test/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.13.0:testCompile (default-testCompile) @ fe-common ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- maven-surefire-plugin:2.12.4:test (default-test) @ fe-common ---
+[INFO] No tests to run.
+[INFO] 
+[INFO] --- maven-jar-plugin:2.4:jar (default-jar) @ fe-common ---
+[INFO] 
+[INFO] ----------------------< com.starrocks:spark-dpp >-----------------------
+[INFO] Building spark-dpp 1.0.0                                           [4/5]
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- maven-checkstyle-plugin:3.1.1:check (validate) @ spark-dpp ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO] 
+[INFO] --- maven-clean-plugin:3.1.0:clean (auto-clean) @ spark-dpp ---
+[INFO] Clean is skipped.
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:resources (default-resources) @ spark-dpp ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /query-corruption-workspace/src/fe/spark-dpp/src/main/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.13.0:compile (default-compile) @ spark-dpp ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:testResources (default-testResources) @ spark-dpp ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /query-corruption-workspace/src/fe/spark-dpp/src/test/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.13.0:testCompile (default-testCompile) @ spark-dpp ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- maven-surefire-plugin:2.22.2:test (default-test) @ spark-dpp ---
+[INFO] 
+[INFO] --- maven-jar-plugin:2.4:jar (default-jar) @ spark-dpp ---
+[INFO] 
+[INFO] --- maven-dependency-plugin:3.1.1:copy-dependencies (copy-dependencies) @ spark-dpp ---
+[INFO] com.starrocks:fe-common:jar:1.0.0 already exists in destination.
+[INFO] com.starrocks:plugin-common:jar:1.0.0 already exists in destination.
+[INFO] commons-codec:commons-codec:jar:1.13 already exists in destination.
+[INFO] org.apache.commons:commons-lang3:jar:3.9 already exists in destination.
+[INFO] io.netty:netty-handler:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-common:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-resolver:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-buffer:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-transport:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-transport-native-unix-common:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-codec:jar:4.1.133.Final already exists in destination.
+[INFO] com.google.code.gson:gson:jar:2.8.9 already exists in destination.
+[INFO] com.github.hazendaz.jmockit:jmockit:jar:1.49.4 already exists in destination.
+[INFO] com.github.spotbugs:spotbugs-annotations:jar:4.7.3 already exists in destination.
+[INFO] org.objenesis:objenesis:jar:3.3 already exists in destination.
+[INFO] org.junit.jupiter:junit-jupiter:jar:5.8.2 already exists in destination.
+[INFO] org.junit.jupiter:junit-jupiter-api:jar:5.8.2 already exists in destination.
+[INFO] org.opentest4j:opentest4j:jar:1.2.0 already exists in destination.
+[INFO] org.junit.platform:junit-platform-commons:jar:1.8.2 already exists in destination.
+[INFO] org.apiguardian:apiguardian-api:jar:1.1.2 already exists in destination.
+[INFO] org.junit.jupiter:junit-jupiter-params:jar:5.8.2 already exists in destination.
+[INFO] org.junit.jupiter:junit-jupiter-engine:jar:5.8.2 already exists in destination.
+[INFO] org.junit.platform:junit-platform-engine:jar:1.8.2 already exists in destination.
+[INFO] org.roaringbitmap:RoaringBitmap:jar:0.8.13 already exists in destination.
+[INFO] org.roaringbitmap:shims:jar:0.8.13 already exists in destination.
+[INFO] at.yawk.lz4:lz4-java:jar:1.10.1 already exists in destination.
+[INFO] org.apache.spark:spark-core_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.apache.avro:avro:jar:1.12.0 already exists in destination.
+[INFO] com.fasterxml.jackson.core:jackson-core:jar:2.21.1 already exists in destination.
+[INFO] org.apache.avro:avro-mapred:jar:1.11.4 already exists in destination.
+[INFO] org.apache.avro:avro-ipc:jar:1.11.4 already exists in destination.
+[INFO] org.tukaani:xz:jar:1.9 already exists in destination.
+[INFO] com.twitter:chill_2.12:jar:0.10.0 already exists in destination.
+[INFO] com.twitter:chill-java:jar:0.10.0 already exists in destination.
+[INFO] org.apache.xbean:xbean-asm9-shaded:jar:4.23 already exists in destination.
+[INFO] org.apache.spark:spark-launcher_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.apache.spark:spark-kvstore_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.fusesource.leveldbjni:leveldbjni-all:jar:1.8 already exists in destination.
+[INFO] com.fasterxml.jackson.core:jackson-annotations:jar:2.21 already exists in destination.
+[INFO] org.apache.spark:spark-network-common_2.12:jar:3.5.7 already exists in destination.
+[INFO] com.google.crypto.tink:tink:jar:1.9.0 already exists in destination.
+[INFO] joda-time:joda-time:jar:2.12.5 already exists in destination.
+[INFO] org.apache.spark:spark-network-shuffle_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.apache.spark:spark-unsafe_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.apache.spark:spark-common-utils_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.slf4j:jul-to-slf4j:jar:1.7.30 already exists in destination.
+[INFO] org.slf4j:jcl-over-slf4j:jar:2.0.7 already exists in destination.
+[INFO] org.apache.logging.log4j:log4j-1.2-api:jar:2.19.0 already exists in destination.
+[INFO] javax.activation:activation:jar:1.1.1 already exists in destination.
+[INFO] org.apache.curator:curator-recipes:jar:2.13.0 already exists in destination.
+[INFO] org.apache.curator:curator-framework:jar:2.13.0 already exists in destination.
+[INFO] jakarta.servlet:jakarta.servlet-api:jar:4.0.3 already exists in destination.
+[INFO] org.apache.commons:commons-math3:jar:3.6.1 already exists in destination.
+[INFO] org.apache.commons:commons-text:jar:1.10.0 already exists in destination.
+[INFO] commons-io:commons-io:jar:2.16.1 already exists in destination.
+[INFO] org.apache.commons:commons-collections4:jar:4.4 already exists in destination.
+[INFO] com.google.code.findbugs:jsr305:jar:3.0.0 already exists in destination.
+[INFO] com.ning:compress-lzf:jar:1.1.2 already exists in destination.
+[INFO] org.xerial.snappy:snappy-java:jar:1.1.10.5 already exists in destination.
+[INFO] com.github.luben:zstd-jni:jar:1.5.5-4 already exists in destination.
+[INFO] org.scala-lang.modules:scala-xml_2.12:jar:2.1.0 already exists in destination.
+[INFO] org.scala-lang.modules:scala-collection-compat_2.12:jar:2.7.0 already exists in destination.
+[INFO] org.scala-lang:scala-reflect:jar:2.12.18 already exists in destination.
+[INFO] org.json4s:json4s-jackson_2.12:jar:3.7.0-M11 already exists in destination.
+[INFO] org.json4s:json4s-core_2.12:jar:3.7.0-M11 already exists in destination.
+[INFO] org.json4s:json4s-ast_2.12:jar:3.7.0-M11 already exists in destination.
+[INFO] org.json4s:json4s-scalap_2.12:jar:3.7.0-M11 already exists in destination.
+[INFO] org.glassfish.jersey.core:jersey-client:jar:2.40 already exists in destination.
+[INFO] jakarta.ws.rs:jakarta.ws.rs-api:jar:2.1.6 already exists in destination.
+[INFO] org.glassfish.hk2.external:jakarta.inject:jar:2.6.1 already exists in destination.
+[INFO] org.glassfish.jersey.core:jersey-common:jar:2.40 already exists in destination.
+[INFO] jakarta.annotation:jakarta.annotation-api:jar:1.3.5 already exists in destination.
+[INFO] org.glassfish.hk2:osgi-resource-locator:jar:1.0.3 already exists in destination.
+[INFO] org.glassfish.jersey.core:jersey-server:jar:2.40 already exists in destination.
+[INFO] jakarta.validation:jakarta.validation-api:jar:2.0.2 already exists in destination.
+[INFO] org.glassfish.jersey.containers:jersey-container-servlet:jar:2.40 already exists in destination.
+[INFO] org.glassfish.jersey.containers:jersey-container-servlet-core:jar:2.40 already exists in destination.
+[INFO] org.glassfish.jersey.inject:jersey-hk2:jar:2.40 already exists in destination.
+[INFO] org.glassfish.hk2:hk2-locator:jar:2.6.1 already exists in destination.
+[INFO] org.glassfish.hk2.external:aopalliance-repackaged:jar:2.6.1 already exists in destination.
+[INFO] org.glassfish.hk2:hk2-api:jar:2.6.1 already exists in destination.
+[INFO] org.glassfish.hk2:hk2-utils:jar:2.6.1 already exists in destination.
+[INFO] org.javassist:javassist:jar:3.29.2-GA already exists in destination.
+[INFO] io.netty:netty-all:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-codec-http:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-codec-http2:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-codec-socks:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-handler-proxy:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-transport-classes-epoll:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-transport-classes-kqueue:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-transport-native-epoll:jar:linux-riscv64:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.133.Final already exists in destination.
+[INFO] io.dropwizard.metrics:metrics-core:jar:4.2.19 already exists in destination.
+[INFO] io.dropwizard.metrics:metrics-jvm:jar:4.2.19 already exists in destination.
+[INFO] io.dropwizard.metrics:metrics-json:jar:4.2.19 already exists in destination.
+[INFO] io.dropwizard.metrics:metrics-graphite:jar:4.2.19 already exists in destination.
+[INFO] io.dropwizard.metrics:metrics-jmx:jar:4.2.19 already exists in destination.
+[INFO] com.fasterxml.jackson.core:jackson-databind:jar:2.21.1 already exists in destination.
+[INFO] com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:2.15.2 already exists in destination.
+[INFO] com.thoughtworks.paranamer:paranamer:jar:2.8 already exists in destination.
+[INFO] oro:oro:jar:2.0.8 already exists in destination.
+[INFO] net.razorvine:pickle:jar:1.3 already exists in destination.
+[INFO] net.sf.py4j:py4j:jar:0.10.9.7 already exists in destination.
+[INFO] org.apache.spark:spark-tags_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.apache.commons:commons-crypto:jar:1.1.0 already exists in destination.
+[INFO] org.apache.spark:spark-sql_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.rocksdb:rocksdbjni:jar:8.3.2 already exists in destination.
+[INFO] com.univocity:univocity-parsers:jar:2.9.1 already exists in destination.
+[INFO] org.apache.spark:spark-sketch_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.apache.orc:orc-core:jar:shaded-protobuf:1.9.7 already exists in destination.
+[INFO] org.apache.orc:orc-shims:jar:1.9.7 already exists in destination.
+[INFO] org.jetbrains:annotations:jar:17.0.0 already exists in destination.
+[INFO] org.threeten:threeten-extra:jar:1.7.1 already exists in destination.
+[INFO] org.apache.orc:orc-mapreduce:jar:shaded-protobuf:1.9.7 already exists in destination.
+[INFO] org.apache.hive:hive-storage-api:jar:2.8.1 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-common:jar:3.4.3 already exists in destination.
+[INFO] org.apache.hadoop.thirdparty:hadoop-shaded-protobuf_3_25:jar:1.5.0 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-annotations:jar:3.4.3 already exists in destination.
+[INFO] org.apache.hadoop.thirdparty:hadoop-shaded-guava:jar:1.5.0 already exists in destination.
+[INFO] commons-cli:commons-cli:jar:1.4 already exists in destination.
+[INFO] org.apache.httpcomponents:httpclient:jar:4.5.13 already exists in destination.
+[INFO] org.apache.httpcomponents:httpcore:jar:4.4.13 already exists in destination.
+[INFO] commons-logging:commons-logging:jar:1.2 already exists in destination.
+[INFO] commons-net:commons-net:jar:3.9.0 already exists in destination.
+[INFO] javax.servlet:javax.servlet-api:jar:3.1.0 already exists in destination.
+[INFO] jakarta.activation:jakarta.activation-api:jar:1.2.1 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-server:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-http:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-io:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-util:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-servlet:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-security:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-util-ajax:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-webapp:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-xml:jar:9.4.58.v20250814 already exists in destination.
+[INFO] javax.servlet.jsp:jsp-api:jar:2.1 already exists in destination.
+[INFO] com.sun.jersey:jersey-core:jar:1.19.4 already exists in destination.
+[INFO] com.sun.jersey:jersey-servlet:jar:1.19.4 already exists in destination.
+[INFO] com.github.pjfanning:jersey-json:jar:1.22.0 already exists in destination.
+[INFO] com.sun.xml.bind:jaxb-impl:jar:2.2.3-1 already exists in destination.
+[INFO] javax.xml.bind:jaxb-api:jar:2.2.2 already exists in destination.
+[INFO] javax.xml.stream:stax-api:jar:1.0-2 already exists in destination.
+[INFO] org.codehaus.jettison:jettison:jar:1.5.4 already exists in destination.
+[INFO] com.sun.jersey:jersey-server:jar:1.19.4 already exists in destination.
+[INFO] org.apache.commons:commons-configuration2:jar:2.10.1 already exists in destination.
+[INFO] org.slf4j:slf4j-api:jar:1.7.30 already exists in destination.
+[INFO] com.google.re2j:re2j:jar:1.1 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-auth:jar:3.4.3 already exists in destination.
+[INFO] com.nimbusds:nimbus-jose-jwt:jar:9.37.2 already exists in destination.
+[INFO] com.github.stephenc.jcip:jcip-annotations:jar:1.0-1 already exists in destination.
+[INFO] org.apache.kerby:kerb-util:jar:2.0.3 already exists in destination.
+[INFO] org.apache.kerby:kerby-config:jar:2.0.3 already exists in destination.
+[INFO] org.apache.kerby:kerb-crypto:jar:2.0.3 already exists in destination.
+[INFO] com.jcraft:jsch:jar:0.1.55 already exists in destination.
+[INFO] org.apache.curator:curator-client:jar:5.2.0 already exists in destination.
+[INFO] org.apache.commons:commons-compress:jar:1.26.1 already exists in destination.
+[INFO] org.bouncycastle:bcprov-jdk18on:jar:1.84 already exists in destination.
+[INFO] org.apache.kerby:kerb-core:jar:2.0.3 already exists in destination.
+[INFO] org.apache.kerby:kerby-pkix:jar:2.0.3 already exists in destination.
+[INFO] org.apache.kerby:kerby-asn1:jar:2.0.3 already exists in destination.
+[INFO] org.apache.kerby:kerby-util:jar:2.0.3 already exists in destination.
+[INFO] org.codehaus.woodstox:stax2-api:jar:4.2.1 already exists in destination.
+[INFO] com.fasterxml.woodstox:woodstox-core:jar:5.4.0 already exists in destination.
+[INFO] dnsjava:dnsjava:jar:3.6.3 already exists in destination.
+[INFO] org.apache.parquet:parquet-column:jar:1.15.2 already exists in destination.
+[INFO] org.apache.parquet:parquet-encoding:jar:1.15.2 already exists in destination.
+[INFO] org.apache.parquet:parquet-hadoop:jar:1.15.2 already exists in destination.
+[INFO] org.apache.parquet:parquet-format-structures:jar:1.15.2 already exists in destination.
+[INFO] javax.annotation:javax.annotation-api:jar:1.3.2 already exists in destination.
+[INFO] org.apache.parquet:parquet-jackson:jar:1.15.2 already exists in destination.
+[INFO] io.airlift:aircompressor:jar:2.0.3 already exists in destination.
+[INFO] commons-pool:commons-pool:jar:1.6 already exists in destination.
+[INFO] org.apache.parquet:parquet-common:jar:1.15.2 already exists in destination.
+[INFO] commons-collections:commons-collections:jar:3.2.2 already exists in destination.
+[INFO] org.scala-lang:scala-library:jar:2.12.10 already exists in destination.
+[INFO] com.esotericsoftware:kryo-shaded:jar:4.0.2 already exists in destination.
+[INFO] com.esotericsoftware:minlog:jar:1.3.0 already exists in destination.
+[INFO] org.apache.spark:spark-catalyst_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.apache.spark:spark-sql-api_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.scala-lang.modules:scala-parser-combinators_2.12:jar:2.3.0 already exists in destination.
+[INFO] org.antlr:antlr4-runtime:jar:4.9.3 already exists in destination.
+[INFO] org.apache.arrow:arrow-vector:jar:18.0.0 already exists in destination.
+[INFO] org.apache.arrow:arrow-format:jar:18.0.0 already exists in destination.
+[INFO] org.apache.arrow:arrow-memory-core:jar:18.0.0 already exists in destination.
+[INFO] com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.18.0 already exists in destination.
+[INFO] com.google.flatbuffers:flatbuffers-java:jar:24.3.25 already exists in destination.
+[INFO] org.apache.arrow:arrow-memory-netty:jar:18.0.0 already exists in destination.
+[INFO] org.apache.arrow:arrow-memory-netty-buffer-patch:jar:18.0.0 already exists in destination.
+[INFO] org.codehaus.janino:janino:jar:3.1.9 already exists in destination.
+[INFO] org.codehaus.janino:commons-compiler:jar:3.1.9 already exists in destination.
+[INFO] org.apache.datasketches:datasketches-java:jar:3.3.0 already exists in destination.
+[INFO] org.apache.datasketches:datasketches-memory:jar:2.1.0 already exists in destination.
+[INFO] com.google.guava:guava:jar:32.0.1-jre already exists in destination.
+[INFO] com.google.guava:failureaccess:jar:1.0.1 already exists in destination.
+[INFO] com.google.guava:listenablefuture:jar:9999.0-empty-to-avoid-conflict-with-guava already exists in destination.
+[INFO] org.checkerframework:checker-qual:jar:3.33.0 already exists in destination.
+[INFO] com.google.errorprone:error_prone_annotations:jar:2.18.0 already exists in destination.
+[INFO] com.google.j2objc:j2objc-annotations:jar:2.8 already exists in destination.
+[INFO] org.apache.logging.log4j:log4j-slf4j-impl:jar:2.19.0 already exists in destination.
+[INFO] org.apache.logging.log4j:log4j-api:jar:2.19.0 already exists in destination.
+[INFO] org.apache.logging.log4j:log4j-core:jar:2.19.0 already exists in destination.
+[INFO] 
+[INFO] --- maven-assembly-plugin:2.2-beta-5:single (make-assembly) @ spark-dpp ---
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] com/ already added, skipping
+[INFO] com/starrocks/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/com.starrocks/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] com/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/com.google.guava/ already added, skipping
+[INFO] com/ already added, skipping
+[INFO] com/google/ already added, skipping
+[INFO] com/google/common/ already added, skipping
+[INFO] com/google/common/util/ already added, skipping
+[INFO] com/google/common/util/concurrent/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/com.google.guava/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] com/ already added, skipping
+[INFO] com/google/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] com/ already added, skipping
+[INFO] com/google/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] org/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] org/ already added, skipping
+[INFO] org/roaringbitmap/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/native-image/ already added, skipping
+[INFO] META-INF/native-image/io.netty/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/INDEX.LIST already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/native-image/ already added, skipping
+[INFO] META-INF/native-image/io.netty/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/INDEX.LIST already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/native-image/ already added, skipping
+[INFO] META-INF/native-image/io.netty/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/INDEX.LIST already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] io/netty/channel/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/INDEX.LIST already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/native-image/ already added, skipping
+[INFO] META-INF/native-image/io.netty/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] io/netty/handler/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/INDEX.LIST already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] com/ already added, skipping
+[INFO] com/google/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] Building jar: /query-corruption-workspace/src/fe/spark-dpp/target/spark-dpp-1.0.0-jar-with-dependencies.jar
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] com/ already added, skipping
+[INFO] com/starrocks/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/com.starrocks/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] com/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/com.google.guava/ already added, skipping
+[INFO] com/ already added, skipping
+[INFO] com/google/ already added, skipping
+[INFO] com/google/common/ already added, skipping
+[INFO] com/google/common/util/ already added, skipping
+[INFO] com/google/common/util/concurrent/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/com.google.guava/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] com/ already added, skipping
+[INFO] com/google/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] com/ already added, skipping
+[INFO] com/google/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] org/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] org/ already added, skipping
+[INFO] org/roaringbitmap/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/native-image/ already added, skipping
+[INFO] META-INF/native-image/io.netty/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/INDEX.LIST already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/native-image/ already added, skipping
+[INFO] META-INF/native-image/io.netty/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/INDEX.LIST already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/native-image/ already added, skipping
+[INFO] META-INF/native-image/io.netty/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/INDEX.LIST already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] io/netty/channel/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/INDEX.LIST already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/native-image/ already added, skipping
+[INFO] META-INF/native-image/io.netty/ already added, skipping
+[INFO] io/ already added, skipping
+[INFO] io/netty/ already added, skipping
+[INFO] io/netty/handler/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/maven/io.netty/ already added, skipping
+[INFO] META-INF/INDEX.LIST already added, skipping
+[INFO] META-INF/io.netty.versions.properties already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] com/ already added, skipping
+[INFO] com/google/ already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] META-INF/ already added, skipping
+[INFO] META-INF/MANIFEST.MF already added, skipping
+[INFO] META-INF/maven/ already added, skipping
+[INFO] 
+[INFO] --- maven-shade-plugin:3.5.2:shade (default) @ spark-dpp ---
+[INFO] Including com.starrocks:fe-common:jar:1.0.0 in the shaded jar.
+[INFO] Including com.starrocks:plugin-common:jar:1.0.0 in the shaded jar.
+[INFO] Including io.netty:netty-handler:jar:4.1.133.Final in the shaded jar.
+[INFO] Including io.netty:netty-common:jar:4.1.133.Final in the shaded jar.
+[INFO] Including io.netty:netty-resolver:jar:4.1.133.Final in the shaded jar.
+[INFO] Including io.netty:netty-buffer:jar:4.1.133.Final in the shaded jar.
+[INFO] Including io.netty:netty-transport:jar:4.1.133.Final in the shaded jar.
+[INFO] Including io.netty:netty-transport-native-unix-common:jar:4.1.133.Final in the shaded jar.
+[INFO] Including io.netty:netty-codec:jar:4.1.133.Final in the shaded jar.
+[INFO] Including com.google.code.gson:gson:jar:2.8.9 in the shaded jar.
+[INFO] Including org.roaringbitmap:RoaringBitmap:jar:0.8.13 in the shaded jar.
+[INFO] Including org.roaringbitmap:shims:jar:0.8.13 in the shaded jar.
+[INFO] Including at.yawk.lz4:lz4-java:jar:1.10.1 in the shaded jar.
+[INFO] Including com.google.guava:guava:jar:32.0.1-jre in the shaded jar.
+[INFO] Including com.google.guava:failureaccess:jar:1.0.1 in the shaded jar.
+[INFO] Including com.google.guava:listenablefuture:jar:9999.0-empty-to-avoid-conflict-with-guava in the shaded jar.
+[INFO] Including org.checkerframework:checker-qual:jar:3.33.0 in the shaded jar.
+[INFO] Including com.google.errorprone:error_prone_annotations:jar:2.18.0 in the shaded jar.
+[INFO] Including com.google.j2objc:j2objc-annotations:jar:2.8 in the shaded jar.
+[INFO] Excluding com.google.code.findbugs:jsr305:jar:3.0.0 from the shaded jar.
+[INFO] Dependency-reduced POM written at: /query-corruption-workspace/src/fe/spark-dpp/dependency-reduced-pom.xml
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] error_prone_annotations-2.18.0.jar, spark-dpp-1.0.0.jar define 28 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.google.errorprone/error_prone_annotations/pom.properties
+[WARNING]   - META-INF/maven/com.google.errorprone/error_prone_annotations/pom.xml
+[WARNING]   - com.google.errorprone.annotations.CanIgnoreReturnValue
+[WARNING]   - com.google.errorprone.annotations.CheckReturnValue
+[WARNING]   - com.google.errorprone.annotations.CompatibleWith
+[WARNING]   - com.google.errorprone.annotations.CompileTimeConstant
+[WARNING]   - com.google.errorprone.annotations.DoNotCall
+[WARNING]   - com.google.errorprone.annotations.DoNotMock
+[WARNING]   - com.google.errorprone.annotations.ForOverride
+[WARNING]   - com.google.errorprone.annotations.FormatMethod
+[WARNING]   - 18 more...
+[WARNING] checker-qual-3.33.0.jar, spark-dpp-1.0.0.jar define 359 overlapping class and resource: 
+[WARNING]   - META-INF/LICENSE.txt
+[WARNING]   - org.checkerframework.checker.builder.qual.CalledMethods
+[WARNING]   - org.checkerframework.checker.builder.qual.NotCalledMethods
+[WARNING]   - org.checkerframework.checker.builder.qual.ReturnsReceiver
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.CalledMethods
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.CalledMethodsBottom
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.CalledMethodsPredicate
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.EnsuresCalledMethods
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.EnsuresCalledMethods$List
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.EnsuresCalledMethodsIf
+[WARNING]   - 349 more...
+[WARNING] shims-0.8.13.jar, spark-dpp-1.0.0.jar define 2 overlapping classes: 
+[WARNING]   - META-INF.versions.11.org.roaringbitmap.ArraysShim
+[WARNING]   - org.roaringbitmap.ArraysShim
+[WARNING] netty-codec-4.1.133.Final.jar, spark-dpp-1.0.0.jar define 225 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/io.netty/netty-codec/pom.properties
+[WARNING]   - META-INF/maven/io.netty/netty-codec/pom.xml
+[WARNING]   - META-INF/native-image/io.netty/netty-codec/generated/handlers/reflect-config.json
+[WARNING]   - META-INF/native-image/io.netty/netty-codec/native-image.properties
+[WARNING]   - io.netty.handler.codec.AsciiHeadersEncoder
+[WARNING]   - io.netty.handler.codec.AsciiHeadersEncoder$1
+[WARNING]   - io.netty.handler.codec.AsciiHeadersEncoder$NewlineType
+[WARNING]   - io.netty.handler.codec.AsciiHeadersEncoder$SeparatorType
+[WARNING]   - io.netty.handler.codec.ByteToMessageCodec
+[WARNING]   - io.netty.handler.codec.ByteToMessageCodec$1
+[WARNING]   - 215 more...
+[WARNING] netty-buffer-4.1.133.Final.jar, spark-dpp-1.0.0.jar define 169 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/io.netty/netty-buffer/pom.properties
+[WARNING]   - META-INF/maven/io.netty/netty-buffer/pom.xml
+[WARNING]   - META-INF/native-image/io.netty/netty-buffer/native-image.properties
+[WARNING]   - io.netty.buffer.AbstractByteBuf
+[WARNING]   - io.netty.buffer.AbstractByteBufAllocator
+[WARNING]   - io.netty.buffer.AbstractByteBufAllocator$1
+[WARNING]   - io.netty.buffer.AbstractDerivedByteBuf
+[WARNING]   - io.netty.buffer.AbstractPooledDerivedByteBuf
+[WARNING]   - io.netty.buffer.AbstractPooledDerivedByteBuf$PooledNonRetainedDuplicateByteBuf
+[WARNING]   - io.netty.buffer.AbstractPooledDerivedByteBuf$PooledNonRetainedSlicedByteBuf
+[WARNING]   - 159 more...
+[WARNING] netty-buffer-4.1.133.Final.jar, netty-codec-4.1.133.Final.jar, netty-common-4.1.133.Final.jar, netty-handler-4.1.133.Final.jar, netty-resolver-4.1.133.Final.jar, netty-transport-4.1.133.Final.jar, netty-transport-native-unix-common-4.1.133.Final.jar, spark-dpp-1.0.0.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/io.netty.versions.properties
+[WARNING] netty-transport-4.1.133.Final.jar, spark-dpp-1.0.0.jar define 390 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/io.netty/netty-transport/pom.properties
+[WARNING]   - META-INF/maven/io.netty/netty-transport/pom.xml
+[WARNING]   - META-INF/native-image/io.netty/netty-transport/generated/handlers/reflect-config.json
+[WARNING]   - META-INF/native-image/io.netty/netty-transport/reflect-config.json
+[WARNING]   - io.netty.bootstrap.AbstractBootstrap
+[WARNING]   - io.netty.bootstrap.AbstractBootstrap$1
+[WARNING]   - io.netty.bootstrap.AbstractBootstrap$2
+[WARNING]   - io.netty.bootstrap.AbstractBootstrap$PendingRegistrationPromise
+[WARNING]   - io.netty.bootstrap.AbstractBootstrapConfig
+[WARNING]   - io.netty.bootstrap.Bootstrap
+[WARNING]   - 380 more...
+[WARNING] gson-2.8.9.jar, spark-dpp-1.0.0.jar define 197 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.google.code.gson/gson/pom.properties
+[WARNING]   - META-INF/maven/com.google.code.gson/gson/pom.xml
+[WARNING]   - com.google.gson.ExclusionStrategy
+[WARNING]   - com.google.gson.FieldAttributes
+[WARNING]   - com.google.gson.FieldNamingPolicy
+[WARNING]   - com.google.gson.FieldNamingPolicy$1
+[WARNING]   - com.google.gson.FieldNamingPolicy$2
+[WARNING]   - com.google.gson.FieldNamingPolicy$3
+[WARNING]   - com.google.gson.FieldNamingPolicy$4
+[WARNING]   - com.google.gson.FieldNamingPolicy$5
+[WARNING]   - 187 more...
+[WARNING] listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar, spark-dpp-1.0.0.jar define 2 overlapping resources: 
+[WARNING]   - META-INF/maven/com.google.guava/listenablefuture/pom.properties
+[WARNING]   - META-INF/maven/com.google.guava/listenablefuture/pom.xml
+[WARNING] netty-handler-4.1.133.Final.jar, spark-dpp-1.0.0.jar define 367 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/io.netty/netty-handler/pom.properties
+[WARNING]   - META-INF/maven/io.netty/netty-handler/pom.xml
+[WARNING]   - META-INF/native-image/io.netty/netty-handler/generated/handlers/reflect-config.json
+[WARNING]   - META-INF/native-image/io.netty/netty-handler/native-image.properties
+[WARNING]   - META-INF/native-image/io.netty/netty-handler/reflect-config.json
+[WARNING]   - io.netty.handler.address.DynamicAddressConnectHandler
+[WARNING]   - io.netty.handler.address.DynamicAddressConnectHandler$1
+[WARNING]   - io.netty.handler.address.ResolveAddressHandler
+[WARNING]   - io.netty.handler.address.ResolveAddressHandler$1
+[WARNING]   - io.netty.handler.flow.FlowControlHandler
+[WARNING]   - 357 more...
+[WARNING] lz4-java-1.10.1.jar, spark-dpp-1.0.0.jar define 92 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/at.yawk.lz4/lz4-java/pom.properties
+[WARNING]   - META-INF/maven/at.yawk.lz4/lz4-java/pom.xml
+[WARNING]   - net.jpountz.lz4.LZ4BlockInputStream
+[WARNING]   - net.jpountz.lz4.LZ4BlockInputStream$1
+[WARNING]   - net.jpountz.lz4.LZ4BlockInputStream$Builder
+[WARNING]   - net.jpountz.lz4.LZ4BlockOutputStream
+[WARNING]   - net.jpountz.lz4.LZ4ByteBufferUtils
+[WARNING]   - net.jpountz.lz4.LZ4ByteBufferUtils$Match
+[WARNING]   - net.jpountz.lz4.LZ4Compressor
+[WARNING]   - net.jpountz.lz4.LZ4CompressorWithLength
+[WARNING]   - 82 more...
+[WARNING] RoaringBitmap-0.8.13.jar, checker-qual-3.33.0.jar, error_prone_annotations-2.18.0.jar, failureaccess-1.0.1.jar, fe-common-1.0.0.jar, gson-2.8.9.jar, guava-32.0.1-jre.jar, j2objc-annotations-2.8.jar, listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar, lz4-java-1.10.1.jar, netty-buffer-4.1.133.Final.jar, netty-codec-4.1.133.Final.jar, netty-common-4.1.133.Final.jar, netty-handler-4.1.133.Final.jar, netty-resolver-4.1.133.Final.jar, netty-transport-4.1.133.Final.jar, netty-transport-native-unix-common-4.1.133.Final.jar, plugin-common-1.0.0.jar, shims-0.8.13.jar, spark-dpp-1.0.0.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/MANIFEST.MF
+[WARNING] netty-transport-native-unix-common-4.1.133.Final.jar, spark-dpp-1.0.0.jar define 34 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/io.netty/netty-transport-native-unix-common/pom.properties
+[WARNING]   - META-INF/maven/io.netty/netty-transport-native-unix-common/pom.xml
+[WARNING]   - io.netty.channel.unix.Buffer
+[WARNING]   - io.netty.channel.unix.DatagramSocketAddress
+[WARNING]   - io.netty.channel.unix.DomainDatagramChannel
+[WARNING]   - io.netty.channel.unix.DomainDatagramChannelConfig
+[WARNING]   - io.netty.channel.unix.DomainDatagramPacket
+[WARNING]   - io.netty.channel.unix.DomainDatagramSocketAddress
+[WARNING]   - io.netty.channel.unix.DomainSocketAddress
+[WARNING]   - io.netty.channel.unix.DomainSocketChannel
+[WARNING]   - 24 more...
+[WARNING] netty-resolver-4.1.133.Final.jar, spark-dpp-1.0.0.jar define 31 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/io.netty/netty-resolver/pom.properties
+[WARNING]   - META-INF/maven/io.netty/netty-resolver/pom.xml
+[WARNING]   - io.netty.resolver.AbstractAddressResolver
+[WARNING]   - io.netty.resolver.AddressResolver
+[WARNING]   - io.netty.resolver.AddressResolverGroup
+[WARNING]   - io.netty.resolver.AddressResolverGroup$1
+[WARNING]   - io.netty.resolver.CompositeNameResolver
+[WARNING]   - io.netty.resolver.CompositeNameResolver$1
+[WARNING]   - io.netty.resolver.CompositeNameResolver$2
+[WARNING]   - io.netty.resolver.DefaultAddressResolverGroup
+[WARNING]   - 21 more...
+[WARNING] failureaccess-1.0.1.jar, spark-dpp-1.0.0.jar define 4 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.google.guava/failureaccess/pom.properties
+[WARNING]   - META-INF/maven/com.google.guava/failureaccess/pom.xml
+[WARNING]   - com.google.common.util.concurrent.internal.InternalFutureFailureAccess
+[WARNING]   - com.google.common.util.concurrent.internal.InternalFutures
+[WARNING] guava-32.0.1-jre.jar, spark-dpp-1.0.0.jar define 2025 overlapping classes and resources: 
+[WARNING]   - META-INF/LICENSE
+[WARNING]   - META-INF/maven/com.google.guava/guava/pom.properties
+[WARNING]   - META-INF/maven/com.google.guava/guava/pom.xml
+[WARNING]   - META-INF/proguard/base.pro
+[WARNING]   - META-INF/proguard/cache.pro
+[WARNING]   - META-INF/proguard/collect.pro
+[WARNING]   - META-INF/proguard/concurrent.pro
+[WARNING]   - META-INF/proguard/hash.pro
+[WARNING]   - META-INF/proguard/io.pro
+[WARNING]   - META-INF/proguard/primitives.pro
+[WARNING]   - 2015 more...
+[WARNING] RoaringBitmap-0.8.13.jar, spark-dpp-1.0.0.jar define 128 overlapping classes: 
+[WARNING]   - org.roaringbitmap.AppendableStorage
+[WARNING]   - org.roaringbitmap.ArrayBatchIterator
+[WARNING]   - org.roaringbitmap.ArrayContainer
+[WARNING]   - org.roaringbitmap.ArrayContainer$1
+[WARNING]   - org.roaringbitmap.ArrayContainerCharIterator
+[WARNING]   - org.roaringbitmap.BatchIntIterator
+[WARNING]   - org.roaringbitmap.BatchIterator
+[WARNING]   - org.roaringbitmap.BitSetUtil
+[WARNING]   - org.roaringbitmap.BitmapBatchIterator
+[WARNING]   - org.roaringbitmap.BitmapContainer
+[WARNING]   - 118 more...
+[WARNING] plugin-common-1.0.0.jar, spark-dpp-1.0.0.jar define 9 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.starrocks/plugin-common/pom.properties
+[WARNING]   - META-INF/maven/com.starrocks/plugin-common/pom.xml
+[WARNING]   - com.starrocks.types.BitmapValue
+[WARNING]   - com.starrocks.types.Codec
+[WARNING]   - com.starrocks.types.Roaring64Map
+[WARNING]   - com.starrocks.types.Roaring64Map$1
+[WARNING]   - com.starrocks.types.Roaring64Map$2
+[WARNING]   - com.starrocks.types.Roaring64Map$3
+[WARNING]   - com.starrocks.types.Roaring64Map$4
+[WARNING] j2objc-annotations-2.8.jar, spark-dpp-1.0.0.jar define 15 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.google.j2objc/j2objc-annotations/pom.properties
+[WARNING]   - META-INF/maven/com.google.j2objc/j2objc-annotations/pom.xml
+[WARNING]   - com.google.j2objc.annotations.AutoreleasePool
+[WARNING]   - com.google.j2objc.annotations.J2ObjCIncompatible
+[WARNING]   - com.google.j2objc.annotations.LoopTranslation
+[WARNING]   - com.google.j2objc.annotations.LoopTranslation$LoopStyle
+[WARNING]   - com.google.j2objc.annotations.ObjectiveCName
+[WARNING]   - com.google.j2objc.annotations.OnDealloc
+[WARNING]   - com.google.j2objc.annotations.Property
+[WARNING]   - com.google.j2objc.annotations.ReflectionSupport
+[WARNING]   - 5 more...
+[WARNING] netty-common-4.1.133.Final.jar, spark-dpp-1.0.0.jar define 552 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/io.netty/netty-common/pom.properties
+[WARNING]   - META-INF/maven/io.netty/netty-common/pom.xml
+[WARNING]   - META-INF/maven/org.jctools/jctools-core/pom.properties
+[WARNING]   - META-INF/maven/org.jctools/jctools-core/pom.xml
+[WARNING]   - META-INF/native-image/io.netty/netty-common/native-image.properties
+[WARNING]   - META-INF/services/reactor.blockhound.integration.BlockHoundIntegration
+[WARNING]   - io.netty.util.AbstractConstant
+[WARNING]   - io.netty.util.AbstractReferenceCounted
+[WARNING]   - io.netty.util.AbstractReferenceCounted$1
+[WARNING]   - io.netty.util.AsciiString
+[WARNING]   - 542 more...
+[WARNING] fe-common-1.0.0.jar, spark-dpp-1.0.0.jar define 10 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.starrocks/fe-common/pom.properties
+[WARNING]   - META-INF/maven/com.starrocks/fe-common/pom.xml
+[WARNING]   - com.starrocks.common.jmockit.AutoType
+[WARNING]   - com.starrocks.common.jmockit.ConstructorReflection
+[WARNING]   - com.starrocks.common.jmockit.Deencapsulation
+[WARNING]   - com.starrocks.common.jmockit.FieldReflection
+[WARNING]   - com.starrocks.common.jmockit.GeneratedClasses
+[WARNING]   - com.starrocks.common.jmockit.MethodReflection
+[WARNING]   - com.starrocks.common.jmockit.ParameterReflection
+[WARNING]   - com.starrocks.common.jmockit.ThrowOfCheckedException
+[WARNING] maven-shade-plugin has detected that some files are
+[WARNING] present in two or more JARs. When this happens, only one
+[WARNING] single version of the file is copied to the uber jar.
+[WARNING] Usually this is not harmful and you can skip these warnings,
+[WARNING] otherwise try to manually exclude artifacts based on
+[WARNING] mvn dependency:tree -Ddetail=true and the above output.
+[WARNING] See https://maven.apache.org/plugins/maven-shade-plugin/
+[INFO] Replacing original artifact with shaded artifact.
+[INFO] Replacing /query-corruption-workspace/src/fe/spark-dpp/target/spark-dpp-1.0.0.jar with /query-corruption-workspace/src/fe/spark-dpp/target/spark-dpp-1.0.0-shaded.jar
+[INFO] 
+[INFO] -----------------------< com.starrocks:fe-core >------------------------
+[INFO] Building fe-core 3.4.0                                             [5/5]
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- maven-checkstyle-plugin:3.1.1:check (validate) @ fe-core ---
+[INFO] Starting audit...
+Audit done.
+[INFO] You have 0 Checkstyle violations.
+[INFO] 
+[INFO] --- jacoco-maven-plugin:0.8.8:prepare-agent (default-prepare-agent) @ fe-core ---
+[INFO] jacocoArgLine set to -javaagent:/query-corruption-workspace/cache/maven/org/jacoco/org.jacoco.agent/0.8.8/org.jacoco.agent-0.8.8-runtime.jar=destfile=/query-corruption-workspace/src/fe/fe-core/target/jacoco.exec
+[INFO] 
+[INFO] --- maven-clean-plugin:3.1.0:clean (auto-clean) @ fe-core ---
+[INFO] Clean is skipped.
+[INFO] 
+[INFO] --- maven-thrift-plugin:0.1.11:compile (thrift-sources) @ fe-core ---
+[INFO] 
+[INFO] --- antlr4-maven-plugin:4.9.3:antlr4 (antlr) @ fe-core ---
+[INFO] ANTLR 4: Processing source directory /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/sql/parser
+[INFO] Processing grammar: StarRocks.g4
+[WARNING] warning(131): StarRocks.g4:2317:7: greedy block ()+ contains wildcard; the non-greedy syntax ()+? may be preferred
+[WARNING] /query-corruption-workspace/src/fe/StarRocks.g4 [2317:7]: greedy block ()+ contains wildcard; the non-greedy syntax ()+? may be preferred
+[INFO] Processing grammar: StarRocksLex.g4
+[INFO] 
+[INFO] --- maven-antrun-plugin:1.8:run (generate-sources) @ fe-core ---
+[INFO] Executing tasks
+
+main:
+     [exec] create success. output path=/query-corruption-workspace/src/fe/fe-core/target/generated-sources/proto
+     [exec] create success. output path=/query-corruption-workspace/src/fe/fe-core/target/generated-sources/proto
+     [exec] create success. output path=/query-corruption-workspace/src/fe/fe-core/target/generated-sources/proto
+     [exec] create success. output path=/query-corruption-workspace/src/fe/fe-core/target/generated-sources/proto
+     [exec] create success. output path=/query-corruption-workspace/src/fe/fe-core/target/generated-sources/proto
+     [exec] create success. output path=/query-corruption-workspace/src/fe/fe-core/target/generated-sources/proto
+     [exec] gen_build_version.py /query-corruption-workspace/src/fe/fe-core/../..//fe/fe-core/target/generated-sources/build/com/starrocks/common/Version.java: old fingerprint = 59ee0bc9f3e1f5bfdee29370788eaeaa, new fingerprint = 93d7aa1dc9c3d48f0214012a5194cc32
+[INFO] Executed tasks
+[INFO] 
+[INFO] --- build-helper-maven-plugin:1.7:add-source (add-source) @ fe-core ---
+[INFO] Source directory: /query-corruption-workspace/src/fe/fe-core/target/generated-sources/build added.
+[INFO] Source directory: /query-corruption-workspace/src/fe/fe-core/target/generated-sources/proto added.
+[INFO] Source directory: /query-corruption-workspace/src/fe/fe-core/target/generated-sources/thrift added.
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:resources (default-resources) @ fe-core ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /query-corruption-workspace/src/fe/fe-core/src/main/resources
+[INFO] Copying 32 resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.1:compile (default-compile) @ fe-core ---
+[INFO] Changes detected - recompiling the module!
+[INFO] Compiling 4617 source files to /query-corruption-workspace/src/fe/fe-core/target/classes
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/StarRocksFE.java:[75,16] sun.misc.Signal is internal proprietary API and may be removed in a future release
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/StarRocksFE.java:[75,16] sun.misc.Signal is internal proprietary API and may be removed in a future release
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/StarRocksFE.java:[75,16] sun.misc.Signal is internal proprietary API and may be removed in a future release
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/StarRocksFE.java:[227,27] sun.misc.Signal is internal proprietary API and may be removed in a future release
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/StarRocksFE.java:[227,9] sun.misc.Signal is internal proprietary API and may be removed in a future release
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/StarRocksFE.java: sun.misc.Signal is internal proprietary API and may be removed in a future release
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/statistic/sample/TabletSampleManager.java: Some input files use or override a deprecated API.
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/statistic/sample/TabletSampleManager.java: Recompile with -Xlint:deprecation for details.
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/plugin/ExtendedPluginsClassLoader.java: Some input files use or override a deprecated API that is marked for removal.
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/plugin/ExtendedPluginsClassLoader.java: Recompile with -Xlint:removal for details.
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/common/TreeNode.java: Some input files use unchecked or unsafe operations.
+[WARNING] /query-corruption-workspace/src/fe/fe-core/src/main/java/com/starrocks/common/TreeNode.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- jprotobuf-precompile-plugin:2.2.12:precompile (default) @ fe-core ---
+[INFO] * filterClassPackages='[com.starrocks.proto, com.starrocks.rpc, com.starrocks.server]'
+[INFO] * generateProtofile='true'
+[INFO] * compileDependencies='true'
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PLoadDiagnoseRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PUpdateTransactionStateResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/EditVersionMetaPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/MetadataUpdateInfoPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PStreamLoadRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/VacuumRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/RestoreSnapshotsRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTransmitChunkResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PageHeaderPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/ReplicationTxnMetaPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/TabletUpdatesExtraFileSize.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeltaColumnGroupListIdPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeltaColumnGroupMetadataPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/OpWrite.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/TabletMetadataEntry.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PStreamLoadResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DropTableResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/BinlogFileHeaderPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DropTableRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PFetchDataCacheResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/ExecuteCommandResultPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/TabletStatRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PUpdateFailPointStatusResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PPulsarBacklogBatchProxyResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/RowsetMetaPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/InsertRangePB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeltaColumnGroupSnapshotPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/SegmentIndexPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PProxyRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PPulsarBacklogBatchProxyRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/NodeExecStatsItemPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PProcessDictionaryCacheRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/TxnInfoPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeleteTabletRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PrimaryIndexDumpPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PPulsarProxyRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PKafkaMetaProxyResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/RowsetStatIdPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PFailPointInfo.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTransmitDataParams.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DelvecCacheKeyPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/IndexValuesWithVerPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeletePB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/BinlogLsnPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeleteVectorStatPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PCollectQueryStatisticsRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/RestoreSnapshotsResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PPulsarMetaProxyResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PLoadReplicaStatusResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/TabletMetaPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/EncryptionMetaPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PExecPlanFragmentRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/OLAPRawDeltaHeaderMessage.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletReaderOpenRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/GetTabletMetadatasResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/OldDeltaColumnGroupPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/LockTabletMetadataRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/VacuumFullRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeleteTxnLogResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PUpdateTransactionStateRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PGetFileSchemaRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletReaderScanOpenRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PLoadReplicaStatusRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PMVMaintenanceTaskResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PLoadDiagnoseResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PListFailPointResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/TabletStatResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/OpCompaction.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeleteDataResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/VacuumResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTransmitRuntimeFilterResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/TxnFinishStatePB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PExecBatchPlanFragmentsResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/ExecuteCommandRequestPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/SegmentPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/CompactResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletWithPartition.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/TabletMetadataRepairStatus.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/OLAPIndexHeaderMessage.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PLoadChannelProfileConfig.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PFetchArrowSchemaRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/AbortCompactionRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/CombinedTxnLogPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PageContentPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletWriterOpenRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletWriterCancelRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeleteTxnLogRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/BinlogFileMetaPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PProcessDictionaryCacheResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/BundleTabletMetadataPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PrimaryKeyDumpPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PFetchDataCacheRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PublishLogVersionResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PFetchDataRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/TabletMetaLogPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletReaderMultiGetRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/VacuumFullResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/RepairTabletMetadataResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PExecBatchPlanFragmentsRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/ComputeNodePB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletInfo.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PFetchDataResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/UnlockTabletMetadataRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PExecShortCircuitResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTransmitRuntimeFilterForwardTarget.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PCancelPlanFragmentResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletReaderScanGetNextRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/UploadSnapshotsRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTransmitDataResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeleteTabletResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/UploadSnapshotsResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletReaderScanOpenResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/AggregateCompactRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTransmitChunkParams.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PartialKVsPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletWriterAddSegmentResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PUpdateFailPointStatusRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletWriterAddChunkRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/UnlockTabletMetadataResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PCollectQueryStatisticsResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletReaderScanGetNextResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletReaderCloseRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/AggregatePublishVersionRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PGetFileSchemaResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/LockTabletMetadataResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PPulsarProxyResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletReaderOpenResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/OLAPDataHeaderMessage.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PublishLogVersionRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTriggerProfileReportResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/GetTabletMetadatasRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PExecShortCircuitRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletReaderMultiGetResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletWriterAddBatchResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PExecPlanFragmentResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletReaderCloseResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PProxyResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/ReshardingTabletsInfoPB.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletWriterAddSegmentRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PublishLogVersionBatchRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/DeleteDataRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/RepairTabletMetadataRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/AbortTxnRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTransmitRuntimeFilterParams.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletWriterOpenResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletWriterAddBatchRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTriggerProfileReportRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PCancelPlanFragmentRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/AbortCompactionResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/AbortTxnResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PTabletWriterAddChunksRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PFetchArrowSchemaResult.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/proto/PublishVersionResponse.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/rpc/PCollectQueryStatisticsRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/rpc/PMVMaintenanceTaskRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/rpc/PExecPlanFragmentRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/rpc/PGetFileSchemaRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/rpc/PFetchDataRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/rpc/PExecBatchPlanFragmentsRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/rpc/PListFailPointRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/rpc/PExecShortCircuitRequest.proto
+[INFO] Generate proto file to /query-corruption-workspace/src/fe/fe-core/target/temp/com/starrocks/rpc/PTriggerProfileReportRequest.proto
+[INFO] no modify class 'Integer', will skip precompile.
+[INFO] no modify class 'byte[]', will skip precompile.
+[INFO] no modify class 'Long', will skip precompile.
+[INFO] no modify class 'Boolean', will skip precompile.
+[INFO] no modify class 'Double', will skip precompile.
+[INFO] JProtobuf pre compile finished. 288 classes compiled.
+[INFO] JProtobuf pre compile done time took: 3817ms
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:testResources (default-testResources) @ fe-core ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Copying 760 resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.1:testCompile (default-testCompile) @ fe-core ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- maven-surefire-plugin:2.22.2:test (default-test) @ fe-core ---
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.starrocks.sql.plan.QueryCorruptionPlanTest
+mocked frontend running in dir: /tmp/STARROCKS_HOME17405565385866891184/fe/mocked/test/54a2e319-ad73-495c-b936-28aee1a557de/
+2026-09-21 17:47:19 [main] WARN  MockedFrontend:329 - globalStateMgr is not ready, wait for 1 second
+2026-09-21 17:47:20 [fe] WARN  StateChangeExecutor:62 - notify new FE type transfer: LEADER
+[2026-09-21 17:47:20] notify new FE type transfer: LEADER
+[2026-09-21 17:47:20] leader finished to replay journal, can write now.
+2026-09-21 17:47:20 [Routine load task scheduler] WARN  RoutineLoadTaskScheduler:117 - no available be slot to scheduler tasks, wait for 10 seconds to scheduler again, you can set max_routine_load_task_num_per_be bigger in fe.conf, current value is 16
+2026-09-21 17:47:20 [TableKeeper] WARN  TableKeeper:64 - database not exists: _statistics_
+2026-09-21 17:47:20 [TableKeeper] WARN  TableKeeper:64 - database not exists: _statistics_
+2026-09-21 17:47:20 [TableKeeper] WARN  TableKeeper:64 - database not exists: _statistics_
+2026-09-21 17:47:20 [PipeScheduler] WARN  PipeScheduler:67 - Successfully recover all pipes
+2026-09-21 17:47:20 [PredicateColumnsDaemonThread] WARN  PredicateColumnsMgr:232 - system table of predicate_columns is still not ready
+Fe process is started with runMode:shared_nothing
+parse failed: Getting analyzing error. Detail message: Duplicate column name 'v1'.
+parse failed: Getting analyzing error. Detail message: Duplicate column name 'v1'.
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.646 s - in com.starrocks.sql.plan.QueryCorruptionPlanTest
+[INFO] Running com.starrocks.qe.QueryCorruptionPolicyTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.735 s - in com.starrocks.qe.QueryCorruptionPolicyTest
+[INFO] Running com.starrocks.qe.QueryCorruptionWarningTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.031 s - in com.starrocks.qe.QueryCorruptionWarningTest
+[INFO] Running com.starrocks.mysql.MysqlOkPacketTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.067 s - in com.starrocks.mysql.MysqlOkPacketTest
+[INFO] Running com.starrocks.mysql.MysqlEofPacketTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.071 s - in com.starrocks.mysql.MysqlEofPacketTest
+[INFO] Running com.starrocks.pseudocluster.QueryCorruptionHttpTest
+find valid port 43811 at Mon Sep 21 17:47:35 CST 2026, lock dir: /tmp/starrocks_ut_ports
+pseudo frontend running in dir: /query-corruption-workspace/src/fe/fe-core/pseudo_cluster_43811
+=====
+<?xml version="1.0" encoding="utf-8"?>
+
+<Configuration status="info" packages="com.starrocks.common">
+  <Appenders>
+    <Console name="ConsoleErr" target="SYSTEM_ERR" follow="true">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} %p (%t|%tid) [%C{1}.%M():%L] %m%n"/>
+    </Console>
+    <RollingFile name="Sys" fileName="pseudo_cluster_43811/fe.log" filePattern="pseudo_cluster_43811/fe.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} %p (%t|%tid) [%C{1}.%M():%L] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="min">
+        <Delete basePath="pseudo_cluster_43811/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="SysWF" fileName="pseudo_cluster_43811/fe.warn.log" filePattern="pseudo_cluster_43811/fe.warn.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} %p (%t|%tid) [%C{1}.%M():%L] %m%n %ex"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="min">
+        <Delete basePath="pseudo_cluster_43811/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.warn.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="Auditfile" fileName="pseudo_cluster_43811/fe.audit.log" filePattern="pseudo_cluster_43811/fe.audit.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="90" fileIndex="min">
+        <Delete basePath="pseudo_cluster_43811/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.audit.log.*" />
+          <IfLastModified age="30d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="dumpFile" fileName="pseudo_cluster_43811/fe.dump.log" filePattern="pseudo_cluster_43811/fe.dump.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="min">
+        <Delete basePath="pseudo_cluster_43811/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.dump.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="BigQueryFile" fileName="null/log/fe.big_query.log" filePattern="null/log/fe.big_query.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="min">
+        <Delete basePath="null/log/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.big_query.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="ProfileFile" fileName="null/log/fe.profile.log" filePattern="null/log/fe.profile.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="5" fileIndex="min">
+        <Delete basePath="null/log/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.profile.log.*" />
+          <IfLastModified age="1d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="FeaturesFile" fileName="null/log/fe.features.log"        filePattern="null/log/fe.features.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="5" fileIndex="min">
+        <Delete basePath="null/log/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.features.log.*" />
+          <IfLastModified age="3d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="InternalFile" fileName="null/log/fe.internal.log" filePattern="null/log/fe.internal.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} %p (%t|%tid) [%C{1}.%M():%L] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="90" fileIndex="min">
+        <Delete basePath="null/log/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.internal.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="PlanFile" fileName="pseudo_cluster_43811/fe.plan.log" filePattern="pseudo_cluster_43811/fe.plan.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="min">
+        <Delete basePath="pseudo_cluster_43811/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.plan.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+  </Appenders>
+  <Loggers>
+    <Root level="INFO">
+      <AppenderRef ref="Sys"/>
+      <AppenderRef ref="SysWF" level="WARN"/>
+    </Root>
+    <Logger name="audit" level="ERROR" additivity="false">
+      <AppenderRef ref="Auditfile"/>
+    </Logger>
+    <Logger name="dump" level="ERROR" additivity="false">
+      <AppenderRef ref="dumpFile"/>
+    </Logger>
+    <Logger name="big_query" level="ERROR" additivity="false">
+      <AppenderRef ref="BigQueryFile"/>
+    </Logger>
+    <Logger name="profile" level="INFO" additivity="false">
+      <AppenderRef ref="ProfileFile"/>
+    </Logger>
+    <Logger name="features" level="INFO" additivity="false">
+      <AppenderRef ref="FeaturesFile"/>
+    </Logger>
+    <Logger name="plan" level="INFO" additivity="false">
+      <AppenderRef ref="PlanFile"/>
+    </Logger>
+    <Logger name='internal.base' level="INFO" additivity="false"> 
+      <AppenderRef ref="InternalFile"/>
+    </Logger>
+    <Logger name='internal.statistic' level="INFO" additivity="false"> 
+      <AppenderRef ref="InternalFile"/>
+    </Logger>
+    <Logger name='audit.slow_query' level='INFO'/>
+    <Logger name='audit.query' level='INFO'/>
+    <Logger name='dump.query' level='INFO'/>
+    <Logger name='big_query.query' level='INFO'/>
+    <Logger name='org.apache.kafka' level='WARN'><AppenderRef ref='SysWF'/></Logger>
+    <Logger name='org.apache.hudi' level='WARN'><AppenderRef ref='SysWF'/></Logger>
+    <Logger name='org.apache.hadoop.io.compress' level='WARN'><AppenderRef ref='SysWF'/></Logger>
+  </Loggers>
+</Configuration>
+=====
+[2026-09-21 17:47:37] notify new FE type transfer: LEADER
+[2026-09-21 17:47:37] leader finished to replay journal, can write now.
+Fe process is started
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.938 s - in com.starrocks.pseudocluster.QueryCorruptionHttpTest
+[INFO] Running com.starrocks.pseudocluster.QueryCorruptionJdbcTest
+find valid port 33855 at Mon Sep 21 17:47:46 CST 2026, lock dir: /tmp/starrocks_ut_ports
+pseudo frontend running in dir: /query-corruption-workspace/src/fe/fe-core/pseudo_cluster_33855
+=====
+<?xml version="1.0" encoding="utf-8"?>
+
+<Configuration status="info" packages="com.starrocks.common">
+  <Appenders>
+    <Console name="ConsoleErr" target="SYSTEM_ERR" follow="true">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} %p (%t|%tid) [%C{1}.%M():%L] %m%n"/>
+    </Console>
+    <RollingFile name="Sys" fileName="pseudo_cluster_33855/fe.log" filePattern="pseudo_cluster_33855/fe.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} %p (%t|%tid) [%C{1}.%M():%L] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="min">
+        <Delete basePath="pseudo_cluster_33855/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="SysWF" fileName="pseudo_cluster_33855/fe.warn.log" filePattern="pseudo_cluster_33855/fe.warn.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} %p (%t|%tid) [%C{1}.%M():%L] %m%n %ex"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="min">
+        <Delete basePath="pseudo_cluster_33855/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.warn.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="Auditfile" fileName="pseudo_cluster_33855/fe.audit.log" filePattern="pseudo_cluster_33855/fe.audit.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="90" fileIndex="min">
+        <Delete basePath="pseudo_cluster_33855/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.audit.log.*" />
+          <IfLastModified age="30d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="dumpFile" fileName="pseudo_cluster_33855/fe.dump.log" filePattern="pseudo_cluster_33855/fe.dump.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="min">
+        <Delete basePath="pseudo_cluster_33855/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.dump.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="BigQueryFile" fileName="null/log/fe.big_query.log" filePattern="null/log/fe.big_query.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="min">
+        <Delete basePath="null/log/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.big_query.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="ProfileFile" fileName="null/log/fe.profile.log" filePattern="null/log/fe.profile.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="5" fileIndex="min">
+        <Delete basePath="null/log/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.profile.log.*" />
+          <IfLastModified age="1d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="FeaturesFile" fileName="null/log/fe.features.log"        filePattern="null/log/fe.features.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="5" fileIndex="min">
+        <Delete basePath="null/log/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.features.log.*" />
+          <IfLastModified age="3d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="InternalFile" fileName="null/log/fe.internal.log" filePattern="null/log/fe.internal.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} %p (%t|%tid) [%C{1}.%M():%L] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="90" fileIndex="min">
+        <Delete basePath="null/log/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.internal.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+    <RollingFile name="PlanFile" fileName="pseudo_cluster_33855/fe.plan.log" filePattern="pseudo_cluster_33855/fe.plan.log.%d{yyyyMMdd}-%i">
+      <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%c{1}] %m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="1024MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10" fileIndex="min">
+        <Delete basePath="pseudo_cluster_33855/" maxDepth="1" followLinks="true">
+          <IfFileName glob="fe.plan.log.*" />
+          <IfLastModified age="7d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+  </Appenders>
+  <Loggers>
+    <Root level="INFO">
+      <AppenderRef ref="Sys"/>
+      <AppenderRef ref="SysWF" level="WARN"/>
+    </Root>
+    <Logger name="audit" level="ERROR" additivity="false">
+      <AppenderRef ref="Auditfile"/>
+    </Logger>
+    <Logger name="dump" level="ERROR" additivity="false">
+      <AppenderRef ref="dumpFile"/>
+    </Logger>
+    <Logger name="big_query" level="ERROR" additivity="false">
+      <AppenderRef ref="BigQueryFile"/>
+    </Logger>
+    <Logger name="profile" level="INFO" additivity="false">
+      <AppenderRef ref="ProfileFile"/>
+    </Logger>
+    <Logger name="features" level="INFO" additivity="false">
+      <AppenderRef ref="FeaturesFile"/>
+    </Logger>
+    <Logger name="plan" level="INFO" additivity="false">
+      <AppenderRef ref="PlanFile"/>
+    </Logger>
+    <Logger name='internal.base' level="INFO" additivity="false"> 
+      <AppenderRef ref="InternalFile"/>
+    </Logger>
+    <Logger name='internal.statistic' level="INFO" additivity="false"> 
+      <AppenderRef ref="InternalFile"/>
+    </Logger>
+    <Logger name='audit.slow_query' level='INFO'/>
+    <Logger name='audit.query' level='INFO'/>
+    <Logger name='dump.query' level='INFO'/>
+    <Logger name='big_query.query' level='INFO'/>
+    <Logger name='org.apache.kafka' level='WARN'><AppenderRef ref='SysWF'/></Logger>
+    <Logger name='org.apache.hudi' level='WARN'><AppenderRef ref='SysWF'/></Logger>
+    <Logger name='org.apache.hadoop.io.compress' level='WARN'><AppenderRef ref='SysWF'/></Logger>
+  </Loggers>
+</Configuration>
+=====
+[2026-09-21 17:47:48] notify new FE type transfer: LEADER
+[2026-09-21 17:47:48] leader finished to replay journal, can write now.
+Fe process is started
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 7.246 s - in com.starrocks.pseudocluster.QueryCorruptionJdbcTest
+[INFO] Running com.starrocks.http.QueryCorruptionJsonTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.547 s - in com.starrocks.http.QueryCorruptionJsonTest
+[INFO] Running com.starrocks.http.QueryCorruptionHttpSenderTest
+2026-09-21 17:47:58 [main] WARN  HttpResultSender:133 - http query:channel is closed, cancel query, query id:null, query:select * from events
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.116 s - in com.starrocks.http.QueryCorruptionHttpSenderTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 41, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] 
+[INFO] --- maven-jar-plugin:2.4:jar (default-jar) @ fe-core ---
+[INFO] Building jar: /query-corruption-workspace/src/fe/fe-core/target/starrocks-fe.jar
+[INFO] 
+[INFO] --- maven-dependency-plugin:3.1.1:copy-dependencies (copy-dependencies) @ fe-core ---
+[INFO] Copying spark-dpp-1.0.0.jar to /query-corruption-workspace/src/fe/fe-core/target/lib/spark-dpp-1.0.0.jar
+[INFO] org.apache.tomcat:tomcat-juli:jar:9.0.93 already exists in destination.
+[INFO] org.glassfish.hk2.external:jakarta.inject:jar:2.6.1 already exists in destination.
+[INFO] io.netty:netty-all:jar:4.1.133.Final already exists in destination.
+[INFO] com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:jar:2.21.1 already exists in destination.
+[INFO] org.jboss.logging:jboss-logging:jar:3.3.1.Final already exists in destination.
+[INFO] org.jetbrains.kotlin:kotlin-stdlib:jar:1.6.20 already exists in destination.
+[INFO] com.google.cloud.bigdataoss:gcs-connector:jar:shaded:3.0.13 already exists in destination.
+[INFO] com.aliyun:aliyun-java-sdk-core:jar:4.5.10 already exists in destination.
+[INFO] org.apache.parquet:parquet-jackson:jar:1.15.2 already exists in destination.
+[INFO] commons-net:commons-net:jar:3.9.0 already exists in destination.
+[INFO] org.apache.hbase:hbase-client:jar:2.6.2 already exists in destination.
+[INFO] org.apache.kudu:kudu-client:jar:1.17.1 already exists in destination.
+[INFO] io.netty:netty-handler-proxy:jar:4.1.133.Final already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-tracer-otel:jar:1.0.0 already exists in destination.
+[INFO] org.apache.orc:orc-shims:jar:1.9.7 already exists in destination.
+[INFO] org.apache.kerby:kerby-asn1:jar:2.0.3 already exists in destination.
+[INFO] software.amazon.awssdk:utils-lite:jar:2.42.1 already exists in destination.
+[INFO] org.jetbrains.kotlin:kotlin-stdlib-jdk7:jar:1.5.31 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-util-ajax:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.apache.iceberg:iceberg-hive-metastore:jar:1.10.0 already exists in destination.
+[INFO] org.apache.kerby:kerby-pkix:jar:2.0.3 already exists in destination.
+[INFO] com.oracle.database.nls:orai18n:jar:19.18.0.0 already exists in destination.
+[INFO] software.amazon.awssdk:regions:jar:2.42.1 already exists in destination.
+[INFO] org.scala-lang:scala-library:jar:2.12.10 already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-model:jar:1.0.0 already exists in destination.
+[INFO] com.aliyun.datalake:shims-cdh-hive2:jar:0.2.14 already exists in destination.
+[INFO] javax.mail:mail:jar:1.4.7 already exists in destination.
+[INFO] org.apache.logging.log4j:log4j-slf4j-impl:jar:2.19.0 already exists in destination.
+[INFO] commons-io:commons-io:jar:2.16.1 already exists in destination.
+[INFO] software.amazon.awssdk:endpoints-spi:jar:2.42.1 already exists in destination.
+[INFO] org.apache.spark:spark-unsafe_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-aliyun:jar:3.4.3 already exists in destination.
+[INFO] io.projectreactor.netty:reactor-netty-core:jar:1.0.48 already exists in destination.
+[INFO] org.apache.httpcomponents:httpclient:jar:4.5.13 already exists in destination.
+[INFO] io.grpc:grpc-util:jar:1.63.0 already exists in destination.
+[INFO] org.apache.parquet:parquet-format-structures:jar:1.15.2 already exists in destination.
+[INFO] com.squareup.okio:okio-jvm:jar:3.0.0 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-mapreduce-client-common:jar:3.4.3 already exists in destination.
+[INFO] com.kstruct:gethostname4j:jar:1.0.0 already exists in destination.
+[INFO] org.apache.hbase:hbase-procedure:jar:2.6.2 already exists in destination.
+[INFO] com.azure:azure-core-http-netty:jar:1.15.11 already exists in destination.
+[INFO] org.eclipse.jetty.websocket:websocket-api:jar:9.4.57.v20241219 already exists in destination.
+[INFO] io.prometheus:simpleclient_httpserver:jar:0.8.0 already exists in destination.
+[INFO] javax.servlet:servlet-api:jar:2.4 already exists in destination.
+[INFO] com.sun.activation:jakarta.activation:jar:2.0.0 already exists in destination.
+[INFO] com.fasterxml.jackson.core:jackson-core:jar:2.21.1 already exists in destination.
+[INFO] joda-time:joda-time:jar:2.9.9 already exists in destination.
+[INFO] com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider:jar:2.17.2 already exists in destination.
+[INFO] io.airlift:log:jar:202 already exists in destination.
+[INFO] org.jline:jline:jar:3.9.0 already exists in destination.
+[INFO] jakarta.validation:jakarta.validation-api:jar:2.0.2 already exists in destination.
+[INFO] com.google.errorprone:error_prone_annotations:jar:2.18.0 already exists in destination.
+[INFO] org.json:json:jar:20231013 already exists in destination.
+[INFO] com.lmax:disruptor:jar:3.4.2 already exists in destination.
+[INFO] io.netty:netty-codec-xml:jar:4.1.133.Final already exists in destination.
+[INFO] org.jetbrains.kotlin:kotlin-stdlib-common:jar:1.5.31 already exists in destination.
+[INFO] org.antlr:antlr4:jar:4.11.1 already exists in destination.
+[INFO] org.apache.tomcat:tomcat-el-api:jar:9.0.93 already exists in destination.
+[INFO] org.apache.groovy:groovy-templates:jar:4.0.9 already exists in destination.
+[INFO] com.github.pjfanning:jersey-json:jar:1.22.0 already exists in destination.
+[INFO] org.agrona:agrona:jar:1.12.0 already exists in destination.
+[INFO] io.grpc:grpc-stub:jar:1.63.0 already exists in destination.
+[INFO] org.roaringbitmap:shims:jar:0.8.13 already exists in destination.
+[INFO] commons-cli:commons-cli:jar:1.4 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-servlet:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.apache.curator:curator-framework:jar:2.13.0 already exists in destination.
+[INFO] com.aliyun.datalake:metastore-client-hive-common:jar:0.2.14 already exists in destination.
+[INFO] com.fasterxml.uuid:java-uuid-generator:jar:5.1.0 already exists in destination.
+[INFO] com.azure:azure-storage-common:jar:12.29.0 already exists in destination.
+[INFO] software.amazon.awssdk:kms:jar:2.42.1 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-client-runtime:jar:3.4.3 already exists in destination.
+[INFO] com.sun.jersey:jersey-client:jar:1.19.4 already exists in destination.
+[INFO] javax.xml.bind:jaxb-api:jar:2.2.12 already exists in destination.
+[INFO] io.netty:netty-codec-stomp:jar:4.1.133.Final already exists in destination.
+[INFO] org.apache.spark:spark-kvstore_2.12:jar:3.5.7 already exists in destination.
+[INFO] com.sun.xml.bind:jaxb-impl:jar:2.2.3-1 already exists in destination.
+[INFO] com.google.re2j:re2j:jar:1.1 already exists in destination.
+[INFO] org.apache.hudi:hudi-io:jar:1.0.2 already exists in destination.
+[INFO] com.fasterxml.jackson.module:jackson-module-jaxb-annotations:jar:2.21.1 already exists in destination.
+[INFO] com.qcloud.cos:hadoop-cos:jar:3.3.0-8.3.2 already exists in destination.
+[INFO] jakarta.activation:jakarta.activation-api:jar:1.2.2 already exists in destination.
+[INFO] com.google.guava:failureaccess:jar:1.0.1 already exists in destination.
+[INFO] org.xerial.snappy:snappy-java:jar:1.1.10.5 already exists in destination.
+[INFO] com.starrocks:starmanager:jar:4.0.5 already exists in destination.
+[INFO] org.dom4j:dom4j:jar:2.1.3 already exists in destination.
+[INFO] com.aliyun:aliyun-java-sdk-ram:jar:3.1.0 already exists in destination.
+[INFO] xpp3:xpp3:jar:1.1.3.3 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-common:jar:3.4.3 already exists in destination.
+[INFO] org.owasp.encoder:encoder:jar:1.3.1 already exists in destination.
+[INFO] org.slf4j:slf4j-api:jar:1.7.30 already exists in destination.
+[INFO] org.slf4j:jcl-over-slf4j:jar:2.0.7 already exists in destination.
+[INFO] org.apache.ivy:ivy:jar:2.5.2 already exists in destination.
+[INFO] com.fasterxml.jackson.jr:jackson-jr-objects:jar:2.13.2 already exists in destination.
+[INFO] com.fasterxml.woodstox:woodstox-core:jar:5.4.0 already exists in destination.
+[INFO] io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.77.Final already exists in destination.
+[INFO] org.apache.parquet:parquet-encoding:jar:1.15.2 already exists in destination.
+[INFO] io.netty:netty-codec-redis:jar:4.1.133.Final already exists in destination.
+[INFO] org.apache.hadoop.thirdparty:hadoop-shaded-guava:jar:1.5.0 already exists in destination.
+[INFO] com.google.http-client:google-http-client:jar:2.0.0 already exists in destination.
+[INFO] org.apache.hbase:hbase-metrics:jar:2.6.2 already exists in destination.
+[INFO] stax:stax:jar:1.2.0 already exists in destination.
+[INFO] jakarta.xml.bind:jakarta.xml.bind-api:jar:4.0.2 already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-config:jar:1.0.0 already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-semconv:jar:1.14.0-alpha already exists in destination.
+[INFO] org.codehaus.jettison:jettison:jar:1.5.4 already exists in destination.
+[INFO] org.apache.hudi:hudi-hadoop-common:jar:1.0.2 already exists in destination.
+[INFO] com.sun.jersey:jersey-server:jar:1.19.4 already exists in destination.
+[INFO] jakarta.annotation:jakarta.annotation-api:jar:2.1.1 already exists in destination.
+[INFO] io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-codec-memcache:jar:4.1.133.Final already exists in destination.
+[INFO] software.amazon.awssdk:retries-spi:jar:2.42.1 already exists in destination.
+[INFO] io.opentracing:opentracing-util:jar:0.33.0 already exists in destination.
+[INFO] com.zaxxer:HikariCP:jar:3.4.5 already exists in destination.
+[INFO] tools.profiler:async-profiler:jar:4.0 already exists in destination.
+[INFO] org.apache.ranger:ugsync-util:jar:2.8.0 already exists in destination.
+[INFO] org.bouncycastle:bcprov-jdk18on:jar:1.84 already exists in destination.
+[INFO] org.apache.xbean:xbean-asm9-shaded:jar:4.23 already exists in destination.
+[INFO] org.apache.groovy:groovy-swing:jar:4.0.9 already exists in destination.
+[INFO] io.netty:netty-resolver:jar:4.1.133.Final already exists in destination.
+[INFO] software.amazon.awssdk:sso:jar:2.42.1 already exists in destination.
+[INFO] net.openhft:zero-allocation-hashing:jar:0.16 already exists in destination.
+[INFO] com.google.code.gson:gson:jar:2.8.9 already exists in destination.
+[INFO] software.amazon.eventstream:eventstream:jar:1.0.1 already exists in destination.
+[INFO] com.aliyun:aliyun-java-sdk-kms:jar:2.11.0 already exists in destination.
+[INFO] io.netty:netty-transport-classes-kqueue:jar:4.1.133.Final already exists in destination.
+[INFO] org.eclipse.jetty:jetty-webapp:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.openlabtesting.leveldbjni:leveldbjni-all:jar:1.8 already exists in destination.
+[INFO] org.apache.avro:avro:jar:1.12.0 already exists in destination.
+[INFO] com.aliyun.datalake:metastore-client-common:jar:0.2.14 already exists in destination.
+[INFO] com.google.auto.value:auto-value-annotations:jar:1.10.4 already exists in destination.
+[INFO] org.apache.hbase:hbase-asyncfs:jar:2.6.2 already exists in destination.
+[INFO] org.apache.logging.log4j:log4j-1.2-api:jar:2.19.0 already exists in destination.
+[INFO] io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.133.Final already exists in destination.
+[INFO] com.github.oshi:oshi-core:jar:6.2.1 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-yarn-api:jar:3.4.3 already exists in destination.
+[INFO] com.azure:azure-json:jar:1.5.0 already exists in destination.
+[INFO] commons-collections:commons-collections:jar:3.2.2 already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-exporter-otlp-common:jar:1.14.0 already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-core:jar:1.0.0 already exists in destination.
+[INFO] com.google.protobuf:protobuf-java:jar:3.25.5 already exists in destination.
+[INFO] commons-codec:commons-codec:jar:1.13 already exists in destination.
+[INFO] it.unimi.dsi:fastutil:jar:8.5.15 already exists in destination.
+[INFO] io.netty:netty-buffer:jar:4.1.133.Final already exists in destination.
+[INFO] com.nimbusds:nimbus-jose-jwt:jar:9.37.2 already exists in destination.
+[INFO] org.apache.ranger:ranger-authz-api:jar:2.8.0 already exists in destination.
+[INFO] org.apache.arrow:arrow-memory-core:jar:18.0.0 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-xml:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.yaml:snakeyaml:jar:2.5 already exists in destination.
+[INFO] org.apache.tomcat:tomcat-api:jar:9.0.93 already exists in destination.
+[INFO] org.glassfish.hk2:hk2-locator:jar:2.6.1 already exists in destination.
+[INFO] org.glassfish.hk2:hk2-utils:jar:2.6.1 already exists in destination.
+[INFO] software.amazon.awssdk:protocol-core:jar:2.42.1 already exists in destination.
+[INFO] net.sf.py4j:py4j:jar:0.10.9.7 already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-sdk-common:jar:1.14.0 already exists in destination.
+[INFO] org.apache.groovy:groovy:jar:4.0.9 already exists in destination.
+[INFO] software.amazon.awssdk:netty-nio-client:jar:2.42.1 already exists in destination.
+[INFO] net.sourceforge.javacsv:javacsv:jar:2.0 already exists in destination.
+[INFO] org.fusesource.leveldbjni:leveldbjni-all:jar:1.8 already exists in destination.
+[INFO] software.amazon.awssdk:http-auth-aws:jar:2.42.1 already exists in destination.
+[INFO] com.fasterxml.jackson.jaxrs:jackson-jaxrs-base:jar:2.17.2 already exists in destination.
+[INFO] commons-digester:commons-digester:jar:2.1 already exists in destination.
+[INFO] org.apache.thrift:libthrift:jar:0.23.0 already exists in destination.
+[INFO] org.apache.commons:commons-math3:jar:3.6.1 already exists in destination.
+[INFO] com.google.api-client:google-api-client:jar:2.8.1 already exists in destination.
+[INFO] org.apache.parquet:parquet-avro:jar:1.15.2 already exists in destination.
+[INFO] org.apache.logging.log4j:log4j-api:jar:2.19.0 already exists in destination.
+[INFO] software.amazon.awssdk:sts:jar:2.42.1 already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-exporter-httpserver:jar:1.0.0 already exists in destination.
+[INFO] com.aliyun.odps:odps-sdk-commons:jar:0.48.7-public already exists in destination.
+[INFO] org.glassfish:javax.json:jar:1.1.4 already exists in destination.
+[INFO] software.amazon.awssdk:s3-transfer-manager:jar:2.42.1 already exists in destination.
+[INFO] commons-logging:commons-logging:jar:1.2 already exists in destination.
+[INFO] com.google.http-client:google-http-client-apache-v2:jar:2.0.0 already exists in destination.
+[INFO] com.esotericsoftware:minlog:jar:1.3.0 already exists in destination.
+[INFO] org.javassist:javassist:jar:3.29.2-GA already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-exporter-otlp:jar:1.14.0 already exists in destination.
+[INFO] software.amazon.awssdk:dynamodb:jar:2.42.1 already exists in destination.
+[INFO] javax.validation:validation-api:jar:1.1.0.Final already exists in destination.
+[INFO] software.amazon.awssdk:aws-query-protocol:jar:2.42.1 already exists in destination.
+[INFO] io.opencensus:opencensus-contrib-http-util:jar:0.31.1 already exists in destination.
+[INFO] com.starrocks:plugin-common:jar:1.0.0 already exists in destination.
+[INFO] org.antlr:antlr4-runtime:jar:4.9.3 already exists in destination.
+[INFO] org.apache.commons:commons-text:jar:1.10.0 already exists in destination.
+[INFO] org.apache.hbase:hbase-replication:jar:2.6.2 already exists in destination.
+[INFO] org.ow2.asm:asm-tree:jar:9.4 already exists in destination.
+[INFO] software.amazon.awssdk:s3:jar:2.42.1 already exists in destination.
+[INFO] software.amazon.awssdk:url-connection-client:jar:2.42.1 already exists in destination.
+[INFO] io.airlift:units:jar:1.0 already exists in destination.
+[INFO] software.amazon.awssdk:crt-core:jar:2.42.1 already exists in destination.
+[INFO] com.google.api.grpc:proto-google-common-protos:jar:2.29.0 already exists in destination.
+[INFO] software.amazon.awssdk:ssooidc:jar:2.42.1 already exists in destination.
+[INFO] org.json4s:json4s-core_2.12:jar:3.7.0-M11 already exists in destination.
+[INFO] org.apache.avro:avro-ipc:jar:1.11.4 already exists in destination.
+[INFO] org.apache.hbase.thirdparty:hbase-unsafe:jar:4.1.10 already exists in destination.
+[INFO] io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.77.Final already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-sdk-trace:jar:1.14.0 already exists in destination.
+[INFO] com.github.seancfoley:ipaddress:jar:5.4.2 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-http:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.apache.ranger:ranger-plugins-common:jar:2.8.0 already exists in destination.
+[INFO] io.dropwizard.metrics:metrics-jvm:jar:4.2.19 already exists in destination.
+[INFO] com.oracle.database.jdbc:ojdbc10:jar:19.18.0.0 already exists in destination.
+[INFO] io.grpc:grpc-netty-shaded:jar:1.63.0 already exists in destination.
+[INFO] org.apache.orc:orc-core:jar:1.9.1 already exists in destination.
+[INFO] org.apache.tomcat:tomcat-util-scan:jar:9.0.93 already exists in destination.
+[INFO] org.jruby.jcodings:jcodings:jar:1.0.58 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-distcp:jar:2.10.2 already exists in destination.
+[INFO] org.postgresql:postgresql:jar:42.7.11 already exists in destination.
+[INFO] org.checkerframework:checker-qual:jar:3.33.0 already exists in destination.
+[INFO] com.azure:azure-xml:jar:1.2.0 already exists in destination.
+[INFO] com.twitter:chill_2.12:jar:0.10.0 already exists in destination.
+[INFO] org.jacoco:org.jacoco.agent:jar:runtime:0.8.5 already exists in destination.
+[INFO] stax:stax-api:jar:1.0.1 already exists in destination.
+[INFO] com.google.oauth-client:google-oauth-client:jar:1.36.0 already exists in destination.
+[INFO] org.tukaani:xz:jar:1.9 already exists in destination.
+[INFO] org.eclipse.jetty.websocket:websocket-common:jar:9.4.57.v20241219 already exists in destination.
+[INFO] io.grpc:grpc-context:jar:1.63.0 already exists in destination.
+[INFO] org.apache.arrow:arrow-jdbc:jar:18.0.0 already exists in destination.
+[INFO] com.starrocks:jprotobuf-starrocks:jar:1.0.0 already exists in destination.
+[INFO] io.delta:delta-kernel-api:jar:4.0.0rc1 already exists in destination.
+[INFO] org.aspectj:aspectjrt:jar:1.8.9 already exists in destination.
+[INFO] de.jflex:jflex:jar:1.4.3 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-hdfs:jar:3.4.3 already exists in destination.
+[INFO] commons-lang:commons-lang:jar:2.4 already exists in destination.
+[INFO] org.objenesis:objenesis:jar:3.3 already exists in destination.
+[INFO] com.aliyun.oss:aliyun-sdk-oss:jar:3.13.2 already exists in destination.
+[INFO] org.openjdk.jol:jol-core:jar:0.16 already exists in destination.
+[INFO] software.amazon.awssdk:aws-core:jar:2.42.1 already exists in destination.
+[INFO] org.glassfish.hk2:hk2-api:jar:2.6.1 already exists in destination.
+[INFO] org.apache.commons:commons-pool2:jar:2.3 already exists in destination.
+[INFO] io.netty:netty-codec-dns:jar:4.1.133.Final already exists in destination.
+[INFO] io.airlift:aircompressor:jar:2.0.3 already exists in destination.
+[INFO] org.apache.tomcat:tomcat-jasper-el:jar:9.0.93 already exists in destination.
+[INFO] io.prometheus:simpleclient_common:jar:0.8.0 already exists in destination.
+[INFO] software.amazon.awssdk:third-party-jackson-core:jar:2.42.1 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-yarn-client:jar:3.4.3 already exists in destination.
+[INFO] org.apache.hbase:hbase-hadoop2-compat:jar:2.6.2 already exists in destination.
+[INFO] org.apache.httpcomponents:httpcore:jar:4.4.16 already exists in destination.
+[INFO] com.sun.activation:javax.activation:jar:1.2.0 already exists in destination.
+[INFO] org.jdom:jdom2:jar:2.0.6.1 already exists in destination.
+[INFO] com.starrocks:starclient:jar:4.0.5 already exists in destination.
+[INFO] org.apache.curator:curator-recipes:jar:2.13.0 already exists in destination.
+[INFO] io.projectreactor:reactor-core:jar:3.4.41 already exists in destination.
+[INFO] net.java.dev.jna:jna-platform:jar:5.12.1 already exists in destination.
+[INFO] io.grpc:grpc-protobuf-lite:jar:1.63.0 already exists in destination.
+[INFO] com.aliyun.datalake:shims-load:jar:0.2.14 already exists in destination.
+[INFO] io.netty:netty-transport-native-epoll:jar:4.1.133.Final already exists in destination.
+[INFO] com.aliyun.odps:odps-sdk-table-api:jar:0.48.7-public already exists in destination.
+[INFO] org.apache.hbase.thirdparty:hbase-shaded-gson:jar:4.1.10 already exists in destination.
+[INFO] io.netty:netty-transport-native-epoll:jar:linux-riscv64:4.1.133.Final already exists in destination.
+[INFO] com.qcloud:chdfs_hadoop_plugin_network:jar:3.2 already exists in destination.
+[INFO] io.trino.hive:hive-apache:jar:3.1.2-22 already exists in destination.
+[INFO] software.amazon.awssdk:http-auth-spi:jar:2.42.1 already exists in destination.
+[INFO] com.google.guava:guava:jar:32.0.1-jre already exists in destination.
+[INFO] software.amazon.awssdk:http-auth-aws-eventstream:jar:2.42.1 already exists in destination.
+[INFO] org.mariadb.jdbc:mariadb-java-client:jar:3.3.2 already exists in destination.
+[INFO] software.amazon.awssdk:identity-spi:jar:2.42.1 already exists in destination.
+[INFO] io.dropwizard.metrics:metrics-json:jar:4.2.19 already exists in destination.
+[INFO] software.amazon.awssdk:aws-xml-protocol:jar:2.42.1 already exists in destination.
+[INFO] commons-validator:commons-validator:jar:1.7 already exists in destination.
+[INFO] io.netty:netty-codec-mqtt:jar:4.1.133.Final already exists in destination.
+[INFO] org.apache.yetus:audience-annotations:jar:0.13.0 already exists in destination.
+[INFO] io.delta:delta-kernel-defaults:jar:4.0.0rc1 already exists in destination.
+[INFO] com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:2.15.2 already exists in destination.
+[INFO] io.perfmark:perfmark-api:jar:0.26.0 already exists in destination.
+[INFO] org.apache.httpcomponents.core5:httpcore5-h2:jar:5.3.4 already exists in destination.
+[INFO] com.starrocks:fe-common:jar:1.0.0 already exists in destination.
+[INFO] com.azure:azure-storage-blob:jar:12.30.0 already exists in destination.
+[INFO] com.google.auth:google-auth-library-credentials:jar:1.30.0 already exists in destination.
+[INFO] org.codehaus.mojo:animal-sniffer-annotations:jar:1.23 already exists in destination.
+[INFO] org.apache.spark:spark-common-utils_2.12:jar:3.5.7 already exists in destination.
+[INFO] io.opencensus:opencensus-api:jar:0.31.1 already exists in destination.
+[INFO] org.rocksdb:rocksdbjni:jar:8.3.2 already exists in destination.
+[INFO] io.netty:netty-tcnative-classes:jar:2.0.77.Final already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-tracer-otel-agent:jar:1.0.0 already exists in destination.
+[INFO] org.scala-lang:scala-reflect:jar:2.12.18 already exists in destination.
+[INFO] com.squareup.okhttp:logging-interceptor:jar:2.7.5 already exists in destination.
+[INFO] org.apache.hbase:hbase-zookeeper:jar:2.6.2 already exists in destination.
+[INFO] org.apache.hbase.thirdparty:hbase-shaded-miscellaneous:jar:4.1.10 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-azure-datalake:jar:3.4.3 already exists in destination.
+[INFO] net.razorvine:pickle:jar:1.3 already exists in destination.
+[INFO] org.apache.ranger:ranger-plugins-cred:jar:2.8.0 already exists in destination.
+[INFO] software.amazon.awssdk:utils:jar:2.42.1 already exists in destination.
+[INFO] net.minidev:accessors-smart:jar:2.4.9 already exists in destination.
+[INFO] org.apache.arrow:arrow-compression:jar:4.0.0 already exists in destination.
+[INFO] org.apache.iceberg:iceberg-common:jar:1.10.0 already exists in destination.
+[INFO] org.glassfish.jersey.core:jersey-common:jar:2.40 already exists in destination.
+[INFO] org.glassfish.jersey.inject:jersey-hk2:jar:2.40 already exists in destination.
+[INFO] io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.133.Final already exists in destination.
+[INFO] org.apache.spark:spark-tags_2.12:jar:3.5.7 already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-exporter-otlp-trace:jar:1.14.0 already exists in destination.
+[INFO] org.apache.arrow:flight-core:jar:18.0.0 already exists in destination.
+[INFO] dnsjava:dnsjava:jar:3.6.3 already exists in destination.
+[INFO] com.aliyun.datalake:shims-hive3:jar:0.2.14 already exists in destination.
+[INFO] org.apache.iceberg:iceberg-core:jar:1.10.0 already exists in destination.
+[INFO] com.microsoft.azure:azure-data-lake-store-sdk:jar:2.3.9 already exists in destination.
+[INFO] io.netty:netty-codec-smtp:jar:4.1.133.Final already exists in destination.
+[INFO] org.jboss.xnio:xnio-api:jar:3.8.16.Final already exists in destination.
+[INFO] org.jamon:jamon-runtime:jar:2.4.1 already exists in destination.
+[INFO] org.jetbrains.kotlin:kotlin-stdlib-jdk8:jar:1.5.31 already exists in destination.
+[INFO] org.apache.httpcomponents:fluent-hc:jar:4.5.14 already exists in destination.
+[INFO] org.json4s:json4s-jackson_2.12:jar:3.7.0-M11 already exists in destination.
+[INFO] com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.15.2 already exists in destination.
+[INFO] io.trino:trino-parser:jar:385 already exists in destination.
+[INFO] org.apache.spark:spark-network-common_2.12:jar:3.5.7 already exists in destination.
+[INFO] com.aliyun:aliyun-java-core:jar:0.1.13-beta already exists in destination.
+[INFO] io.netty:netty-codec-socks:jar:4.1.133.Final already exists in destination.
+[INFO] io.grpc:grpc-api:jar:1.63.0 already exists in destination.
+[INFO] com.starrocks:starrocks-bdb-je:jar:18.3.20 already exists in destination.
+[INFO] com.aliyun.datalake:metastore-client-hive3:jar:0.2.14 already exists in destination.
+[INFO] org.apache.hbase:hbase-common:jar:2.6.2 already exists in destination.
+[INFO] com.sun.jersey:jersey-core:jar:1.19.4 already exists in destination.
+[INFO] org.apache.hadoop.thirdparty:hadoop-shaded-protobuf_3_25:jar:1.5.0 already exists in destination.
+[INFO] org.apache.avro:avro-mapred:jar:1.11.4 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-mapreduce-client-core:jar:3.4.3 already exists in destination.
+[INFO] software.amazon.awssdk:sdk-core:jar:2.42.1 already exists in destination.
+[INFO] javax.activation:javax.activation-api:jar:1.2.0 already exists in destination.
+[INFO] com.tencentcloudapi:tencentcloud-sdk-java-kms:jar:3.1.213 already exists in destination.
+[INFO] org.glassfish.jersey.containers:jersey-container-servlet:jar:2.40 already exists in destination.
+[INFO] io.netty:netty-transport:jar:4.1.133.Final already exists in destination.
+[INFO] com.clickhouse:clickhouse-jdbc:jar:0.4.6 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-client:jar:3.4.3 already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-exporter-common:jar:1.0.0 already exists in destination.
+[INFO] com.jcraft:jsch:jar:0.1.55 already exists in destination.
+[INFO] org.apache.arrow:arrow-format:jar:18.0.0 already exists in destination.
+[INFO] com.fasterxml.jackson.module:jackson-module-afterburner:jar:2.15.2 already exists in destination.
+[INFO] software.amazon.awssdk:aws-json-protocol:jar:2.42.1 already exists in destination.
+[INFO] com.aliyun.datalake:shims-common:jar:0.2.14 already exists in destination.
+[INFO] org.jruby.joni:joni:jar:2.2.1 already exists in destination.
+[INFO] org.apache.arrow:arrow-memory-netty-buffer-patch:jar:18.0.0 already exists in destination.
+[INFO] org.apache.velocity:velocity-engine-core:jar:2.4.1 already exists in destination.
+[INFO] javax.activation:activation:jar:1.1.1 already exists in destination.
+[INFO] io.netty:netty-transport-udt:jar:4.1.133.Final already exists in destination.
+[INFO] org.wildfly.openssl:wildfly-openssl:jar:2.2.5.Final already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-sdk:jar:1.14.0 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-client-api:jar:3.4.3 already exists in destination.
+[INFO] software.amazon.awssdk:checksums:jar:2.42.1 already exists in destination.
+[INFO] io.netty:netty-codec-http:jar:4.1.133.Final already exists in destination.
+[INFO] io.netty:netty-resolver-dns:jar:4.1.133.Final already exists in destination.
+[INFO] software.amazon.awssdk:http-auth:jar:2.42.1 already exists in destination.
+[INFO] org.apache.httpcomponents.core5:httpcore5:jar:5.3.4 already exists in destination.
+[INFO] com.carrotsearch:hppc:jar:0.8.0 already exists in destination.
+[INFO] io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.77.Final already exists in destination.
+[INFO] io.netty:netty-codec:jar:4.1.133.Final already exists in destination.
+[INFO] com.tencentcloudapi:tencentcloud-sdk-java-common:jar:3.1.213 already exists in destination.
+[INFO] com.google.http-client:google-http-client-gson:jar:2.0.0 already exists in destination.
+[INFO] io.grpc:grpc-protobuf:jar:1.63.0 already exists in destination.
+[INFO] org.apache.ranger:ranger-plugin-classloader:jar:2.8.0 already exists in destination.
+[INFO] com.google.guava:listenablefuture:jar:9999.0-empty-to-avoid-conflict-with-guava already exists in destination.
+[INFO] io.netty:netty-resolver-dns-native-macos:jar:osx-aarch_64:4.1.133.Final already exists in destination.
+[INFO] org.apache.parquet:parquet-hadoop:jar:1.15.2 already exists in destination.
+[INFO] org.apache.kerby:kerby-util:jar:2.0.3 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-client:jar:9.4.58.v20250814 already exists in destination.
+[INFO] org.apache.curator:curator-client:jar:5.2.0 already exists in destination.
+[INFO] com.sun.xml.bind:jaxb-core:jar:3.0.0 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-yarn-common:jar:3.4.3 already exists in destination.
+[INFO] io.dropwizard.metrics:metrics-graphite:jar:4.2.19 already exists in destination.
+[INFO] org.apache.hbase:hbase-protocol-shaded:jar:2.6.2 already exists in destination.
+[INFO] org.apache.parquet:parquet-column:jar:1.15.2 already exists in destination.
+[INFO] software.amazon.awssdk:checksums-spi:jar:2.42.1 already exists in destination.
+[INFO] io.netty:netty-codec-http2:jar:4.1.133.Final already exists in destination.
+[INFO] jline:jline:jar:2.14.6 already exists in destination.
+[INFO] software.amazon.awssdk:auth:jar:2.42.1 already exists in destination.
+[INFO] org.glassfish.hk2:osgi-resource-locator:jar:1.0.3 already exists in destination.
+[INFO] org.apache.paimon:paimon-bundle:jar:1.3.1 already exists in destination.
+[INFO] org.jboss.byteman:byteman:jar:4.0.24 already exists in destination.
+[INFO] org.apache.hbase:hbase-server:jar:2.6.2 already exists in destination.
+[INFO] org.apache.tomcat:tomcat-util:jar:9.0.93 already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-exposition-formats:jar:1.0.0 already exists in destination.
+[INFO] com.microsoft.sqlserver:mssql-jdbc:jar:12.4.2.jre11 already exists in destination.
+[INFO] net.minidev:json-smart:jar:2.4.10 already exists in destination.
+[INFO] org.apache.commons:commons-compress:jar:1.26.1 already exists in destination.
+[INFO] io.grpc:grpc-netty:jar:1.65.0 already exists in destination.
+[INFO] com.google.auth:google-auth-library-oauth2-http:jar:1.30.0 already exists in destination.
+[INFO] org.apache.logging.log4j:log4j-layout-template-json:jar:2.19.0 already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-context:jar:1.14.0 already exists in destination.
+[INFO] com.nimbusds:content-type:jar:2.3 already exists in destination.
+[INFO] io.dropwizard.metrics:metrics-jmx:jar:4.2.19 already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-tracer-common:jar:1.0.0 already exists in destination.
+[INFO] com.azure:azure-core:jar:1.55.3 already exists in destination.
+[INFO] javax.servlet.jsp:jsp-api:jar:2.1 already exists in destination.
+[INFO] org.wildfly.common:wildfly-common:jar:1.5.4.Final already exists in destination.
+[INFO] com.azure:azure-storage-internal-avro:jar:12.15.0 already exists in destination.
+[INFO] com.stumbleupon:async:jar:1.4.1 already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-exporter-jaeger:jar:1.14.0 already exists in destination.
+[INFO] io.opentracing:opentracing-api:jar:0.33.0 already exists in destination.
+[INFO] com.github.stephenc.jcip:jcip-annotations:jar:1.0-1 already exists in destination.
+[INFO] com.google.code.findbugs:jsr305:jar:3.0.2 already exists in destination.
+[INFO] com.tencent.cloud:cos-sts-java:jar:3.0.8 already exists in destination.
+[INFO] com.qcloud:ofs-sdk-definition:jar:1.0.4 already exists in destination.
+[INFO] io.opentracing:opentracing-noop:jar:0.33.0 already exists in destination.
+[INFO] org.apache.commons:commons-lang3:jar:3.9 already exists in destination.
+[INFO] io.netty:netty-tcnative-boringssl-static:jar:2.0.77.Final already exists in destination.
+[INFO] io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.133.Final already exists in destination.
+[INFO] org.eclipse.jetty:jetty-server:jar:9.4.58.v20250814 already exists in destination.
+[INFO] com.microsoft.azure:azure-storage:jar:7.0.1 already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-sdk-metrics:jar:1.14.0 already exists in destination.
+[INFO] com.google.flatbuffers:flatbuffers-java:jar:24.3.25 already exists in destination.
+[INFO] com.nimbusds:oauth2-oidc-sdk:jar:11.23 already exists in destination.
+[INFO] com.microsoft.azure:msal4j-persistence-extension:jar:1.3.0 already exists in destination.
+[INFO] org.jboss.threads:jboss-threads:jar:2.3.6.Final already exists in destination.
+[INFO] io.netty:netty-codec-haproxy:jar:4.1.133.Final already exists in destination.
+[INFO] org.apache.hudi:hudi-common:jar:1.0.2 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-security:jar:9.4.58.v20250814 already exists in destination.
+[INFO] com.nimbusds:lang-tag:jar:1.7 already exists in destination.
+[INFO] com.fasterxml.jackson.core:jackson-databind:jar:2.21.1 already exists in destination.
+[INFO] org.scala-lang.modules:scala-xml_2.12:jar:2.1.0 already exists in destination.
+[INFO] commons-beanutils:commons-beanutils:jar:1.11.0 already exists in destination.
+[INFO] io.netty:netty-resolver-dns-classes-macos:jar:4.1.133.Final already exists in destination.
+[INFO] org.eclipse.jetty:jetty-io:jar:9.4.58.v20250814 already exists in destination.
+[INFO] io.projectreactor.netty:reactor-netty-http:jar:1.0.48 already exists in destination.
+[INFO] com.squareup.okhttp3:okhttp:jar:4.10.0 already exists in destination.
+[INFO] org.reactivestreams:reactive-streams:jar:1.0.4 already exists in destination.
+[INFO] software.amazon.awssdk:profiles:jar:2.42.1 already exists in destination.
+[INFO] org.ow2.asm:asm:jar:9.4 already exists in destination.
+[INFO] org.apache.hbase:hbase-metrics-api:jar:2.6.2 already exists in destination.
+[INFO] com.github.ben-manes.caffeine:caffeine:jar:2.9.3 already exists in destination.
+[INFO] io.netty:netty-transport-rxtx:jar:4.1.133.Final already exists in destination.
+[INFO] org.apache.hadoop:hadoop-auth:jar:3.4.3 already exists in destination.
+[INFO] org.apache.paimon:paimon-s3:jar:1.3.1 already exists in destination.
+[INFO] org.bouncycastle:bcprov-jdk15on:jar:1.70 already exists in destination.
+[INFO] com.thoughtworks.paranamer:paranamer:jar:2.8 already exists in destination.
+[INFO] org.apache.hudi:hudi-hadoop-mr:jar:1.0.2 already exists in destination.
+[INFO] org.ow2.asm:asm-util:jar:9.4 already exists in destination.
+[INFO] software.amazon.awssdk:retries:jar:2.42.1 already exists in destination.
+[INFO] software.amazon.awssdk:http-client-spi:jar:2.42.1 already exists in destination.
+[INFO] com.fasterxml.jackson.core:jackson-annotations:jar:2.21 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-annotations:jar:3.4.3 already exists in destination.
+[INFO] org.apache.kerby:kerb-core:jar:2.0.3 already exists in destination.
+[INFO] org.apache.groovy:groovy-xml:jar:4.0.9 already exists in destination.
+[INFO] jakarta.ws.rs:jakarta.ws.rs-api:jar:2.1.6 already exists in destination.
+[INFO] com.aliyun:aliyun-java-auth:jar:0.1.13-beta already exists in destination.
+[INFO] org.glassfish.hk2.external:aopalliance-repackaged:jar:2.6.1 already exists in destination.
+[INFO] com.opencsv:opencsv:jar:5.7.1 already exists in destination.
+[INFO] org.apache.tomcat:tomcat-jasper:jar:9.0.93 already exists in destination.
+[INFO] javax.annotation:javax.annotation-api:jar:1.3.2 already exists in destination.
+[INFO] org.apache.iceberg:iceberg-bundled-guava:jar:1.10.0 already exists in destination.
+[INFO] com.microsoft.azure:msal4j:jar:1.19.1 already exists in destination.
+[INFO] com.azure:azure-identity:jar:1.15.4 already exists in destination.
+[INFO] org.apache.iceberg:iceberg-aws:jar:1.10.0 already exists in destination.
+[INFO] org.apache.httpcomponents.client5:httpclient5:jar:5.4.3 already exists in destination.
+[INFO] org.apache.spark:spark-launcher_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.apache.groovy:groovy-console:jar:4.0.9 already exists in destination.
+[INFO] jakarta.servlet:jakarta.servlet-api:jar:5.0.0 already exists in destination.
+[INFO] com.microsoft.azure:azure-keyvault-core:jar:1.0.0 already exists in destination.
+[INFO] org.apache.ranger:ranger-audit-core:jar:2.8.0 already exists in destination.
+[INFO] org.threeten:threeten-extra:jar:1.7.2 already exists in destination.
+[INFO] org.apache.arrow:flight-sql:jar:18.0.0 already exists in destination.
+[INFO] io.netty:netty-transport-native-unix-common:jar:4.1.133.Final already exists in destination.
+[INFO] com.github.luben:zstd-jni:jar:1.5.5-4 already exists in destination.
+[INFO] org.eclipse.jetty:jetty-util:jar:9.4.58.v20250814 already exists in destination.
+[INFO] com.esotericsoftware:kryo-shaded:jar:4.0.2 already exists in destination.
+[INFO] com.baidu:jprotobuf-rpc-core-test:jar:4.2.1 already exists in destination.
+[INFO] com.baidu:jprotobuf-rpc-core:jar:4.2.1 already exists in destination.
+[INFO] org.glassfish.jersey.containers:jersey-container-servlet-core:jar:2.40 already exists in destination.
+[INFO] org.ow2.asm:asm-analysis:jar:9.4 already exists in destination.
+[INFO] io.netty:netty-transport-sctp:jar:4.1.133.Final already exists in destination.
+[INFO] com.uber.m3:tally-core:jar:0.13.0 already exists in destination.
+[INFO] software.amazon.awssdk:annotations:jar:2.42.1 already exists in destination.
+[INFO] org.slf4j:jul-to-slf4j:jar:1.7.30 already exists in destination.
+[INFO] org.antlr:ST4:jar:4.3.4 already exists in destination.
+[INFO] org.apache.kerby:kerb-util:jar:2.0.3 already exists in destination.
+[INFO] org.eclipse.jetty.websocket:websocket-client:jar:9.4.57.v20241219 already exists in destination.
+[INFO] io.airlift:security:jar:202 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-azure:jar:3.4.3 already exists in destination.
+[INFO] org.apache.spark:spark-core_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.scala-lang.modules:scala-collection-compat_2.12:jar:2.7.0 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-mapreduce-client-jobclient:jar:3.4.3 already exists in destination.
+[INFO] org.apache.kerby:kerby-config:jar:2.0.3 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-aws:jar:3.4.3 already exists in destination.
+[INFO] io.netty:netty-handler:jar:4.1.133.Final already exists in destination.
+[INFO] javax.servlet.jsp:javax.servlet.jsp-api:jar:2.3.1 already exists in destination.
+[INFO] net.java.dev.jna:jna:jar:5.12.1 already exists in destination.
+[INFO] org.apache.spark:spark-network-shuffle_2.12:jar:3.5.7 already exists in destination.
+[INFO] org.apache.hbase.thirdparty:hbase-shaded-protobuf:jar:4.1.10 already exists in destination.
+[INFO] org.apache.parquet:parquet-common:jar:1.15.2 already exists in destination.
+[INFO] org.apache.hbase:hbase-logging:jar:2.6.2 already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-exporter-otlp-metrics:jar:1.14.0 already exists in destination.
+[INFO] io.prometheus:simpleclient_dropwizard:jar:0.8.0 already exists in destination.
+[INFO] javax.servlet:javax.servlet-api:jar:3.1.0 already exists in destination.
+[INFO] com.google.crypto.tink:tink:jar:1.9.0 already exists in destination.
+[INFO] com.github.waffle:waffle-jna:jar:3.3.0 already exists in destination.
+[INFO] com.google.android:annotations:jar:4.1.1.4 already exists in destination.
+[INFO] org.apache.groovy:groovy-groovysh:jar:4.0.9 already exists in destination.
+[INFO] org.glassfish.jersey.core:jersey-client:jar:2.40 already exists in destination.
+[INFO] org.glassfish.jersey.core:jersey-server:jar:2.40 already exists in destination.
+[INFO] org.apache.commons:commons-configuration2:jar:2.10.1 already exists in destination.
+[INFO] org.apache.logging.log4j:log4j-core:jar:2.19.0 already exists in destination.
+[INFO] com.baidu:jprotobuf-rpc-common:jar:1.9 already exists in destination.
+[INFO] io.prometheus:simpleclient_pushgateway:jar:0.8.0 already exists in destination.
+[INFO] io.airlift:concurrent:jar:202 already exists in destination.
+[INFO] dev.failsafe:failsafe:jar:3.3.2 already exists in destination.
+[INFO] oro:oro:jar:2.0.8 already exists in destination.
+[INFO] org.antlr:antlr-runtime:jar:3.5.3 already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-shaded-protobuf:jar:1.0.0 already exists in destination.
+[INFO] org.jetbrains:annotations:jar:13.0 already exists in destination.
+[INFO] org.json4s:json4s-scalap_2.12:jar:3.7.0-M11 already exists in destination.
+[INFO] software.amazon.awssdk:glue:jar:2.42.1 already exists in destination.
+[INFO] io.delta:delta-storage:jar:4.0.0rc1 already exists in destination.
+[INFO] org.apache.hadoop:hadoop-hdfs-client:jar:3.4.3 already exists in destination.
+[INFO] io.prometheus:prometheus-metrics-tracer-initializer:jar:1.0.0 already exists in destination.
+[INFO] org.abego.treelayout:org.abego.treelayout.core:jar:1.0.3 already exists in destination.
+[INFO] commons-daemon:commons-daemon:jar:1.0.13 already exists in destination.
+[INFO] com.github.javaparser:javaparser-core:jar:3.25.0 already exists in destination.
+[INFO] io.netty:netty-resolver-dns-native-macos:jar:osx-x86_64:4.1.133.Final already exists in destination.
+[INFO] com.baidu:jprotobuf-protoparser:jar:1.0.1 already exists in destination.
+[INFO] org.apache.paimon:paimon-oss:jar:1.3.1 already exists in destination.
+[INFO] com.starrocks:starcommon:jar:4.0.5 already exists in destination.
+[INFO] com.squareup.okio:okio:jar:3.4.0 already exists in destination.
+[INFO] org.wildfly.client:wildfly-client-config:jar:1.0.1.Final already exists in destination.
+[INFO] io.netty:netty-common:jar:4.1.133.Final already exists in destination.
+[INFO] software.amazon.awssdk:json-utils:jar:2.42.1 already exists in destination.
+[INFO] com.twitter:chill-java:jar:0.10.0 already exists in destination.
+[INFO] software.amazon.s3.analyticsaccelerator:analyticsaccelerator-s3:jar:1.3.1 already exists in destination.
+[INFO] org.apache.hbase:hbase-protocol:jar:2.6.2 already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-api:jar:1.14.0 already exists in destination.
+[INFO] org.apache.arrow:arrow-vector:jar:18.0.0 already exists in destination.
+[INFO] software.amazon.awssdk:apache-client:jar:2.42.1 already exists in destination.
+[INFO] io.grpc:grpc-core:jar:1.63.0 already exists in destination.
+[INFO] software.amazon.awssdk:metrics-spi:jar:2.42.1 already exists in destination.
+[INFO] ch.qos.reload4j:reload4j:jar:1.2.22 already exists in destination.
+[INFO] io.netty:netty-handler-ssl-ocsp:jar:4.1.133.Final already exists in destination.
+[INFO] com.aliyun.odps:odps-sdk-core:jar:0.48.7-public already exists in destination.
+[INFO] org.apache.commons:commons-crypto:jar:1.1.0 already exists in destination.
+[INFO] io.netty:netty-transport-classes-epoll:jar:4.1.133.Final already exists in destination.
+[INFO] io.dropwizard.metrics:metrics-core:jar:4.2.19 already exists in destination.
+[INFO] org.roaringbitmap:RoaringBitmap:jar:0.8.13 already exists in destination.
+[INFO] com.ibm.icu:icu4j:jar:71.1 already exists in destination.
+[INFO] software.amazon.awssdk:arns:jar:2.42.1 already exists in destination.
+[INFO] at.yawk.lz4:lz4-java:jar:1.10.1 already exists in destination.
+[INFO] commons-pool:commons-pool:jar:1.6 already exists in destination.
+[INFO] io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.77.Final already exists in destination.
+[INFO] org.codehaus.woodstox:stax2-api:jar:4.2.1 already exists in destination.
+[INFO] com.sun.jersey:jersey-servlet:jar:1.19.4 already exists in destination.
+[INFO] io.opentelemetry:opentelemetry-sdk-logs:jar:1.14.0-alpha already exists in destination.
+[INFO] org.apache.hive:hive-storage-api:jar:2.8.1 already exists in destination.
+[INFO] com.google.j2objc:j2objc-annotations:jar:2.8 already exists in destination.
+[INFO] org.apache.arrow:arrow-memory-netty:jar:18.0.0 already exists in destination.
+[INFO] org.apache.commons:commons-collections4:jar:4.4 already exists in destination.
+[INFO] org.apache.hbase:hbase-hadoop-compat:jar:2.6.2 already exists in destination.
+[INFO] com.squareup.okhttp:okhttp:jar:2.7.5 already exists in destination.
+[INFO] org.apache.iceberg:iceberg-api:jar:1.10.0 already exists in destination.
+[INFO] com.ning:compress-lzf:jar:1.1.2 already exists in destination.
+[INFO] org.json4s:json4s-ast_2.12:jar:3.7.0-M11 already exists in destination.
+[INFO] org.apache.kerby:kerb-crypto:jar:2.0.3 already exists in destination.
+[INFO] com.aliyun.datalake:shims-hive2:jar:0.2.14 already exists in destination.
+[INFO] org.jboss.xnio:xnio-nio:jar:3.8.16.Final already exists in destination.
+[INFO] io.prometheus:simpleclient:jar:0.8.0 already exists in destination.
+[INFO] com.google.protobuf:protobuf-java-util:jar:3.25.5 already exists in destination.
+[INFO] com.qcloud:cos_api-bundle:jar:5.6.137.2 already exists in destination.
+[INFO] org.quartz-scheduler:quartz:jar:2.5.0 already exists in destination.
+[INFO] com.uber.m3:tally-m3:jar:0.13.0 already exists in destination.
+[INFO] io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.77.Final already exists in destination.
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary:
+[INFO] 
+[INFO] starrocks-fe 3.4.0 ................................. SUCCESS [  0.001 s]
+[INFO] plugin-common 1.0.0 ................................ SUCCESS [  0.740 s]
+[INFO] fe-common 1.0.0 .................................... SUCCESS [  1.663 s]
+[INFO] spark-dpp 1.0.0 .................................... SUCCESS [  4.156 s]
+[INFO] fe-core 3.4.0 ...................................... SUCCESS [01:31 min]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:38 min
+[INFO] Finished at: 2026-09-21T09:48:03Z
+[INFO] ------------------------------------------------------------------------

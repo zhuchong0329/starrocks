@@ -1,0 +1,243 @@
+{
+  "server_before": {
+    "name": "/starrocks-query-corruption-4.0-build",
+    "id": "045e139bc2d1e6c0dc5de6be6875c98776caa7aa7a50e1de54dd76d77ee7636b",
+    "image": "sha256:98326df55743ab4f081fcba9fa9cb31b7ff5ee06d69ddd54c11d7fae9cbbaeb2",
+    "resource_config": {
+      "NanoCpus": 6000000000,
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpusetCpus": "",
+      "Memory": 17179869184,
+      "PidsLimit": null,
+      "PidMode": "",
+      "NetworkMode": "bridge"
+    },
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "sr-query-corruption-4.0-build-cache-arm64",
+        "Source": "/var/lib/docker/volumes/sr-query-corruption-4.0-build-cache-arm64/_data",
+        "Destination": "/query-corruption-workspace",
+        "RW": true
+      },
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/Users/zhuchong/Documents/code/starrocks-query-corruption-tolerance",
+        "Destination": "/host-workspace",
+        "RW": false
+      }
+    ],
+    "state": {
+      "Status": "running",
+      "Running": true,
+      "OOMKilled": true,
+      "StartedAt": "2026-09-19T04:23:35.656288611Z",
+      "FinishedAt": "0001-01-01T00:00:00Z"
+    }
+  },
+  "server_during": {
+    "name": "/starrocks-query-corruption-4.0-build",
+    "id": "045e139bc2d1e6c0dc5de6be6875c98776caa7aa7a50e1de54dd76d77ee7636b",
+    "image": "sha256:98326df55743ab4f081fcba9fa9cb31b7ff5ee06d69ddd54c11d7fae9cbbaeb2",
+    "resource_config": {
+      "NanoCpus": 6000000000,
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpusetCpus": "0-5",
+      "Memory": 17179869184,
+      "PidsLimit": null,
+      "PidMode": "",
+      "NetworkMode": "bridge"
+    },
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "sr-query-corruption-4.0-build-cache-arm64",
+        "Source": "/var/lib/docker/volumes/sr-query-corruption-4.0-build-cache-arm64/_data",
+        "Destination": "/query-corruption-workspace",
+        "RW": true
+      },
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/Users/zhuchong/Documents/code/starrocks-query-corruption-tolerance",
+        "Destination": "/host-workspace",
+        "RW": false
+      }
+    ],
+    "state": {
+      "Status": "running",
+      "Running": true,
+      "OOMKilled": true,
+      "StartedAt": "2026-09-19T04:23:35.656288611Z",
+      "FinishedAt": "0001-01-01T00:00:00Z"
+    }
+  },
+  "client_during": {
+    "name": "/starrocks-query-corruption-perf-client",
+    "id": "ab72b0a021bc9f0012572983d5324beb1552a9fcb4e3ed1854a544fcf3269883",
+    "image": "sha256:98326df55743ab4f081fcba9fa9cb31b7ff5ee06d69ddd54c11d7fae9cbbaeb2",
+    "resource_config": {
+      "NanoCpus": 2000000000,
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpusetCpus": "6-7",
+      "Memory": 2147483648,
+      "PidsLimit": 128,
+      "PidMode": "container:045e139bc2d1e6c0dc5de6be6875c98776caa7aa7a50e1de54dd76d77ee7636b",
+      "NetworkMode": "container:045e139bc2d1e6c0dc5de6be6875c98776caa7aa7a50e1de54dd76d77ee7636b"
+    },
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "sr-query-corruption-4.0-build-cache-arm64",
+        "Source": "/var/lib/docker/volumes/sr-query-corruption-4.0-build-cache-arm64/_data",
+        "Destination": "/query-corruption-workspace",
+        "RW": false
+      },
+      {
+        "Type": "volume",
+        "Name": "sr-query-corruption-client-perf-arm64",
+        "Source": "/var/lib/docker/volumes/sr-query-corruption-client-perf-arm64/_data",
+        "Destination": "/qct-client-workspace",
+        "RW": true
+      }
+    ],
+    "state": {
+      "Status": "running",
+      "Running": true,
+      "OOMKilled": false,
+      "StartedAt": "2026-09-22T08:15:21.715618198Z",
+      "FinishedAt": "0001-01-01T00:00:00Z"
+    }
+  },
+  "client_final": {
+    "name": "/starrocks-query-corruption-perf-client",
+    "id": "ab72b0a021bc9f0012572983d5324beb1552a9fcb4e3ed1854a544fcf3269883",
+    "image": "sha256:98326df55743ab4f081fcba9fa9cb31b7ff5ee06d69ddd54c11d7fae9cbbaeb2",
+    "resource_config": {
+      "NanoCpus": 2000000000,
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpusetCpus": "6-7",
+      "Memory": 2147483648,
+      "PidsLimit": 128,
+      "PidMode": "container:045e139bc2d1e6c0dc5de6be6875c98776caa7aa7a50e1de54dd76d77ee7636b",
+      "NetworkMode": "container:045e139bc2d1e6c0dc5de6be6875c98776caa7aa7a50e1de54dd76d77ee7636b"
+    },
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "sr-query-corruption-4.0-build-cache-arm64",
+        "Source": "/var/lib/docker/volumes/sr-query-corruption-4.0-build-cache-arm64/_data",
+        "Destination": "/query-corruption-workspace",
+        "RW": false
+      },
+      {
+        "Type": "volume",
+        "Name": "sr-query-corruption-client-perf-arm64",
+        "Source": "/var/lib/docker/volumes/sr-query-corruption-client-perf-arm64/_data",
+        "Destination": "/qct-client-workspace",
+        "RW": true
+      }
+    ],
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "OOMKilled": false,
+      "StartedAt": "2026-09-22T09:17:23.05866261Z",
+      "FinishedAt": "2026-09-22T09:17:28.219244072Z"
+    }
+  },
+  "server_after_empty_update": {
+    "name": "/starrocks-query-corruption-4.0-build",
+    "id": "045e139bc2d1e6c0dc5de6be6875c98776caa7aa7a50e1de54dd76d77ee7636b",
+    "image": "sha256:98326df55743ab4f081fcba9fa9cb31b7ff5ee06d69ddd54c11d7fae9cbbaeb2",
+    "resource_config": {
+      "NanoCpus": 6000000000,
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpusetCpus": "0-5",
+      "Memory": 17179869184,
+      "PidsLimit": null,
+      "PidMode": "",
+      "NetworkMode": "bridge"
+    },
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "sr-query-corruption-4.0-build-cache-arm64",
+        "Source": "/var/lib/docker/volumes/sr-query-corruption-4.0-build-cache-arm64/_data",
+        "Destination": "/query-corruption-workspace",
+        "RW": true
+      },
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/Users/zhuchong/Documents/code/starrocks-query-corruption-tolerance",
+        "Destination": "/host-workspace",
+        "RW": false
+      }
+    ],
+    "state": {
+      "Status": "running",
+      "Running": true,
+      "OOMKilled": true,
+      "StartedAt": "2026-09-19T04:23:35.656288611Z",
+      "FinishedAt": "0001-01-01T00:00:00Z"
+    }
+  },
+  "server_final": {
+    "name": "/starrocks-query-corruption-4.0-build",
+    "id": "045e139bc2d1e6c0dc5de6be6875c98776caa7aa7a50e1de54dd76d77ee7636b",
+    "image": "sha256:98326df55743ab4f081fcba9fa9cb31b7ff5ee06d69ddd54c11d7fae9cbbaeb2",
+    "resource_config": {
+      "NanoCpus": 6000000000,
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpusetCpus": "0-7",
+      "Memory": 17179869184,
+      "PidsLimit": null,
+      "PidMode": "",
+      "NetworkMode": "bridge"
+    },
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "sr-query-corruption-4.0-build-cache-arm64",
+        "Source": "/var/lib/docker/volumes/sr-query-corruption-4.0-build-cache-arm64/_data",
+        "Destination": "/query-corruption-workspace",
+        "RW": true
+      },
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/Users/zhuchong/Documents/code/starrocks-query-corruption-tolerance",
+        "Destination": "/host-workspace",
+        "RW": false
+      }
+    ],
+    "state": {
+      "Status": "running",
+      "Running": true,
+      "OOMKilled": true,
+      "StartedAt": "2026-09-19T04:23:35.656288611Z",
+      "FinishedAt": "0001-01-01T00:00:00Z"
+    }
+  },
+  "script_hashes": {
+    "client_perf.py": "51c9b4132bf718dcaeb1bfea246512e084fcf5bbada9326ef5051808280b9f84",
+    "split_client.py": "ab48e0560fcab386071e04814e2c9329dac107f353b21bc116b6c3297d4cd5df",
+    "split_suite.py": "7a7c4a28c0da172f567e0575ca5f3a2b39dd5fbc60388029c05538c32eec6dfb"
+  },
+  "completed_groups": 22,
+  "original_cpu_quota_memory_mounts_and_container_identity_preserved": true,
+  "effective_cpu_range_restored": true,
+  "effective_cpu_range": "0-7",
+  "cpuset_metadata_exactly_restored": false,
+  "recovery_note": "Empty cpuset update ignored; explicit 0-7 restores all current VM CPUs. If VM CPU count changes, update this explicit mask.",
+  "client_qct_asset_mount_read_only": true,
+  "no_tenant_ttl_mount": true
+}

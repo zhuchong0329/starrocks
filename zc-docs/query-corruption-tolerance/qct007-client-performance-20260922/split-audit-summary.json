@@ -1,0 +1,2395 @@
+{
+  "groups": 22,
+  "samples": 220000,
+  "unique_server_identities": 88,
+  "unique_client_parents": 22,
+  "plans_identical": true,
+  "placements_identical": true,
+  "artifact_hashes": {
+    "A-baseline:starrocks_be": [
+      "3ee4a23699c0d7c51b86d4ba3055496ef7f4b3d4e71bebe61401269d13de849f"
+    ],
+    "A-baseline:starrocks-fe.jar": [
+      "4740883b0d822079c931802d4e0579b38a3c5820678e46f8fdb35209eb37879d"
+    ],
+    "B-off:starrocks_be": [
+      "06d9581ab99934b3d53f3df4c45d9574c2810bbc9345488dc38bb71a39bb1ac5"
+    ],
+    "B-off:starrocks-fe.jar": [
+      "21a4f53f4563486f8538e21fde19a76c74c17e588890701df3846d9263d151bc"
+    ],
+    "C-on:starrocks_be": [
+      "06d9581ab99934b3d53f3df4c45d9574c2810bbc9345488dc38bb71a39bb1ac5"
+    ],
+    "C-on:starrocks-fe.jar": [
+      "21a4f53f4563486f8538e21fde19a76c74c17e588890701df3846d9263d151bc"
+    ]
+  },
+  "comparisons": {
+    "processes/threads": {
+      "qps": {
+        "paired_blocks": 2,
+        "geometric_mean_change_percent": 32.53284735123901,
+        "per_block_change_percent": [
+          31.637459901846498,
+          33.4343251542826
+        ],
+        "exploratory_95_percent": [
+          31.637459901846498,
+          33.434325154282604
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "p50": {
+        "paired_blocks": 2,
+        "geometric_mean_change_percent": -25.08793383339347,
+        "per_block_change_percent": [
+          -24.716382002162074,
+          -25.457651922212342
+        ],
+        "exploratory_95_percent": [
+          -25.457651922212342,
+          -24.716382002162074
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "p99": {
+        "paired_blocks": 2,
+        "geometric_mean_change_percent": -29.005179793906983,
+        "per_block_change_percent": [
+          -27.141242618463224,
+          -30.821432079862333
+        ],
+        "exploratory_95_percent": [
+          -30.821432079862333,
+          -27.141242618463224
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "client_cpu_ms_per_query": {
+        "paired_blocks": 2,
+        "geometric_mean_change_percent": -44.96017443976872,
+        "per_block_change_percent": [
+          -44.34142004318558,
+          -45.57205016636804
+        ],
+        "exploratory_95_percent": [
+          -45.57205016636804,
+          -44.34142004318558
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "server_cpu_ms_per_query": {
+        "paired_blocks": 2,
+        "geometric_mean_change_percent": 0.9592835849245239,
+        "per_block_change_percent": [
+          2.3128478247860906,
+          -0.376373459600543
+        ],
+        "exploratory_95_percent": [
+          -0.376373459600543,
+          2.3128478247860906
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      }
+    },
+    "B-off/A-baseline": {
+      "qps": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": -0.643740833013614,
+        "per_block_change_percent": [
+          -9.165765018246963,
+          -6.440518395950024,
+          -5.654394249609373,
+          10.4862427278402,
+          7.327575775886541,
+          1.1795673719010802
+        ],
+        "exploratory_95_percent": [
+          -6.14100621830592,
+          5.398231085832127
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "p50": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": -0.02059898180397422,
+        "per_block_change_percent": [
+          6.167973570761975,
+          5.835609826562749,
+          6.161418125813123,
+          -9.393684056884055,
+          -6.248334585338133,
+          -1.4325176645115456
+        ],
+        "exploratory_95_percent": [
+          -5.1647089413402565,
+          4.804756469349578
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "p99": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": 2.32817631714407,
+        "per_block_change_percent": [
+          43.741594716114896,
+          13.721521275385617,
+          -3.7613993716154925,
+          -10.357057751899667,
+          -15.159722695276233,
+          -4.04252650262884
+        ],
+        "exploratory_95_percent": [
+          -9.68415692937191,
+          19.453118103251754
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "client_cpu_ms_per_query": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": 1.3026062366177003,
+        "per_block_change_percent": [
+          5.356730547217703,
+          8.505639097744332,
+          8.497359577532393,
+          -5.6380510440835145,
+          -7.066666666666654,
+          -0.6377238165317767
+        ],
+        "exploratory_95_percent": [
+          -3.7946529673060376,
+          6.399061101746028
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "server_cpu_ms_per_query": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": 0.5960389228411737,
+        "per_block_change_percent": [
+          7.287929461842468,
+          7.807349529971908,
+          7.437192195000297,
+          -9.211358366707834,
+          -7.035975803884109,
+          -1.1936251818542298
+        ],
+        "exploratory_95_percent": [
+          -5.127954317246684,
+          6.045028007584612
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      }
+    },
+    "C-on/A-baseline": {
+      "qps": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": -0.06779848446506313,
+        "per_block_change_percent": [
+          -7.858828673538221,
+          2.4481833844385292,
+          9.686439479854968,
+          0.16636364650273183,
+          0.6201865729798639,
+          -4.563440523764639
+        ],
+        "exploratory_95_percent": [
+          -4.270845418481176,
+          4.446484921557755
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "p50": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": -0.674592645380529,
+        "per_block_change_percent": [
+          7.556697944056823,
+          -2.172703581770974,
+          -7.152427302353759,
+          -4.324957863690249,
+          -1.1935450444598539,
+          3.9704880913820073
+        ],
+        "exploratory_95_percent": [
+          -4.371709946559888,
+          3.381847026259874
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "p99": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": 4.617837048571302,
+        "per_block_change_percent": [
+          16.396215882587796,
+          -1.7713668862039067,
+          -23.04400995243251,
+          30.969530997284057,
+          2.0517792536580703,
+          11.486986315569725
+        ],
+        "exploratory_95_percent": [
+          -8.868198164110495,
+          18.172150806709798
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "client_cpu_ms_per_query": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": 0.7670026585811697,
+        "per_block_change_percent": [
+          5.518356037866545,
+          0.9163533834586346,
+          -2.9764762361978003,
+          -1.3225058004640244,
+          0.6888888888888722,
+          1.9867549668874052
+        ],
+        "exploratory_95_percent": [
+          -1.2314888712783116,
+          2.9487901690773444
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "server_cpu_ms_per_query": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": 0.3214044991095406,
+        "per_block_change_percent": [
+          7.804803891760392,
+          -0.8851178122329606,
+          -7.01951249922076,
+          -0.9154144960703325,
+          -0.497814824462417,
+          4.076841687607491
+        ],
+        "exploratory_95_percent": [
+          -3.158528600270029,
+          4.202972225551903
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      }
+    },
+    "C-on/B-off": {
+      "qps": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": 0.5796739464401235,
+        "per_block_change_percent": [
+          1.4388147210919744,
+          9.500588960086542,
+          16.26025251250327,
+          -9.340419971342806,
+          -6.249455607673971,
+          -5.676055002841062
+        ],
+        "exploratory_95_percent": [
+          -5.96990949610903,
+          8.596971477307722
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "p50": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": -0.6541284073681661,
+        "per_block_change_percent": [
+          1.3080445322517509,
+          -7.566747545043939,
+          -12.541133740685794,
+          5.59423053507222,
+          5.391679730190435,
+          5.481529636217797
+        ],
+        "exploratory_95_percent": [
+          -6.6856710557331835,
+          4.796612888613449
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "p99": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": 2.2375662440527826,
+        "per_block_change_percent": [
+          -19.02398459369633,
+          -13.623532281169782,
+          -20.03625411727966,
+          46.10133013573581,
+          20.286946832004293,
+          16.18374499889683
+        ],
+        "exploratory_95_percent": [
+          -13.616770956528843,
+          23.13171226001805
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "client_cpu_ms_per_query": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": -0.5287164841400913,
+        "per_block_change_percent": [
+          0.15340784571558075,
+          -6.994369857080973,
+          -10.575221238938049,
+          4.573395623309562,
+          8.345289335246274,
+          2.641323130091333
+        ],
+        "exploratory_95_percent": [
+          -5.909823815986871,
+          4.730958169452902
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      },
+      "server_cpu_ms_per_query": {
+        "paired_blocks": 6,
+        "geometric_mean_change_percent": -0.2730071945897195,
+        "per_block_change_percent": [
+          0.4817638223708398,
+          -8.062963592095574,
+          -13.455959150516417,
+          9.137645107794402,
+          7.033001245329973,
+          5.334136465548989
+        ],
+        "exploratory_95_percent": [
+          -7.284274101169484,
+          6.318006671698248
+        ],
+        "limitation": "Few shared-VM blocks; not independent SQL samples, an equivalence test, or causal GIL profile"
+      }
+    }
+  },
+  "runs": [
+    {
+      "name": "control-1-pos-1-threads",
+      "variant": "A-baseline",
+      "client_mode": "threads",
+      "block": 1,
+      "position": 1,
+      "phase": "client",
+      "qps": 108.01466338502406,
+      "samples": 10000,
+      "warmup_samples": 5745,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 20.131306,
+          "p95": 29.217312,
+          "p99": 34.465907,
+          "mean": 20.2638262892
+        },
+        "complete_ms": {
+          "p50": 35.797666500000005,
+          "p95": 57.161196,
+          "p99": 65.520401,
+          "mean": 36.902225109
+        },
+        "after_first_ms": {
+          "p50": 16.669724,
+          "p95": 31.785662,
+          "p99": 36.64967899999999,
+          "mean": 16.6383988198
+        }
+      },
+      "elapsed_seconds": 92.58002281,
+      "resource_interval_seconds": 91.636932,
+      "client_cpu_cores": 0.8503994448302945,
+      "server_cpu_cores": 3.6100660796542745,
+      "active_worker_cpu_cores": 0.85014924025811,
+      "client_cpu_ms_per_query": 7.873,
+      "worker_active_cpu_ms_per_query": 7.870683605499999,
+      "server_cpu_ms_per_query": 33.422,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 927,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        268715,
+        268715,
+        268715,
+        268715
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 20.589379,
+          "p95": 29.903569,
+          "p99": 34.698734,
+          "mean": 20.6074575294
+        },
+        "complete_ms": {
+          "p50": 36.1151105,
+          "p95": 57.649916,
+          "p99": 65.444453,
+          "mean": 37.1153097264
+        },
+        "after_first_ms": {
+          "p50": 16.385642,
+          "p95": 31.761673,
+          "p99": 36.457286999999994,
+          "mean": 16.507852197
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 19.7060985,
+          "p95": 28.3574,
+          "p99": 33.595038,
+          "mean": 19.920195049
+        },
+        "complete_ms": {
+          "p50": 35.545791,
+          "p95": 56.654364,
+          "p99": 65.896352,
+          "mean": 36.6891404916
+        },
+        "after_first_ms": {
+          "p50": 16.8205485,
+          "p95": 31.800562999999997,
+          "p99": 37.053622000000004,
+          "mean": 16.7689454426
+        }
+      }
+    },
+    {
+      "name": "control-1-pos-2-processes",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 1,
+      "position": 2,
+      "phase": "client",
+      "qps": 142.18775920157552,
+      "samples": 10000,
+      "warmup_samples": 7453,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 22.60839,
+          "p95": 32.482603,
+          "p99": 41.147204,
+          "mean": 23.3838947459
+        },
+        "complete_ms": {
+          "p50": 26.9497785,
+          "p95": 37.46752,
+          "p99": 47.73735,
+          "mean": 27.866463797
+        },
+        "after_first_ms": {
+          "p50": 4.009596999999998,
+          "p95": 7.125800999999999,
+          "p99": 9.473315,
+          "mean": 4.4825690511
+        }
+      },
+      "elapsed_seconds": 70.329542122,
+      "resource_interval_seconds": 69.910164,
+      "client_cpu_cores": 0.6230667608213039,
+      "server_cpu_cores": 4.862110425897876,
+      "active_worker_cpu_cores": 0.6230639114070472,
+      "client_cpu_ms_per_query": 4.382,
+      "worker_active_cpu_ms_per_query": 4.381979960200001,
+      "server_cpu_ms_per_query": 34.19500000000001,
+      "throttled_seconds": 0.175951,
+      "throttled_periods": 2,
+      "total_periods": 704,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        270514,
+        270515,
+        270516,
+        270517
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 23.0756905,
+          "p95": 33.448952,
+          "p99": 43.865584,
+          "mean": 24.087431605
+        },
+        "complete_ms": {
+          "p50": 27.405559,
+          "p95": 38.646788,
+          "p99": 49.466404,
+          "mean": 28.6188196564
+        },
+        "after_first_ms": {
+          "p50": 4.043900000000001,
+          "p95": 7.156029999999998,
+          "p99": 9.296305,
+          "mean": 4.5313880514000004
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 22.199044,
+          "p95": 31.357655,
+          "p99": 38.521917,
+          "mean": 22.6803578868
+        },
+        "complete_ms": {
+          "p50": 26.421045,
+          "p95": 36.287782,
+          "p99": 44.54937,
+          "mean": 27.1141079376
+        },
+        "after_first_ms": {
+          "p50": 3.985180999999997,
+          "p95": 7.090174999999999,
+          "p99": 9.57714,
+          "mean": 4.4337500508
+        }
+      }
+    },
+    {
+      "name": "control-2-pos-1-processes",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 2,
+      "position": 1,
+      "phase": "client",
+      "qps": 149.45738940588194,
+      "samples": 10000,
+      "warmup_samples": 7754,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 21.68673,
+          "p95": 30.653627,
+          "p99": 37.175934,
+          "mean": 22.25984361
+        },
+        "complete_ms": {
+          "p50": 25.9465,
+          "p95": 35.784189,
+          "p99": 42.773525,
+          "mean": 26.6349521405
+        },
+        "after_first_ms": {
+          "p50": 3.9309469999999997,
+          "p95": 7.049918999999999,
+          "p99": 8.912333999999998,
+          "mean": 4.3751085305
+        }
+      },
+      "elapsed_seconds": 66.908702472,
+      "resource_interval_seconds": 66.5418,
+      "client_cpu_cores": 0.635642277143216,
+      "server_cpu_cores": 4.905490435079857,
+      "active_worker_cpu_cores": 0.635539155893736,
+      "client_cpu_ms_per_query": 4.253,
+      "worker_active_cpu_ms_per_query": 4.2523100291,
+      "server_cpu_ms_per_query": 32.821999999999996,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 670,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        272288,
+        272289,
+        272290,
+        272291
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 21.8425345,
+          "p95": 31.108103,
+          "p99": 38.77992,
+          "mean": 22.6714901238
+        },
+        "complete_ms": {
+          "p50": 26.071309499999998,
+          "p95": 36.114389,
+          "p99": 45.164778,
+          "mean": 27.0385141894
+        },
+        "after_first_ms": {
+          "p50": 3.937800000000001,
+          "p95": 6.970842000000001,
+          "p99": 8.758804999999999,
+          "mean": 4.3670240656
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 21.563262,
+          "p95": 30.135742,
+          "p99": 36.045632,
+          "mean": 21.8481970962
+        },
+        "complete_ms": {
+          "p50": 25.8265635,
+          "p95": 35.204598,
+          "p99": 40.795399,
+          "mean": 26.2313900916
+        },
+        "after_first_ms": {
+          "p50": 3.925345,
+          "p95": 7.129415999999999,
+          "p99": 8.999274,
+          "mean": 4.3831929954
+        }
+      }
+    },
+    {
+      "name": "control-2-pos-2-threads",
+      "variant": "A-baseline",
+      "client_mode": "threads",
+      "block": 2,
+      "position": 2,
+      "phase": "client",
+      "qps": 112.00820271176309,
+      "samples": 10000,
+      "warmup_samples": 6068,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 19.142326500000003,
+          "p95": 27.718989,
+          "p99": 32.083257,
+          "mean": 19.2823497841
+        },
+        "complete_ms": {
+          "p50": 34.807731000000004,
+          "p95": 55.112001,
+          "p99": 61.830602,
+          "mean": 35.5776688885
+        },
+        "after_first_ms": {
+          "p50": 16.444049,
+          "p95": 30.45743000000001,
+          "p99": 34.909566999999996,
+          "mean": 16.2953191044
+        }
+      },
+      "elapsed_seconds": 89.279175613,
+      "resource_interval_seconds": 88.734421,
+      "client_cpu_cores": 0.8752320959897166,
+      "server_cpu_cores": 3.6902222465417456,
+      "active_worker_cpu_cores": 0.8750508433976213,
+      "client_cpu_ms_per_query": 7.813999999999998,
+      "worker_active_cpu_ms_per_query": 7.8123817918,
+      "server_cpu_ms_per_query": 32.94599999999999,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 894,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        274064,
+        274064,
+        274064,
+        274064
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 19.578602,
+          "p95": 28.705103,
+          "p99": 33.860654,
+          "mean": 19.7893753986
+        },
+        "complete_ms": {
+          "p50": 35.220147999999995,
+          "p95": 55.737483,
+          "p99": 63.34028,
+          "mean": 36.13817617
+        },
+        "after_first_ms": {
+          "p50": 16.2760125,
+          "p95": 30.46355,
+          "p99": 35.406341,
+          "mean": 16.3488007714
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 18.766398000000002,
+          "p95": 26.705658,
+          "p99": 30.286259,
+          "mean": 18.7753241696
+        },
+        "complete_ms": {
+          "p50": 34.351375,
+          "p95": 54.384358,
+          "p99": 59.512821,
+          "mean": 35.017161607
+        },
+        "after_first_ms": {
+          "p50": 16.530488500000004,
+          "p95": 30.432762,
+          "p99": 34.689986000000005,
+          "mean": 16.2418374374
+        }
+      }
+    },
+    {
+      "name": "abc-1-ABC-pos-1-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 1,
+      "position": 1,
+      "phase": "abc",
+      "qps": 151.1439361614168,
+      "samples": 10000,
+      "warmup_samples": 7813,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 21.421667499999998,
+          "p95": 30.198218,
+          "p99": 36.786267,
+          "mean": 21.9317153647
+        },
+        "complete_ms": {
+          "p50": 25.6941195,
+          "p95": 35.577937,
+          "p99": 43.126146,
+          "mean": 26.3797482625
+        },
+        "after_first_ms": {
+          "p50": 3.9817555000000002,
+          "p95": 7.121400000000001,
+          "p99": 9.797962000000002,
+          "mean": 4.4480328978
+        }
+      },
+      "elapsed_seconds": 66.162098553,
+      "resource_interval_seconds": 65.758982,
+      "client_cpu_cores": 0.6546043875150962,
+      "server_cpu_cores": 4.971124060348999,
+      "active_worker_cpu_cores": 0.6545426243895398,
+      "client_cpu_ms_per_query": 4.331,
+      "worker_active_cpu_ms_per_query": 4.3305913622,
+      "server_cpu_ms_per_query": 32.89000000000001,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 662,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        275863,
+        275864,
+        275865,
+        275866
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 21.6587825,
+          "p95": 30.738067,
+          "p99": 36.899647,
+          "mean": 22.1193027522
+        },
+        "complete_ms": {
+          "p50": 25.952072,
+          "p95": 36.313431,
+          "p99": 42.85004,
+          "mean": 26.59303396
+        },
+        "after_first_ms": {
+          "p50": 3.9945299999999992,
+          "p95": 7.195053999999999,
+          "p99": 9.789882000000002,
+          "mean": 4.4737312078
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 21.177522500000002,
+          "p95": 29.510507,
+          "p99": 36.47622,
+          "mean": 21.7441279772
+        },
+        "complete_ms": {
+          "p50": 25.3927165,
+          "p95": 34.712659,
+          "p99": 43.152733,
+          "mean": 26.166462565
+        },
+        "after_first_ms": {
+          "p50": 3.9682204999999993,
+          "p95": 7.03464,
+          "p99": 9.797962000000002,
+          "mean": 4.4223345878
+        }
+      }
+    },
+    {
+      "name": "abc-1-ABC-pos-2-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 1,
+      "position": 2,
+      "phase": "abc",
+      "qps": 137.29043813353215,
+      "samples": 10000,
+      "warmup_samples": 7769,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 22.888679500000002,
+          "p95": 35.704899,
+          "p99": 53.933596,
+          "mean": 24.3191455579
+        },
+        "complete_ms": {
+          "p50": 27.278926,
+          "p95": 41.384686,
+          "p99": 61.99021,
+          "mean": 29.0119090735
+        },
+        "after_first_ms": {
+          "p50": 4.0659670000000006,
+          "p95": 7.484097000000002,
+          "p99": 11.708655,
+          "mean": 4.6927635156
+        }
+      },
+      "elapsed_seconds": 72.838284559,
+      "resource_interval_seconds": 72.307838,
+      "client_cpu_cores": 0.6264562692033071,
+      "server_cpu_cores": 4.844567690417949,
+      "active_worker_cpu_cores": 0.6266314335152793,
+      "client_cpu_ms_per_query": 4.562999999999999,
+      "worker_active_cpu_ms_per_query": 4.5642758668,
+      "server_cpu_ms_per_query": 35.287,
+      "throttled_seconds": 0.002717,
+      "throttled_periods": 1,
+      "total_periods": 729,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        277647,
+        277648,
+        277649,
+        277650
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 22.280499499999998,
+          "p95": 32.500173,
+          "p99": 41.702726,
+          "mean": 23.041201857
+        },
+        "complete_ms": {
+          "p50": 26.5943235,
+          "p95": 37.896664,
+          "p99": 47.973988,
+          "mean": 27.5690931308
+        },
+        "after_first_ms": {
+          "p50": 4.011679000000001,
+          "p95": 7.196081999999997,
+          "p99": 9.923159000000002,
+          "mean": 4.5278912738
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 23.676748,
+          "p95": 38.854337,
+          "p99": 64.991658,
+          "mean": 25.5970892588
+        },
+        "complete_ms": {
+          "p50": 28.0919555,
+          "p95": 45.10135,
+          "p99": 76.09908,
+          "mean": 30.4547250162
+        },
+        "after_first_ms": {
+          "p50": 4.1390455,
+          "p95": 7.758661,
+          "p99": 13.199451,
+          "mean": 4.8576357574
+        }
+      }
+    },
+    {
+      "name": "abc-1-ABC-pos-3-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 1,
+      "position": 3,
+      "phase": "abc",
+      "qps": 139.26579316804907,
+      "samples": 10000,
+      "warmup_samples": 7275,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 23.150614,
+          "p95": 33.490811,
+          "p99": 42.946695,
+          "mean": 23.9414004453
+        },
+        "complete_ms": {
+          "p50": 27.6357465,
+          "p95": 39.339529,
+          "p99": 50.197202,
+          "mean": 28.5706068849
+        },
+        "after_first_ms": {
+          "p50": 4.125914000000001,
+          "p95": 7.318479,
+          "p99": 10.683453999999998,
+          "mean": 4.6292064396
+        }
+      },
+      "elapsed_seconds": 71.805141611,
+      "resource_interval_seconds": 71.487342,
+      "client_cpu_cores": 0.6364446747779844,
+      "server_cpu_cores": 4.9379472283595165,
+      "active_worker_cpu_cores": 0.6363419841233241,
+      "client_cpu_ms_per_query": 4.57,
+      "worker_active_cpu_ms_per_query": 4.5692626283,
+      "server_cpu_ms_per_query": 35.457,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 719,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        279411,
+        279412,
+        279413,
+        279414
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 23.5475985,
+          "p95": 35.313791,
+          "p99": 51.419483,
+          "mean": 24.7779465752
+        },
+        "complete_ms": {
+          "p50": 28.0323035,
+          "p95": 40.908826,
+          "p99": 58.884636,
+          "mean": 29.4893790586
+        },
+        "after_first_ms": {
+          "p50": 4.158246499999997,
+          "p95": 7.530514000000004,
+          "p99": 11.537843999999993,
+          "mean": 4.7114324834
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 22.713638500000002,
+          "p95": 31.719063,
+          "p99": 37.276814,
+          "mean": 23.1048543154
+        },
+        "complete_ms": {
+          "p50": 27.121336999999997,
+          "p95": 37.462898,
+          "p99": 43.588757,
+          "mean": 27.6518347112
+        },
+        "after_first_ms": {
+          "p50": 4.094171999999999,
+          "p95": 7.165595000000003,
+          "p99": 10.363690000000002,
+          "mean": 4.5469803958
+        }
+      }
+    },
+    {
+      "name": "abc-2-ACB-pos-1-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 2,
+      "position": 1,
+      "phase": "abc",
+      "qps": 148.84517857564737,
+      "samples": 10000,
+      "warmup_samples": 7621,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 21.8622405,
+          "p95": 31.110561,
+          "p99": 37.398593,
+          "mean": 22.2999770916
+        },
+        "complete_ms": {
+          "p50": 26.1156425,
+          "p95": 36.492963,
+          "p99": 43.639068,
+          "mean": 26.7055850017
+        },
+        "after_first_ms": {
+          "p50": 3.929921000000001,
+          "p95": 7.1008309999999994,
+          "p99": 9.636738000000001,
+          "mean": 4.4056079101
+        }
+      },
+      "elapsed_seconds": 67.183902735,
+      "resource_interval_seconds": 66.905993,
+      "client_cpu_cores": 0.6334850800179553,
+      "server_cpu_cores": 4.8767634308525105,
+      "active_worker_cpu_cores": 0.6335131973782617,
+      "client_cpu_ms_per_query": 4.256,
+      "worker_active_cpu_ms_per_query": 4.2561889034,
+      "server_cpu_ms_per_query": 32.764,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 673,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        281209,
+        281210,
+        281211,
+        281212
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 22.030933,
+          "p95": 31.923253,
+          "p99": 39.222925,
+          "mean": 22.6829934768
+        },
+        "complete_ms": {
+          "p50": 26.3150145,
+          "p95": 37.326856,
+          "p99": 46.133074,
+          "mean": 27.1088446998
+        },
+        "after_first_ms": {
+          "p50": 3.945426499999998,
+          "p95": 7.102701999999997,
+          "p99": 9.744412999999998,
+          "mean": 4.425851223
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 21.634901,
+          "p95": 30.346246,
+          "p99": 35.476801,
+          "mean": 21.9169607064
+        },
+        "complete_ms": {
+          "p50": 25.898013499999998,
+          "p95": 35.503376,
+          "p99": 41.298458,
+          "mean": 26.3023253036
+        },
+        "after_first_ms": {
+          "p50": 3.914891000000001,
+          "p95": 7.097965000000002,
+          "p99": 9.422061,
+          "mean": 4.3853645972
+        }
+      }
+    },
+    {
+      "name": "abc-2-ACB-pos-2-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 2,
+      "position": 2,
+      "phase": "abc",
+      "qps": 152.48918150607423,
+      "samples": 10000,
+      "warmup_samples": 7687,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 21.303977500000002,
+          "p95": 30.197633,
+          "p99": 37.304139,
+          "mean": 21.7728839984
+        },
+        "complete_ms": {
+          "p50": 25.548226999999997,
+          "p95": 35.305809,
+          "p99": 42.86606,
+          "mean": 26.1672353504
+        },
+        "after_first_ms": {
+          "p50": 3.965663000000001,
+          "p95": 7.022694999999999,
+          "p99": 8.818550000000002,
+          "mean": 4.394351352
+        }
+      },
+      "elapsed_seconds": 65.578422687,
+      "resource_interval_seconds": 65.312396,
+      "client_cpu_cores": 0.6549410345685889,
+      "server_cpu_cores": 4.951933680228255,
+      "active_worker_cpu_cores": 0.6549213970727902,
+      "client_cpu_ms_per_query": 4.295,
+      "worker_active_cpu_ms_per_query": 4.294871220399999,
+      "server_cpu_ms_per_query": 32.474,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 657,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        282995,
+        282996,
+        282997,
+        282998
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 21.4834845,
+          "p95": 30.807587,
+          "p99": 37.910549,
+          "mean": 21.983698167
+        },
+        "complete_ms": {
+          "p50": 25.681686499999998,
+          "p95": 35.694558,
+          "p99": 43.510879,
+          "mean": 26.3168761962
+        },
+        "after_first_ms": {
+          "p50": 3.9371400000000003,
+          "p95": 6.9507650000000005,
+          "p99": 8.407229000000001,
+          "mean": 4.3331780292
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 21.1163085,
+          "p95": 29.731832,
+          "p99": 36.31875,
+          "mean": 21.5620698298
+        },
+        "complete_ms": {
+          "p50": 25.4229665,
+          "p95": 34.962195,
+          "p99": 42.462226,
+          "mean": 26.0175945046
+        },
+        "after_first_ms": {
+          "p50": 3.999258000000001,
+          "p95": 7.096641999999999,
+          "p99": 8.936299000000002,
+          "mean": 4.4555246748
+        }
+      }
+    },
+    {
+      "name": "abc-2-ACB-pos-3-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 2,
+      "position": 3,
+      "phase": "abc",
+      "qps": 139.25877746799813,
+      "samples": 10000,
+      "warmup_samples": 7212,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 23.1014665,
+          "p95": 33.983258,
+          "p99": 42.535672,
+          "mean": 23.8978077304
+        },
+        "complete_ms": {
+          "p50": 27.639649499999997,
+          "p95": 39.776387,
+          "p99": 49.627012,
+          "mean": 28.6235594588
+        },
+        "after_first_ms": {
+          "p50": 4.175119500000001,
+          "p95": 7.510158999999998,
+          "p99": 10.989079000000004,
+          "mean": 4.7257517284
+        }
+      },
+      "elapsed_seconds": 71.808759073,
+      "resource_interval_seconds": 71.442843,
+      "client_cpu_cores": 0.6430970343472153,
+      "server_cpu_cores": 4.91889853772463,
+      "active_worker_cpu_cores": 0.6431683222522855,
+      "client_cpu_ms_per_query": 4.617999999999999,
+      "worker_active_cpu_ms_per_query": 4.6185119096,
+      "server_cpu_ms_per_query": 35.321999999999996,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 720,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        284779,
+        284780,
+        284781,
+        284782
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 23.406613999999998,
+          "p95": 35.040917,
+          "p99": 43.993931,
+          "mean": 24.1509460018
+        },
+        "complete_ms": {
+          "p50": 27.936572499999997,
+          "p95": 40.609641,
+          "p99": 50.102652,
+          "mean": 28.8424476386
+        },
+        "after_first_ms": {
+          "p50": 4.188578499999998,
+          "p95": 7.390272999999997,
+          "p99": 10.483196,
+          "mean": 4.6915016368
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 22.802551,
+          "p95": 33.142471,
+          "p99": 41.422697,
+          "mean": 23.644669459
+        },
+        "complete_ms": {
+          "p50": 27.324963,
+          "p95": 38.859057,
+          "p99": 48.414131,
+          "mean": 28.404671279
+        },
+        "after_first_ms": {
+          "p50": 4.163288,
+          "p95": 7.611592999999999,
+          "p99": 11.356257999999997,
+          "mean": 4.76000182
+        }
+      }
+    },
+    {
+      "name": "abc-3-BAC-pos-1-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 3,
+      "position": 1,
+      "phase": "abc",
+      "qps": 143.5834327132195,
+      "samples": 10000,
+      "warmup_samples": 7319,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 22.4228135,
+          "p95": 32.202307,
+          "p99": 39.614391,
+          "mean": 23.1214485746
+        },
+        "complete_ms": {
+          "p50": 26.832290999999998,
+          "p95": 37.659176,
+          "p99": 45.701292,
+          "mean": 27.7052264015
+        },
+        "after_first_ms": {
+          "p50": 4.1192755000000005,
+          "p95": 7.206191999999998,
+          "p99": 9.853149000000002,
+          "mean": 4.5837778269
+        }
+      },
+      "elapsed_seconds": 69.645918133,
+      "resource_interval_seconds": 69.388702,
+      "client_cpu_cores": 0.6489971158637523,
+      "server_cpu_cores": 4.94903375875925,
+      "active_worker_cpu_cores": 0.6489603773144074,
+      "client_cpu_ms_per_query": 4.52,
+      "worker_active_cpu_ms_per_query": 4.519744131,
+      "server_cpu_ms_per_query": 34.467999999999996,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 697,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        286553,
+        286554,
+        286555,
+        286556
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 22.5713365,
+          "p95": 32.259913,
+          "p99": 38.672654,
+          "mean": 23.1202093388
+        },
+        "complete_ms": {
+          "p50": 27.000864999999997,
+          "p95": 37.497125,
+          "p99": 44.717843,
+          "mean": 27.6695803072
+        },
+        "after_first_ms": {
+          "p50": 4.103877500000001,
+          "p95": 7.130087,
+          "p99": 9.683755999999999,
+          "mean": 4.5493709684
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 22.264572,
+          "p95": 32.124287,
+          "p99": 41.109533,
+          "mean": 23.1226878104
+        },
+        "complete_ms": {
+          "p50": 26.6894895,
+          "p95": 37.867905,
+          "p99": 47.392605,
+          "mean": 27.7408724958
+        },
+        "after_first_ms": {
+          "p50": 4.1365750000000014,
+          "p95": 7.277365000000003,
+          "p99": 10.007070000000002,
+          "mean": 4.6181846854
+        }
+      }
+    },
+    {
+      "name": "abc-3-BAC-pos-2-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 3,
+      "position": 2,
+      "phase": "abc",
+      "qps": 152.1887867179495,
+      "samples": 10000,
+      "warmup_samples": 7426,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 21.1260475,
+          "p95": 31.388435,
+          "p99": 40.717129,
+          "mean": 21.87616701
+        },
+        "complete_ms": {
+          "p50": 25.274993000000002,
+          "p95": 36.551849,
+          "p99": 47.487486,
+          "mean": 26.1971872249
+        },
+        "after_first_ms": {
+          "p50": 3.7945635000000006,
+          "p95": 7.003215000000004,
+          "p99": 9.7046,
+          "mean": 4.3210202149
+        }
+      },
+      "elapsed_seconds": 65.707863343,
+      "resource_interval_seconds": 65.331752,
+      "client_cpu_cores": 0.6340184854669776,
+      "server_cpu_cores": 4.882520655485256,
+      "active_worker_cpu_cores": 0.6338462913120568,
+      "client_cpu_ms_per_query": 4.166,
+      "worker_active_cpu_ms_per_query": 4.1648685489999995,
+      "server_cpu_ms_per_query": 32.082,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 657,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        288343,
+        288344,
+        288345,
+        288346
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 22.3976805,
+          "p95": 33.958806,
+          "p99": 49.30373,
+          "mean": 23.3534914372
+        },
+        "complete_ms": {
+          "p50": 26.7368865,
+          "p95": 39.599353,
+          "p99": 56.684579,
+          "mean": 27.8969938288
+        },
+        "after_first_ms": {
+          "p50": 3.949970999999998,
+          "p95": 7.309573,
+          "p99": 11.193553999999999,
+          "mean": 4.5435023916
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 20.058745000000002,
+          "p95": 28.06002,
+          "p99": 33.443867,
+          "mean": 20.3988425828
+        },
+        "complete_ms": {
+          "p50": 24.066602000000003,
+          "p95": 32.855996,
+          "p99": 38.027516,
+          "mean": 24.497380621
+        },
+        "after_first_ms": {
+          "p50": 3.718837500000001,
+          "p95": 6.761503999999999,
+          "p99": 7.718757999999998,
+          "mean": 4.0985380382
+        }
+      }
+    },
+    {
+      "name": "abc-3-BAC-pos-3-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 3,
+      "position": 3,
+      "phase": "abc",
+      "qps": 166.93046143850924,
+      "samples": 10000,
+      "warmup_samples": 8405,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 19.4143005,
+          "p95": 26.975682,
+          "p99": 31.428693,
+          "mean": 19.6707199905
+        },
+        "complete_ms": {
+          "p50": 23.4672175,
+          "p95": 31.839941,
+          "p99": 36.544465,
+          "mean": 23.8506903
+        },
+        "after_first_ms": {
+          "p50": 3.7849755,
+          "p95": 6.815708000000001,
+          "p99": 7.919665000000002,
+          "mean": 4.1799703095
+        }
+      },
+      "elapsed_seconds": 59.905183954,
+      "resource_interval_seconds": 59.596959,
+      "client_cpu_cores": 0.6747329251344544,
+      "server_cpu_cores": 4.979535664710731,
+      "active_worker_cpu_cores": 0.6744985631965831,
+      "client_cpu_ms_per_query": 4.042,
+      "worker_active_cpu_ms_per_query": 4.0405960505000005,
+      "server_cpu_ms_per_query": 29.83,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 600,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        290112,
+        290113,
+        290114,
+        290115
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 19.531092,
+          "p95": 27.078527,
+          "p99": 31.237677,
+          "mean": 19.7783736354
+        },
+        "complete_ms": {
+          "p50": 23.5440105,
+          "p95": 32.055551,
+          "p99": 36.426775,
+          "mean": 23.9349574518
+        },
+        "after_first_ms": {
+          "p50": 3.7720150000000015,
+          "p95": 6.815708000000001,
+          "p99": 7.810682,
+          "mean": 4.1565838164
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 19.286809499999997,
+          "p95": 26.905591,
+          "p99": 31.451708,
+          "mean": 19.5630663456
+        },
+        "complete_ms": {
+          "p50": 23.402248999999998,
+          "p95": 31.732866,
+          "p99": 36.723229,
+          "mean": 23.7664231482
+        },
+        "after_first_ms": {
+          "p50": 3.8029650000000004,
+          "p95": 6.814485999999999,
+          "p99": 7.999926000000002,
+          "mean": 4.2033568026
+        }
+      }
+    },
+    {
+      "name": "abc-4-BCA-pos-1-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 4,
+      "position": 1,
+      "phase": "abc",
+      "qps": 163.81375355303064,
+      "samples": 10000,
+      "warmup_samples": 8445,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 19.7958685,
+          "p95": 27.74492,
+          "p99": 32.105461,
+          "mean": 20.1182397065
+        },
+        "complete_ms": {
+          "p50": 23.8620395,
+          "p95": 32.766207,
+          "p99": 37.674952,
+          "mean": 24.3034859266
+        },
+        "after_first_ms": {
+          "p50": 3.7707955,
+          "p95": 6.855049000000001,
+          "p99": 8.129468,
+          "mean": 4.1852462201
+        }
+      },
+      "elapsed_seconds": 61.04493538,
+      "resource_interval_seconds": 60.760218,
+      "client_cpu_cores": 0.6662305357001757,
+      "server_cpu_cores": 4.938984669623873,
+      "active_worker_cpu_cores": 0.6657288867786169,
+      "client_cpu_ms_per_query": 4.067,
+      "worker_active_cpu_ms_per_query": 4.0639376874,
+      "server_cpu_ms_per_query": 30.15,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 610,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        291904,
+        291905,
+        291906,
+        291907
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 20.127566,
+          "p95": 28.128362,
+          "p99": 32.320595,
+          "mean": 20.4745975814
+        },
+        "complete_ms": {
+          "p50": 24.173443499999998,
+          "p95": 33.263301,
+          "p99": 37.925921,
+          "mean": 24.6877510468
+        },
+        "after_first_ms": {
+          "p50": 3.7724530000000005,
+          "p95": 6.906987000000001,
+          "p99": 8.534206999999999,
+          "mean": 4.2131534654
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 19.473169,
+          "p95": 27.326309,
+          "p99": 31.765201,
+          "mean": 19.7618818316
+        },
+        "complete_ms": {
+          "p50": 23.488414499999998,
+          "p95": 32.162912,
+          "p99": 37.201796,
+          "mean": 23.9192208064
+        },
+        "after_first_ms": {
+          "p50": 3.7694810000000007,
+          "p95": 6.821071,
+          "p99": 7.907465999999999,
+          "mean": 4.1573389748
+        }
+      }
+    },
+    {
+      "name": "abc-4-BCA-pos-2-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 4,
+      "position": 2,
+      "phase": "abc",
+      "qps": 148.51286100035708,
+      "samples": 10000,
+      "warmup_samples": 8535,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 21.0029095,
+          "p95": 31.38729,
+          "p99": 46.749825,
+          "mean": 22.4500078945
+        },
+        "complete_ms": {
+          "p50": 25.196937,
+          "p95": 36.862252,
+          "p99": 55.043606,
+          "mean": 26.8289245934
+        },
+        "after_first_ms": {
+          "p50": 3.841704000000002,
+          "p95": 7.069039000000004,
+          "p99": 10.507528,
+          "mean": 4.3789166989
+        }
+      },
+      "elapsed_seconds": 67.334235787,
+      "resource_interval_seconds": 66.942192,
+      "client_cpu_cores": 0.6316251978345186,
+      "server_cpu_cores": 4.886815691216751,
+      "active_worker_cpu_cores": 0.6316415044724,
+      "client_cpu_ms_per_query": 4.253,
+      "worker_active_cpu_ms_per_query": 4.2531097995,
+      "server_cpu_ms_per_query": 32.90500000000001,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 674,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        293684,
+        293685,
+        293686,
+        293687
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 20.08598,
+          "p95": 29.410609,
+          "p99": 37.999733,
+          "mean": 21.1708953278
+        },
+        "complete_ms": {
+          "p50": 24.1200485,
+          "p95": 34.197734,
+          "p99": 45.78506,
+          "mean": 25.4456301426
+        },
+        "after_first_ms": {
+          "p50": 3.7829724999999996,
+          "p95": 6.942375999999999,
+          "p99": 9.762823999999995,
+          "mean": 4.2747348148
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 21.991794499999997,
+          "p95": 33.235539,
+          "p99": 51.915443,
+          "mean": 23.7291204612
+        },
+        "complete_ms": {
+          "p50": 26.2318945,
+          "p95": 38.634033,
+          "p99": 61.501087,
+          "mean": 28.2122190442
+        },
+        "after_first_ms": {
+          "p50": 3.948482500000001,
+          "p95": 7.175319000000002,
+          "p99": 11.167872999999993,
+          "mean": 4.483098583
+        }
+      }
+    },
+    {
+      "name": "abc-4-BCA-pos-3-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 4,
+      "position": 3,
+      "phase": "abc",
+      "qps": 148.26619994359987,
+      "samples": 10000,
+      "warmup_samples": 7620,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 22.0533585,
+          "p95": 30.844805,
+          "p99": 36.498888,
+          "mean": 22.5125540058
+        },
+        "complete_ms": {
+          "p50": 26.335956000000003,
+          "p95": 35.874511,
+          "p99": 42.027795,
+          "mean": 26.9225091521
+        },
+        "after_first_ms": {
+          "p50": 3.9593230000000013,
+          "p95": 7.036782000000002,
+          "p99": 8.738760000000003,
+          "mean": 4.4099551463
+        }
+      },
+      "elapsed_seconds": 67.446255477,
+      "resource_interval_seconds": 67.030718,
+      "client_cpu_cores": 0.6390273217569155,
+      "server_cpu_cores": 4.923772233927009,
+      "active_worker_cpu_cores": 0.639148398174609,
+      "client_cpu_ms_per_query": 4.31,
+      "worker_active_cpu_ms_per_query": 4.310816615099999,
+      "server_cpu_ms_per_query": 33.209,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 675,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        295463,
+        295464,
+        295465,
+        295466
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 22.244315,
+          "p95": 30.87127,
+          "p99": 36.22971,
+          "mean": 22.6659969442
+        },
+        "complete_ms": {
+          "p50": 26.4850925,
+          "p95": 35.932016,
+          "p99": 41.715648,
+          "mean": 27.0945817558
+        },
+        "after_first_ms": {
+          "p50": 3.9531790000000004,
+          "p95": 7.025323,
+          "p99": 8.679378999999997,
+          "mean": 4.4285848116
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 21.8993645,
+          "p95": 30.744041,
+          "p99": 36.633726,
+          "mean": 22.3591110674
+        },
+        "complete_ms": {
+          "p50": 26.172922,
+          "p95": 35.771222,
+          "p99": 42.611933,
+          "mean": 26.7504365484
+        },
+        "after_first_ms": {
+          "p50": 3.9656114999999987,
+          "p95": 7.048103999999999,
+          "p99": 8.830353000000002,
+          "mean": 4.391325481
+        }
+      }
+    },
+    {
+      "name": "abc-5-CAB-pos-1-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 5,
+      "position": 1,
+      "phase": "abc",
+      "qps": 142.2137853571708,
+      "samples": 10000,
+      "warmup_samples": 7709,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 22.6112685,
+          "p95": 32.52901,
+          "p99": 42.475204,
+          "mean": 23.4029759158
+        },
+        "complete_ms": {
+          "p50": 27.061185000000002,
+          "p95": 38.057436,
+          "p99": 49.393103,
+          "mean": 28.0443887298
+        },
+        "after_first_ms": {
+          "p50": 4.093001499999998,
+          "p95": 7.394001000000003,
+          "p99": 10.616253999999998,
+          "mean": 4.641412814
+        }
+      },
+      "elapsed_seconds": 70.316671305,
+      "resource_interval_seconds": 69.857179,
+      "client_cpu_cores": 0.6443706614533409,
+      "server_cpu_cores": 4.889167726794174,
+      "active_worker_cpu_cores": 0.644272031884118,
+      "client_cpu_ms_per_query": 4.531,
+      "worker_active_cpu_ms_per_query": 4.5303064697,
+      "server_cpu_ms_per_query": 34.37899999999999,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 704,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        297252,
+        297253,
+        297254,
+        297255
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 22.348925,
+          "p95": 31.320757,
+          "p99": 36.948456,
+          "mean": 22.9146667582
+        },
+        "complete_ms": {
+          "p50": 26.745872,
+          "p95": 36.668295,
+          "p99": 43.245137,
+          "mean": 27.4681017204
+        },
+        "after_first_ms": {
+          "p50": 4.040642500000001,
+          "p95": 7.294945000000002,
+          "p99": 10.154052,
+          "mean": 4.5534349622
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 22.910195,
+          "p95": 33.790158,
+          "p99": 47.74081,
+          "mean": 23.8912850734
+        },
+        "complete_ms": {
+          "p50": 27.3306195,
+          "p95": 39.696883,
+          "p99": 55.309137,
+          "mean": 28.6206757392
+        },
+        "after_first_ms": {
+          "p50": 4.152797,
+          "p95": 7.502589,
+          "p99": 10.942906,
+          "mean": 4.7293906658000004
+        }
+      }
+    },
+    {
+      "name": "abc-5-CAB-pos-2-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 5,
+      "position": 2,
+      "phase": "abc",
+      "qps": 141.3372308289481,
+      "samples": 10000,
+      "warmup_samples": 7350,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 22.879713,
+          "p95": 33.063505,
+          "p99": 41.769881,
+          "mean": 23.5350254867
+        },
+        "complete_ms": {
+          "p50": 27.388074,
+          "p95": 38.393602,
+          "p99": 48.400041,
+          "mean": 28.1855281555
+        },
+        "after_first_ms": {
+          "p50": 4.107407499999999,
+          "p95": 7.4169599999999996,
+          "p99": 9.950579999999999,
+          "mean": 4.6505026688
+        }
+      },
+      "elapsed_seconds": 70.752765859,
+      "resource_interval_seconds": 70.162295,
+      "client_cpu_cores": 0.6360175387302665,
+      "server_cpu_cores": 4.8833426623709855,
+      "active_worker_cpu_cores": 0.6360446788424118,
+      "client_cpu_ms_per_query": 4.5,
+      "worker_active_cpu_ms_per_query": 4.5001920238,
+      "server_cpu_ms_per_query": 34.551,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 708,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        299043,
+        299044,
+        299045,
+        299046
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 23.2811255,
+          "p95": 33.510075,
+          "p99": 40.752323,
+          "mean": 23.840416114
+        },
+        "complete_ms": {
+          "p50": 27.8105215,
+          "p95": 38.853376,
+          "p99": 46.97687,
+          "mean": 28.544958411
+        },
+        "after_first_ms": {
+          "p50": 4.138266999999999,
+          "p95": 7.443341999999998,
+          "p99": 9.894935,
+          "mean": 4.704542297
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 22.608800000000002,
+          "p95": 32.330541,
+          "p99": 42.832005,
+          "mean": 23.2296348594
+        },
+        "complete_ms": {
+          "p50": 26.987218,
+          "p95": 37.642145,
+          "p99": 50.271256,
+          "mean": 27.8260979
+        },
+        "after_first_ms": {
+          "p50": 4.077919999999999,
+          "p95": 7.339374000000003,
+          "p99": 10.103294000000005,
+          "mean": 4.5964630406
+        }
+      }
+    },
+    {
+      "name": "abc-5-CAB-pos-3-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 5,
+      "position": 3,
+      "phase": "abc",
+      "qps": 151.69382351747893,
+      "samples": 10000,
+      "warmup_samples": 7636,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 21.4811945,
+          "p95": 30.48109,
+          "p99": 35.770961,
+          "mean": 21.8841468303
+        },
+        "complete_ms": {
+          "p50": 25.676775499999998,
+          "p95": 35.299217,
+          "p99": 41.062729,
+          "mean": 26.1790884435
+        },
+        "after_first_ms": {
+          "p50": 3.907323999999999,
+          "p95": 6.892016999999999,
+          "p99": 8.090007999999997,
+          "mean": 4.2949416132
+        }
+      },
+      "elapsed_seconds": 65.922262147,
+      "resource_interval_seconds": 65.270606,
+      "client_cpu_cores": 0.6343835699500969,
+      "server_cpu_cores": 4.872405611381424,
+      "active_worker_cpu_cores": 0.6344625803000207,
+      "client_cpu_ms_per_query": 4.182,
+      "worker_active_cpu_ms_per_query": 4.1825208541,
+      "server_cpu_ms_per_query": 32.120000000000005,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 660,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        300816,
+        300817,
+        300818,
+        300819
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 21.8769245,
+          "p95": 31.029076,
+          "p99": 36.104502,
+          "mean": 22.2568046062
+        },
+        "complete_ms": {
+          "p50": 26.024084000000002,
+          "p95": 35.777583,
+          "p99": 41.55741,
+          "mean": 26.6026047974
+        },
+        "after_first_ms": {
+          "p50": 3.940200000000001,
+          "p95": 6.942684,
+          "p99": 8.162016000000001,
+          "mean": 4.3458001912
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 21.094086,
+          "p95": 29.742447,
+          "p99": 35.364616,
+          "mean": 21.5114890544
+        },
+        "complete_ms": {
+          "p50": 25.249583,
+          "p95": 34.316867,
+          "p99": 40.617181,
+          "mean": 25.7555720896
+        },
+        "after_first_ms": {
+          "p50": 3.8720350000000003,
+          "p95": 6.844152999999999,
+          "p99": 8.031084,
+          "mean": 4.2440830352
+        }
+      }
+    },
+    {
+      "name": "abc-6-CBA-pos-1-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 6,
+      "position": 1,
+      "phase": "abc",
+      "qps": 155.79467163482155,
+      "samples": 10000,
+      "warmup_samples": 7848,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 20.7960915,
+          "p95": 29.598038,
+          "p99": 36.579538,
+          "mean": 21.2760094789
+        },
+        "complete_ms": {
+          "p50": 24.9307995,
+          "p95": 34.447251,
+          "p99": 42.590535,
+          "mean": 25.5423832262
+        },
+        "after_first_ms": {
+          "p50": 3.8396430000000006,
+          "p95": 6.888093000000001,
+          "p99": 8.379998999999998,
+          "mean": 4.2663737473
+        }
+      },
+      "elapsed_seconds": 64.187047574,
+      "resource_interval_seconds": 63.753645,
+      "client_cpu_cores": 0.647794244657588,
+      "server_cpu_cores": 4.903948879049278,
+      "active_worker_cpu_cores": 0.6475602236741071,
+      "client_cpu_ms_per_query": 4.158,
+      "worker_active_cpu_ms_per_query": 4.1564978884,
+      "server_cpu_ms_per_query": 31.477,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 643,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        302609,
+        302610,
+        302611,
+        302612
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 21.166529,
+          "p95": 29.559932,
+          "p99": 35.292094,
+          "mean": 21.5673571912
+        },
+        "complete_ms": {
+          "p50": 25.371581,
+          "p95": 34.561353,
+          "p99": 40.427374,
+          "mean": 25.918951077
+        },
+        "after_first_ms": {
+          "p50": 3.9475834999999986,
+          "p95": 6.951176,
+          "p99": 8.600721,
+          "mean": 4.3515938858
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 20.445225,
+          "p95": 29.613216,
+          "p99": 38.646603,
+          "mean": 20.9846617666
+        },
+        "complete_ms": {
+          "p50": 24.4788185,
+          "p95": 34.265208,
+          "p99": 45.174992,
+          "mean": 25.1658153754
+        },
+        "after_first_ms": {
+          "p50": 3.757904,
+          "p95": 6.821658999999997,
+          "p99": 8.232363999999997,
+          "mean": 4.1811536088
+        }
+      }
+    },
+    {
+      "name": "abc-6-CBA-pos-2-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 6,
+      "position": 2,
+      "phase": "abc",
+      "qps": 165.16980035081667,
+      "samples": 10000,
+      "warmup_samples": 8484,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 19.571069,
+          "p95": 27.350597,
+          "p99": 31.775016,
+          "mean": 19.8946069749
+        },
+        "complete_ms": {
+          "p50": 23.6352275,
+          "p95": 32.179167,
+          "p99": 36.657912,
+          "mean": 24.0730772305
+        },
+        "after_first_ms": {
+          "p50": 3.795728500000001,
+          "p95": 6.820193,
+          "p99": 7.957511999999998,
+          "mean": 4.1784702556
+        }
+      },
+      "elapsed_seconds": 60.543755449,
+      "resource_interval_seconds": 59.902905,
+      "client_cpu_cores": 0.6691028612211584,
+      "server_cpu_cores": 4.935769143883455,
+      "active_worker_cpu_cores": 0.6690084020162811,
+      "client_cpu_ms_per_query": 4.051,
+      "worker_active_cpu_ms_per_query": 4.0504281085,
+      "server_cpu_ms_per_query": 29.883,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 606,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        304396,
+        304397,
+        304398,
+        304399
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 19.853398499999997,
+          "p95": 28.034983,
+          "p99": 32.879294,
+          "mean": 20.2513051302
+        },
+        "complete_ms": {
+          "p50": 23.9513525,
+          "p95": 33.026311,
+          "p99": 37.712417,
+          "mean": 24.4940704168
+        },
+        "after_first_ms": {
+          "p50": 3.8219164999999986,
+          "p95": 6.874268000000001,
+          "p99": 8.489729,
+          "mean": 4.2427652866
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 19.259079,
+          "p95": 26.663283,
+          "p99": 30.401992,
+          "mean": 19.5379088196
+        },
+        "complete_ms": {
+          "p50": 23.3174005,
+          "p95": 31.356098,
+          "p99": 35.327552,
+          "mean": 23.6520840442
+        },
+        "after_first_ms": {
+          "p50": 3.7742250000000013,
+          "p95": 6.763006999999998,
+          "p99": 7.7377,
+          "mean": 4.1141752246
+        }
+      }
+    },
+    {
+      "name": "abc-6-CBA-pos-3-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 6,
+      "position": 3,
+      "phase": "abc",
+      "qps": 163.24422473927925,
+      "samples": 10000,
+      "warmup_samples": 8728,
+      "metrics": {
+        "first_row_ms": {
+          "p50": 19.9019135,
+          "p95": 27.793958,
+          "p99": 32.499356,
+          "mean": 20.2164623558
+        },
+        "complete_ms": {
+          "p50": 23.978727,
+          "p95": 32.68526,
+          "p99": 38.202248,
+          "mean": 24.4325959796
+        },
+        "after_first_ms": {
+          "p50": 3.797709000000001,
+          "p95": 6.854457,
+          "p99": 8.357410000000002,
+          "mean": 4.2161336238
+        }
+      },
+      "elapsed_seconds": 61.257909834,
+      "resource_interval_seconds": 60.614768,
+      "client_cpu_cores": 0.6655467042620417,
+      "server_cpu_cores": 4.93715833301476,
+      "active_worker_cpu_cores": 0.6656215469233798,
+      "client_cpu_ms_per_query": 4.077000000000001,
+      "worker_active_cpu_ms_per_query": 4.0774584705,
+      "server_cpu_ms_per_query": 30.243999999999993,
+      "throttled_seconds": 0.0,
+      "throttled_periods": 0,
+      "total_periods": 613,
+      "client_throttled_seconds": 0.0,
+      "cpu_isolated": true,
+      "worker_pids": [
+        306181,
+        306182,
+        306183,
+        306184
+      ],
+      "python": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "pymysql": "1.1.1",
+      "first_half": {
+        "first_row_ms": {
+          "p50": 19.5523315,
+          "p95": 27.096537,
+          "p99": 31.579282,
+          "mean": 19.8244694272
+        },
+        "complete_ms": {
+          "p50": 23.6268915,
+          "p95": 32.046503,
+          "p99": 36.497101,
+          "mean": 24.001899677
+        },
+        "after_first_ms": {
+          "p50": 3.792235,
+          "p95": 6.79533,
+          "p99": 8.178801,
+          "mean": 4.1774302498
+        }
+      },
+      "second_half": {
+        "first_row_ms": {
+          "p50": 20.209456000000003,
+          "p95": 28.381604,
+          "p99": 33.584223,
+          "mean": 20.6084552844
+        },
+        "complete_ms": {
+          "p50": 24.380150999999998,
+          "p95": 33.465567,
+          "p99": 39.556587,
+          "mean": 24.8632922822
+        },
+        "after_first_ms": {
+          "p50": 3.805365,
+          "p95": 6.898829000000003,
+          "p99": 8.678548,
+          "mean": 4.2548369978
+        }
+      }
+    }
+  ],
+  "final_state": {
+    "utc": "2026-09-22T09:16:05.645943+00:00",
+    "nodes": {
+      "fe": null,
+      "be0": null,
+      "be1": null,
+      "be2": null
+    },
+    "physical_files_unchanged": true,
+    "memory_events": "low 0\nhigh 0\nmax 694920\noom 2\noom_kill 2\noom_group_kill 0\n"
+  }
+}

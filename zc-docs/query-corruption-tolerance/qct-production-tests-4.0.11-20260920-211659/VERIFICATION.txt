@@ -1,0 +1,54 @@
+补丁验证记录
+代码验证复核时间：2026-09-20 13:31 UTC（21:31 Asia/Shanghai）
+操作仅涉及独立临时仓库和新交付目录。
+
+基线：9559176fab6e2cb885779f1e7b680133d58d6972
+终点：22a4478221d94b27e24d006a36f3b15bf962aac2
+export 仓库：/private/tmp/qct-package-20260920.pDxiOT/export
+git am 仓库：/private/tmp/qct-package-20260920.pDxiOT/verify-am
+git apply 独立 worktree：/private/tmp/qct-package-20260920.pDxiOT/verify-apply
+patch：0001-feat-query-corruption-add-local-OLAP-scan-tolerance.patch
+
+已执行并通过：
+1. 冻结起止祖先关系、区间无 merge，按确认路径生成净差异。
+2. 补丁实际 diff 路径共 45 个，与 FILELIST 完全一致；
+   无 zc-docs/、无任意大小写的 .md，无独立性能/故障工具。
+3. 独立 verify-am 从基线开始：
+   git apply --check <patch> 成功；
+   git am <patch> 成功，仅产生 1 个提交。
+   应用后的提交：46ee41b442bd8ac392c6a67dc7ccbfef436fc528
+   工作区/暂存区干净。
+4. export 汇总提交与 git am 后提交的作者姓名/邮箱、作者日期、标题/正文逐项相等。
+   提交者时间不同产生不同 commit SHA 属于预期，不影响代码一致性。
+5. 所选路径的最终内容和冻结终点一致：
+   git diff --exit-code <end> HEAD -- <确认的六个路径> <排除项>
+   退出码 0。
+6. 所选范围以外全部保持基线；另外单独核查 zc-docs 和全部 *.md 未变化。
+   git diff --exit-code <base> HEAD -- . <排除已选六个路径>
+   以及 git diff --exit-code <base> HEAD -- zc-docs ':(icase,glob)**/*.md'
+   均退出码 0。
+7. git diff --check <base> HEAD 成功，净统计 45 files / +1859 / -22。
+8. export 与 verify-am 的完整 Git tree 相同：
+   4f0f87a489250890de13f9df0f61f376039e4535
+9. 独立 verify-apply 从基线开始：
+   git apply --check <patch> 与 git apply --index <patch> 成功；
+   git diff --cached --check 成功；
+   git write-tree 与上述完整 tree 相同；45 files / +1859 / -22。
+   此临时 worktree 故意保留暂存态供检查，不是用户工作区。
+
+过程记录：
+首次验证在 git am 已成功后，直接用 export 的临时提交 SHA 在另一个仅共享源仓库对象的仓库做 diff，因该临时提交对象不在其对象库而报 bad object。
+这不是补丁应用失败。改为分别读取两仓库的完整 tree ID 并比较，且重新完成源终点/基线逐路径验证，均通过。没有重复应用 git am、没有改变代码或补丁以绕过冲突。
+
+归档流程：
+上述文件固定后生成 SHA256SUMS，压缩包只装该新交付目录。
+交付前检查 tar 文件列表，独立新目录解压，并运行 shasum -a 256 -c SHA256SUMS。
+压缩包本身的摘要在包外 .tar.gz.sha256 中，避免自引用。
+这些步骤检验传输/打包完整性；不构成内网编译或功能验证。
+
+未执行/不能声称：
+- 没有在内网分支应用或解决内部定制冲突。
+- 没有在本次打包重新编译 FE/BE，或重新跑单测、物理损坏、性能验收。
+- 没有修改原分支业务代码、创建原分支提交或推送 remote。
+- 没有操作 Docker/虚拟机、清理或污染 Tenant-TTL/QCT 构建资产。
+源分支历史测试结果和局限见 MR_DESCRIPTION.md；补丁可应用不等于测试通过。

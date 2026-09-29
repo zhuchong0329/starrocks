@@ -1,0 +1,31 @@
+{"node": "fe", "pid": 208581, "start_ticks": "18976066", "home": "/query-corruption-workspace/runtime/qct-cluster/fe", "command": ["/usr/lib/jvm/java-17-openjdk-arm64/bin/java", "-Xms512m", "-Xmx2g", "-XX:+UseG1GC", "-Dlog4j2.formatMsgNoLookups=true", "-cp", "/query-corruption-workspace/src/fe/fe-core/target/starrocks-fe.jar:/query-corruption-workspace/src/fe/fe-core/target/lib/*:/query-corruption-workspace/runtime/qct-cluster/fe/conf", "com.starrocks.StarRocksFE"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104006.952108Z"}}
+{"node": "be0", "pid": 208582, "start_ticks": "18976066", "home": "/query-corruption-workspace/runtime/qct-cluster/be0", "command": ["/query-corruption-workspace/src/be/output/lib/starrocks_be"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104006.952108Z"}}
+{"node": "be1", "pid": 208583, "start_ticks": "18976066", "home": "/query-corruption-workspace/runtime/qct-cluster/be1", "command": ["/query-corruption-workspace/src/be/output/lib/starrocks_be"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104006.952108Z"}}
+{"node": "be2", "pid": 208584, "start_ticks": "18976066", "home": "/query-corruption-workspace/runtime/qct-cluster/be2", "command": ["/query-corruption-workspace/src/be/output/lib/starrocks_be"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104006.952108Z"}}
+control-before completed
+{"node": "be0", "state": "stopped"}
+{"node": "be0", "pid": 210284, "start_ticks": "18979810", "home": "/query-corruption-workspace/runtime/qct-cluster/be0", "command": ["/query-corruption-workspace/src/be/output/lib/starrocks_be"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104006.952108Z"}}
+{"node": "be0", "state": "stopped"}
+{"node": "be0", "pid": 210764, "start_ticks": "18980846", "home": "/query-corruption-workspace/runtime/qct-cluster/be0", "command": ["/query-corruption-workspace/src/be/output/lib/starrocks_be"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104006.952108Z"}}
+{"node": "fe", "state": "stopped"}
+{"node": "be2", "state": "stopped"}
+{"node": "be0", "state": "stopped"}
+{"node": "be1", "state": "stopped"}
+Traceback (most recent call last):
+  File "/query-corruption-workspace/logs/QCT-007/perf-interference.py", line 32, in <module>
+    supplement.interference_phase(destination, 'fault-concurrent', True, 1000, 2000)
+  File "/query-corruption-workspace/src/tools/query_corruption/supplement.py", line 179, in interference_phase
+    cursor.execute(probe.HEALTHY_SQL)
+  File "/query-corruption-workspace/tools/python/lib/python3.10/site-packages/pymysql/cursors.py", line 153, in execute
+    result = self._query(query)
+  File "/query-corruption-workspace/tools/python/lib/python3.10/site-packages/pymysql/cursors.py", line 447, in _query
+    conn.query(q, unbuffered=True)
+  File "/query-corruption-workspace/tools/python/lib/python3.10/site-packages/pymysql/connections.py", line 563, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+  File "/query-corruption-workspace/tools/python/lib/python3.10/site-packages/pymysql/connections.py", line 818, in _read_query_result
+    result.init_unbuffered_query()
+  File "/query-corruption-workspace/tools/python/lib/python3.10/site-packages/pymysql/connections.py", line 1216, in init_unbuffered_query
+    first_packet = self.connection._read_packet()
+  File "/query-corruption-workspace/tools/python/lib/python3.10/site-packages/pymysql/connections.py", line 757, in _read_packet
+    raise err.InternalError(
+pymysql.err.InternalError: Packet sequence number wrong - got 13 expected 1

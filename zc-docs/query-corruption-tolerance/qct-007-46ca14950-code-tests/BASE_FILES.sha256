@@ -1,0 +1,6 @@
+ac17325c6e2ef4d9093d6d3ca6e327896e7b7df2568bb4b8b33ec59708fa073c  fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java
+29369628dc13b870e9b86d8db87c645e8f211a73494f44cd7d9de0c6ea2a8f7b  fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionWarning.java
+3ed318b6429df06453f86534bbd04adedea8db773c82cbecfb54f40a7e30cb47  fe/fe-core/src/main/java/com/starrocks/qe/StmtExecutor.java
+ec8598e7c9a7284fa67a006d5e240b0a5fdbefb3b9f6f20945e468db2a951866  fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionPolicyTest.java
+6ee229f6ad99f3faafb3442eedfd969ed3f5c5841e11be173efe5d497e6bf695  fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionWarningTest.java
+500dd7280cbde585ce163880c75df7eed09e4e7f78326c84f90f2ae1bfdd9ec1  fe/fe-core/src/test/java/com/starrocks/sql/plan/QueryCorruptionPlanTest.java

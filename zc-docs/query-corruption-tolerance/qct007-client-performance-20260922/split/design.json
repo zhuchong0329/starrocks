@@ -1,0 +1,199 @@
+{
+  "utc": "2026-09-22T08:15:21.495416+00:00",
+  "schedule": [
+    {
+      "name": "control-1-pos-1-threads",
+      "variant": "A-baseline",
+      "client_mode": "threads",
+      "block": 1,
+      "position": 1,
+      "phase": "client"
+    },
+    {
+      "name": "control-1-pos-2-processes",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 1,
+      "position": 2,
+      "phase": "client"
+    },
+    {
+      "name": "control-2-pos-1-processes",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 2,
+      "position": 1,
+      "phase": "client"
+    },
+    {
+      "name": "control-2-pos-2-threads",
+      "variant": "A-baseline",
+      "client_mode": "threads",
+      "block": 2,
+      "position": 2,
+      "phase": "client"
+    },
+    {
+      "name": "abc-1-ABC-pos-1-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 1,
+      "position": 1,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-1-ABC-pos-2-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 1,
+      "position": 2,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-1-ABC-pos-3-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 1,
+      "position": 3,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-2-ACB-pos-1-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 2,
+      "position": 1,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-2-ACB-pos-2-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 2,
+      "position": 2,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-2-ACB-pos-3-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 2,
+      "position": 3,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-3-BAC-pos-1-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 3,
+      "position": 1,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-3-BAC-pos-2-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 3,
+      "position": 2,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-3-BAC-pos-3-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 3,
+      "position": 3,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-4-BCA-pos-1-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 4,
+      "position": 1,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-4-BCA-pos-2-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 4,
+      "position": 2,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-4-BCA-pos-3-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 4,
+      "position": 3,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-5-CAB-pos-1-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 5,
+      "position": 1,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-5-CAB-pos-2-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 5,
+      "position": 2,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-5-CAB-pos-3-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 5,
+      "position": 3,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-6-CBA-pos-1-C",
+      "variant": "C-on",
+      "client_mode": "processes",
+      "block": 6,
+      "position": 1,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-6-CBA-pos-2-B",
+      "variant": "B-off",
+      "client_mode": "processes",
+      "block": 6,
+      "position": 2,
+      "phase": "abc"
+    },
+    {
+      "name": "abc-6-CBA-pos-3-A",
+      "variant": "A-baseline",
+      "client_mode": "processes",
+      "block": 6,
+      "position": 3,
+      "phase": "abc"
+    }
+  ],
+  "experiment": "split",
+  "case": "detail_page",
+  "concurrency": 4,
+  "dop": 2,
+  "samples_per_run": 10000,
+  "warmup_seconds": 60,
+  "query_cache": false,
+  "storage_page_cache": true,
+  "server_cpus": "0-5",
+  "server_quota": 6,
+  "client_cpus": "6-7",
+  "client_quota": 2,
+  "client_volume": "sr-query-corruption-client-perf-arm64",
+  "baseline": "9559176fab6e2cb885779f1e7b680133d58d6972",
+  "feature": "46ca14950dc76004c5df355ce2c975a77c50041a",
+  "harness_sha256": "51c9b4132bf718dcaeb1bfea246512e084fcf5bbada9326ef5051808280b9f84",
+  "orchestrator_sha256": "7a7c4a28c0da172f567e0575ca5f3a2b39dd5fbc60388029c05538c32eec6dfb",
+  "limitations": "Separate client/server CPU sets and quotas, but shared VM/host/cache/network; other containers untouched"
+}

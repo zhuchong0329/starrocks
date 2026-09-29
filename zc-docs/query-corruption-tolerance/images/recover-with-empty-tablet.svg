@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1240" viewBox="0 0 1440 1240" role="img" aria-labelledby="title description">
+  <title id="title">recover_with_empty_tablet：优先恢复数据，空 tablet 仅用于有损恢复</title>
+  <desc id="description">三场景对照：配置默认 false，存在健康源副本时仍能克隆修复；配置 true 时仍优先从健康副本克隆；只有没有可用恢复源且满足 FE 的空 tablet 恢复条件时，才允许创建空 tablet，代价是该 tablet 全部历史数据丢失。一次克隆失败、BE 暂时离线或资源不足，不等于允许自动清空。仅文件损坏而 FE 尚未识别异常时，开启配置仍不能触发恢复。</desc>
+  <defs>
+    <style>
+      text { font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #172b3a; }
+      .title { font-size: 42px; font-weight: 600; }
+      .heading { font-size: 32px; font-weight: 600; }
+      .subtitle { font-size: 23px; fill: #526575; }
+      .card-title { font-size: 28px; font-weight: 600; }
+      .value { font-size: 46px; font-weight: 600; }
+      .label { font-size: 20px; fill: #526575; }
+      .body { font-size: 22px; fill: #344b59; }
+      .action { font-size: 25px; font-weight: 600; }
+      .note { font-size: 21px; fill: #526575; }
+      .green { fill: #16634e; }
+      .red { fill: #a52c25; }
+    </style>
+  </defs>
+
+  <rect width="1440" height="1240" fill="#ffffff"/>
+  <text x="48" y="66" class="title">recover_with_empty_tablet</text>
+  <text x="48" y="116" class="heading">优先恢复数据，空 tablet 仅用于有损恢复</text>
+  <text x="48" y="158" class="subtitle">只控制是否允许创建空 tablet，不控制正常的副本克隆修复</text>
+
+  <!-- The default does not disable ordinary replica repair. -->
+  <rect x="48" y="200" width="432" height="584" rx="22" fill="#eff7f3"/>
+  <rect x="48" y="200" width="8" height="64" rx="4" fill="#27745c"/>
+  <text x="80" y="247" class="card-title green">默认行为</text>
+  <text x="80" y="312" class="value green">false</text>
+  <text x="205" y="309" font-size="28" font-weight="600" class="green">（默认）</text>
+  <path d="M 80 342 H 448" stroke="#ccded4" stroke-width="2"/>
+  <text x="80" y="378" class="label">条件</text>
+  <text x="80" y="415" class="body">FE 已识别异常副本</text>
+  <text x="80" y="449" class="body">存在完整、可用的源副本</text>
+  <rect x="72" y="489" width="384" height="151" rx="14" fill="#ffffff"/>
+  <text x="96" y="533" class="action green">从健康副本克隆修复</text>
+  <text x="96" y="576" class="action">恢复原有数据</text>
+  <text x="96" y="613" class="note">关闭配置不影响正常修复</text>
+  <text x="80" y="690" class="body">无可用源时：</text>
+  <text x="80" y="726" class="body">不启用空 tablet 恢复</text>
+  <text x="80" y="757" class="note">等待恢复条件变化或人工处理</text>
+
+  <!-- Enabling the fallback does not replace source-based cloning. -->
+  <rect x="504" y="200" width="432" height="584" rx="22" fill="#eff7f3"/>
+  <rect x="504" y="200" width="8" height="64" rx="4" fill="#27745c"/>
+  <text x="536" y="247" class="card-title green">开启后的优先路径</text>
+  <text x="536" y="312" class="value green">true</text>
+  <path d="M 536 342 H 904" stroke="#ccded4" stroke-width="2"/>
+  <text x="536" y="378" class="label">条件</text>
+  <text x="536" y="415" class="body">存在完整、可用的源副本</text>
+  <text x="536" y="449" class="body">仍可通过克隆恢复数据</text>
+  <rect x="528" y="489" width="384" height="151" rx="14" fill="#ffffff"/>
+  <text x="552" y="533" class="action green">仍优先从健康副本克隆</text>
+  <text x="552" y="576" class="action">恢复原有数据</text>
+  <text x="552" y="613" class="note">开启配置不等于清空数据</text>
+  <text x="536" y="690" class="body">不是“克隆失败一次</text>
+  <text x="536" y="726" class="body">就自动创建空 tablet”</text>
+
+  <!-- The empty-tablet path intentionally gives up the target tablet's history. -->
+  <rect x="960" y="200" width="432" height="584" rx="22" fill="#fff3ec"/>
+  <rect x="960" y="200" width="8" height="64" rx="4" fill="#b94b33"/>
+  <text x="992" y="247" class="card-title red">有损恢复路径</text>
+  <text x="992" y="312" class="value red">true</text>
+  <path d="M 992 342 H 1360" stroke="#e9cfc2" stroke-width="2"/>
+  <text x="992" y="378" class="label">条件（同时满足）</text>
+  <text x="992" y="415" class="body">没有可用恢复源</text>
+  <text x="992" y="449" class="body">且满足 FE 的空 tablet 恢复条件</text>
+  <rect x="984" y="489" width="384" height="151" rx="14" fill="#fbe1d8"/>
+  <text x="1008" y="533" class="action red">创建空 tablet</text>
+  <text x="1008" y="576" class="action red">该 tablet 全部历史数据丢失</text>
+  <text x="1008" y="613" class="note">不恢复原有数据</text>
+  <text x="992" y="690" class="body">仅指该 tablet，</text>
+  <text x="992" y="726" class="body">不是整表或整个集群。</text>
+
+  <rect x="48" y="808" width="1344" height="94" rx="14" fill="#edf1f5"/>
+  <text x="80" y="846" font-size="23" font-weight="600">进入右侧路径的前提：无可用恢复源 + 满足 FE 的空 tablet 恢复条件</text>
+  <text x="80" y="880" class="note">一次克隆失败、BE 暂时离线或资源不足，本身不构成自动清空的理由。</text>
+
+  <text x="48" y="950" font-size="25" font-weight="600">空 tablet 恢复条件（FE 判定）</text>
+  <text x="48" y="989" class="body">① 每个剩余副本：已标记 BAD，或所属 BE 已被删除；</text>
+  <text x="48" y="1023" class="body">② 或者，唯一副本在 FE 中有记录，但 BE 上已无对应 tablet。</text>
+  <text x="48" y="1057" class="note">实际执行仍受副本状态、资源和调度条件约束；BE 被删除不等于暂时离线。</text>
+
+  <rect x="48" y="1088" width="1344" height="112" rx="14" fill="#fff3ec"/>
+  <text x="80" y="1133" font-size="25" font-weight="600" class="red">仍未解决：segment 损坏，但 FE 尚未识别副本异常</text>
+  <text x="80" y="1171" class="body">仅开启该配置不会触发恢复；它不是文件损坏检测开关。</text>
+</svg>

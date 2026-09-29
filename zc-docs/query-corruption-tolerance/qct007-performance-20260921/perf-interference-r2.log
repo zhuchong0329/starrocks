@@ -1,0 +1,15 @@
+{"node": "fe", "pid": 211268, "start_ticks": "19006954", "home": "/query-corruption-workspace/runtime/qct-cluster/fe", "command": ["/usr/lib/jvm/java-17-openjdk-arm64/bin/java", "-Xms512m", "-Xmx2g", "-XX:+UseG1GC", "-Dlog4j2.formatMsgNoLookups=true", "-cp", "/query-corruption-workspace/src/fe/fe-core/target/starrocks-fe.jar:/query-corruption-workspace/src/fe/fe-core/target/lib/*:/query-corruption-workspace/runtime/qct-cluster/fe/conf", "com.starrocks.StarRocksFE"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104515.518640Z"}}
+{"node": "be0", "pid": 211269, "start_ticks": "19006954", "home": "/query-corruption-workspace/runtime/qct-cluster/be0", "command": ["/query-corruption-workspace/src/be/output/lib/starrocks_be"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104515.518640Z"}}
+{"node": "be1", "pid": 211270, "start_ticks": "19006954", "home": "/query-corruption-workspace/runtime/qct-cluster/be1", "command": ["/query-corruption-workspace/src/be/output/lib/starrocks_be"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104515.518640Z"}}
+{"node": "be2", "pid": 211271, "start_ticks": "19006954", "home": "/query-corruption-workspace/runtime/qct-cluster/be2", "command": ["/query-corruption-workspace/src/be/output/lib/starrocks_be"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104515.518640Z"}}
+control-before completed
+{"node": "be0", "state": "stopped"}
+{"node": "be0", "pid": 212962, "start_ticks": "19010497", "home": "/query-corruption-workspace/runtime/qct-cluster/be0", "command": ["/query-corruption-workspace/src/be/output/lib/starrocks_be"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104515.518640Z"}}
+fault-concurrent completed
+{"node": "be0", "state": "stopped"}
+{"node": "be0", "pid": 213445, "start_ticks": "19012633", "home": "/query-corruption-workspace/runtime/qct-cluster/be0", "command": ["/query-corruption-workspace/src/be/output/lib/starrocks_be"], "selection": {"variant": "C-on", "source": "/query-corruption-workspace/src", "storage_page_cache": false, "selected_utc": "20260921T104515.518640Z"}}
+control-after completed
+{"node": "fe", "state": "stopped"}
+{"node": "be0", "state": "stopped"}
+{"node": "be1", "state": "stopped"}
+{"node": "be2", "state": "stopped"}

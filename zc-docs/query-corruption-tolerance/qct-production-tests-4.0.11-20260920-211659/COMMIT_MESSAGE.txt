@@ -1,0 +1,16 @@
+feat(query-corruption): add local OLAP scan tolerance
+
+Problem:
+Independent local OLAP scans currently fail user SELECTs when storage reports file corruption, even when partial or empty results are explicitly acceptable to the product.
+
+Implementation:
+Consolidate the user-approved production and FE/BE test changes from 9559176fab6e2cb885779f1e7b680133d58d6972 through 22a4478221d94b27e24d006a36f3b15bf962aac2 into one migration commit. Include QCT-001 through QCT-006 and the separately authored test-only COMMUNITY-FIX for the Exchange fixture. Preserve all original commit metadata in the accompanying ORIGIN_COMMITS.txt; this is a newly synthesized migration commit, not an original implementation commit.
+
+Add query eligibility and optional wire fields, task-local Corruption-to-EOF handling, sticky diagnostics on existing Exchange/result messages, MySQL/JDBC warnings and standard HTTP SQL completion markers. Include 45 production/protocol/configuration/test files, including both protocol integration tests and their existing FE test-framework integration. Exclude documentation and standalone performance/fault-injection tools.
+
+Compatibility:
+Java startup configuration defaults to false; product conf/fe.conf sets enable_query_corruption_tolerance=true. Keep it false throughout mixed-version upgrades and restart FEs after changing the actual startup configuration. Only eligible user-facing local OLAP SELECTs opt in. Shared preparation, unsupported paths and other errors remain strict. Entirely unreadable inputs may produce empty or operator-generated results plus Warning. No new diagnostic RPC, completion wait, plan rewrite, tablet-wide stop, replica repair or Query Cache integrity protection is added.
+
+Tests:
+The source branch previously passed 45 FE tests and package, 14 focused BE tests in 20 randomized repetitions, and real file-corruption/client validation. A/B/C healthy-query performance evaluation observed nonzero overhead and some throughput/tail-latency regressions; no zero-regression claim is made.
+This packaging operation runs patch-application and complete-tree/content checks only, not a fresh compilation or test-suite run. The generated patch must be independently validated and tested on the internal target branch. MySQL Connector/J test requires an external test-only jar; without qct.mysql.driver.jar that test is skipped.

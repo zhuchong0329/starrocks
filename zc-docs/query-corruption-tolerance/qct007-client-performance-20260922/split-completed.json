@@ -1,0 +1,816 @@
+[
+  {
+    "name": "control-1-pos-1-threads",
+    "variant": "A-baseline",
+    "client_mode": "threads",
+    "block": 1,
+    "position": 1,
+    "phase": "client",
+    "qps": 108.01466338502406,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 20.2638262892,
+          "median": 20.131306,
+          "p95": 29.217312,
+          "p99": 34.465907,
+          "min": 9.701881,
+          "max": 238.175943
+        },
+        "complete_ms": {
+          "mean": 36.902225109,
+          "median": 35.797666500000005,
+          "p95": 57.161196,
+          "p99": 65.520401,
+          "min": 13.720836,
+          "max": 309.155401
+        },
+        "after_first_ms": {
+          "p50": 16.664927,
+          "p95": 31.785662,
+          "p99": 36.64967899999999
+        }
+      }
+    },
+    "warmup_samples": 5745
+  },
+  {
+    "name": "control-1-pos-2-processes",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 1,
+    "position": 2,
+    "phase": "client",
+    "qps": 142.18775920157552,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 23.3838947459,
+          "median": 22.60839,
+          "p95": 32.482603,
+          "p99": 41.147204,
+          "min": 9.809286,
+          "max": 475.165734
+        },
+        "complete_ms": {
+          "mean": 27.866463797,
+          "median": 26.9497785,
+          "p95": 37.46752,
+          "p99": 47.73735,
+          "min": 13.491228,
+          "max": 480.990698
+        },
+        "after_first_ms": {
+          "p50": 4.009537999999996,
+          "p95": 7.125800999999999,
+          "p99": 9.473315
+        }
+      }
+    },
+    "warmup_samples": 7453
+  },
+  {
+    "name": "control-2-pos-1-processes",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 2,
+    "position": 1,
+    "phase": "client",
+    "qps": 149.45738940588194,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 22.25984361,
+          "median": 21.68673,
+          "p95": 30.653627,
+          "p99": 37.175934,
+          "min": 9.499063,
+          "max": 367.357748
+        },
+        "complete_ms": {
+          "mean": 26.6349521405,
+          "median": 25.9465,
+          "p95": 35.784189,
+          "p99": 42.773525,
+          "min": 13.273559,
+          "max": 371.168587
+        },
+        "after_first_ms": {
+          "p50": 3.930934999999998,
+          "p95": 7.049918999999999,
+          "p99": 8.912333999999998
+        }
+      }
+    },
+    "warmup_samples": 7754
+  },
+  {
+    "name": "control-2-pos-2-threads",
+    "variant": "A-baseline",
+    "client_mode": "threads",
+    "block": 2,
+    "position": 2,
+    "phase": "client",
+    "qps": 112.00820271176309,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 19.2823497841,
+          "median": 19.142326500000003,
+          "p95": 27.718989,
+          "p99": 32.083257,
+          "min": 9.441508,
+          "max": 66.200068
+        },
+        "complete_ms": {
+          "mean": 35.5776688885,
+          "median": 34.807731000000004,
+          "p95": 55.112001,
+          "p99": 61.830602,
+          "min": 13.507383,
+          "max": 96.807886
+        },
+        "after_first_ms": {
+          "p50": 16.441203,
+          "p95": 30.45743000000001,
+          "p99": 34.909566999999996
+        }
+      }
+    },
+    "warmup_samples": 6068
+  },
+  {
+    "name": "abc-1-ABC-pos-1-A",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 1,
+    "position": 1,
+    "phase": "abc",
+    "qps": 151.1439361614168,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 21.9317153647,
+          "median": 21.421667499999998,
+          "p95": 30.198218,
+          "p99": 36.786267,
+          "min": 9.798697,
+          "max": 224.991561
+        },
+        "complete_ms": {
+          "mean": 26.3797482625,
+          "median": 25.6941195,
+          "p95": 35.577937,
+          "p99": 43.126146,
+          "min": 13.454531,
+          "max": 232.613642
+        },
+        "after_first_ms": {
+          "p50": 3.981750999999999,
+          "p95": 7.121400000000001,
+          "p99": 9.797962000000002
+        }
+      }
+    },
+    "warmup_samples": 7813
+  },
+  {
+    "name": "abc-1-ABC-pos-2-B",
+    "variant": "B-off",
+    "client_mode": "processes",
+    "block": 1,
+    "position": 2,
+    "phase": "abc",
+    "qps": 137.29043813353215,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 24.3191455579,
+          "median": 22.888679500000002,
+          "p95": 35.704899,
+          "p99": 53.933596,
+          "min": 9.648254,
+          "max": 369.360714
+        },
+        "complete_ms": {
+          "mean": 29.0119090735,
+          "median": 27.278926,
+          "p95": 41.384686,
+          "p99": 61.99021,
+          "min": 13.368961,
+          "max": 386.02444
+        },
+        "after_first_ms": {
+          "p50": 4.065936000000001,
+          "p95": 7.484097000000002,
+          "p99": 11.708655
+        }
+      }
+    },
+    "warmup_samples": 7769
+  },
+  {
+    "name": "abc-1-ABC-pos-3-C",
+    "variant": "C-on",
+    "client_mode": "processes",
+    "block": 1,
+    "position": 3,
+    "phase": "abc",
+    "qps": 139.26579316804907,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 23.9414004453,
+          "median": 23.150614,
+          "p95": 33.490811,
+          "p99": 42.946695,
+          "min": 10.236774,
+          "max": 261.061161
+        },
+        "complete_ms": {
+          "mean": 28.5706068849,
+          "median": 27.6357465,
+          "p95": 39.339529,
+          "p99": 50.197202,
+          "min": 14.088952,
+          "max": 277.184061
+        },
+        "after_first_ms": {
+          "p50": 4.125782000000001,
+          "p95": 7.318479,
+          "p99": 10.683453999999998
+        }
+      }
+    },
+    "warmup_samples": 7275
+  },
+  {
+    "name": "abc-2-ACB-pos-1-A",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 2,
+    "position": 1,
+    "phase": "abc",
+    "qps": 148.84517857564737,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 22.2999770916,
+          "median": 21.8622405,
+          "p95": 31.110561,
+          "p99": 37.398593,
+          "min": 9.869693,
+          "max": 91.510176
+        },
+        "complete_ms": {
+          "mean": 26.7055850017,
+          "median": 26.1156425,
+          "p95": 36.492963,
+          "p99": 43.639068,
+          "min": 13.399667,
+          "max": 100.225961
+        },
+        "after_first_ms": {
+          "p50": 3.9298460000000013,
+          "p95": 7.1008309999999994,
+          "p99": 9.636738000000001
+        }
+      }
+    },
+    "warmup_samples": 7621
+  },
+  {
+    "name": "abc-2-ACB-pos-2-C",
+    "variant": "C-on",
+    "client_mode": "processes",
+    "block": 2,
+    "position": 2,
+    "phase": "abc",
+    "qps": 152.48918150607423,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 21.7728839984,
+          "median": 21.303977500000002,
+          "p95": 30.197633,
+          "p99": 37.304139,
+          "min": 8.950585,
+          "max": 111.828294
+        },
+        "complete_ms": {
+          "mean": 26.1672353504,
+          "median": 25.548226999999997,
+          "p95": 35.305809,
+          "p99": 42.86606,
+          "min": 12.525565,
+          "max": 117.19298
+        },
+        "after_first_ms": {
+          "p50": 3.965662000000002,
+          "p95": 7.022694999999999,
+          "p99": 8.818550000000002
+        }
+      }
+    },
+    "warmup_samples": 7687
+  },
+  {
+    "name": "abc-2-ACB-pos-3-B",
+    "variant": "B-off",
+    "client_mode": "processes",
+    "block": 2,
+    "position": 3,
+    "phase": "abc",
+    "qps": 139.25877746799813,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 23.8978077304,
+          "median": 23.1014665,
+          "p95": 33.983258,
+          "p99": 42.535672,
+          "min": 9.71305,
+          "max": 195.055865
+        },
+        "complete_ms": {
+          "mean": 28.6235594588,
+          "median": 27.639649499999997,
+          "p95": 39.776387,
+          "p99": 49.627012,
+          "min": 13.424798,
+          "max": 232.521856
+        },
+        "after_first_ms": {
+          "p50": 4.175008000000002,
+          "p95": 7.510158999999998,
+          "p99": 10.989079000000004
+        }
+      }
+    },
+    "warmup_samples": 7212
+  },
+  {
+    "name": "abc-3-BAC-pos-1-B",
+    "variant": "B-off",
+    "client_mode": "processes",
+    "block": 3,
+    "position": 1,
+    "phase": "abc",
+    "qps": 143.5834327132195,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 23.1214485746,
+          "median": 22.4228135,
+          "p95": 32.202307,
+          "p99": 39.614391,
+          "min": 9.856555,
+          "max": 355.489199
+        },
+        "complete_ms": {
+          "mean": 27.7052264015,
+          "median": 26.832290999999998,
+          "p95": 37.659176,
+          "p99": 45.701292,
+          "min": 13.676832,
+          "max": 360.037055
+        },
+        "after_first_ms": {
+          "p50": 4.1192540000000015,
+          "p95": 7.206191999999998,
+          "p99": 9.853149000000002
+        }
+      }
+    },
+    "warmup_samples": 7319
+  },
+  {
+    "name": "abc-3-BAC-pos-2-A",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 3,
+    "position": 2,
+    "phase": "abc",
+    "qps": 152.1887867179495,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 21.87616701,
+          "median": 21.1260475,
+          "p95": 31.388435,
+          "p99": 40.717129,
+          "min": 9.344045,
+          "max": 117.494754
+        },
+        "complete_ms": {
+          "mean": 26.1971872249,
+          "median": 25.274993000000002,
+          "p95": 36.551849,
+          "p99": 47.487486,
+          "min": 13.058962,
+          "max": 159.026425
+        },
+        "after_first_ms": {
+          "p50": 3.794518,
+          "p95": 7.003215000000004,
+          "p99": 9.7046
+        }
+      }
+    },
+    "warmup_samples": 7426
+  },
+  {
+    "name": "abc-3-BAC-pos-3-C",
+    "variant": "C-on",
+    "client_mode": "processes",
+    "block": 3,
+    "position": 3,
+    "phase": "abc",
+    "qps": 166.93046143850924,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 19.6707199905,
+          "median": 19.4143005,
+          "p95": 26.975682,
+          "p99": 31.428693,
+          "min": 8.621271,
+          "max": 52.218045
+        },
+        "complete_ms": {
+          "mean": 23.8506903,
+          "median": 23.4672175,
+          "p95": 31.839941,
+          "p99": 36.544465,
+          "min": 12.42039,
+          "max": 62.921704
+        },
+        "after_first_ms": {
+          "p50": 3.784967999999999,
+          "p95": 6.815708000000001,
+          "p99": 7.919665000000002
+        }
+      }
+    },
+    "warmup_samples": 8405
+  },
+  {
+    "name": "abc-4-BCA-pos-1-B",
+    "variant": "B-off",
+    "client_mode": "processes",
+    "block": 4,
+    "position": 1,
+    "phase": "abc",
+    "qps": 163.81375355303064,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 20.1182397065,
+          "median": 19.7958685,
+          "p95": 27.74492,
+          "p99": 32.105461,
+          "min": 8.944486,
+          "max": 55.813823
+        },
+        "complete_ms": {
+          "mean": 24.3034859266,
+          "median": 23.8620395,
+          "p95": 32.766207,
+          "p99": 37.674952,
+          "min": 12.472438,
+          "max": 63.620958
+        },
+        "after_first_ms": {
+          "p50": 3.7707739999999994,
+          "p95": 6.855049000000001,
+          "p99": 8.129468
+        }
+      }
+    },
+    "warmup_samples": 8445
+  },
+  {
+    "name": "abc-4-BCA-pos-2-C",
+    "variant": "C-on",
+    "client_mode": "processes",
+    "block": 4,
+    "position": 2,
+    "phase": "abc",
+    "qps": 148.51286100035708,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 22.4500078945,
+          "median": 21.0029095,
+          "p95": 31.38729,
+          "p99": 46.749825,
+          "min": 9.455052,
+          "max": 675.19982
+        },
+        "complete_ms": {
+          "mean": 26.8289245934,
+          "median": 25.196937,
+          "p95": 36.862252,
+          "p99": 55.043606,
+          "min": 13.252909,
+          "max": 686.511998
+        },
+        "after_first_ms": {
+          "p50": 3.841652,
+          "p95": 7.069039000000004,
+          "p99": 10.507528
+        }
+      }
+    },
+    "warmup_samples": 8535
+  },
+  {
+    "name": "abc-4-BCA-pos-3-A",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 4,
+    "position": 3,
+    "phase": "abc",
+    "qps": 148.26619994359987,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 22.5125540058,
+          "median": 22.0533585,
+          "p95": 30.844805,
+          "p99": 36.498888,
+          "min": 9.989404,
+          "max": 197.721656
+        },
+        "complete_ms": {
+          "mean": 26.9225091521,
+          "median": 26.335956000000003,
+          "p95": 35.874511,
+          "p99": 42.027795,
+          "min": 13.932122,
+          "max": 205.357069
+        },
+        "after_first_ms": {
+          "p50": 3.959301,
+          "p95": 7.036782000000002,
+          "p99": 8.738760000000003
+        }
+      }
+    },
+    "warmup_samples": 7620
+  },
+  {
+    "name": "abc-5-CAB-pos-1-C",
+    "variant": "C-on",
+    "client_mode": "processes",
+    "block": 5,
+    "position": 1,
+    "phase": "abc",
+    "qps": 142.2137853571708,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 23.4029759158,
+          "median": 22.6112685,
+          "p95": 32.52901,
+          "p99": 42.475204,
+          "min": 9.91583,
+          "max": 244.38025
+        },
+        "complete_ms": {
+          "mean": 28.0443887298,
+          "median": 27.061185000000002,
+          "p95": 38.057436,
+          "p99": 49.393103,
+          "min": 13.649216,
+          "max": 255.061101
+        },
+        "after_first_ms": {
+          "p50": 4.092755999999998,
+          "p95": 7.394001000000003,
+          "p99": 10.616253999999998
+        }
+      }
+    },
+    "warmup_samples": 7709
+  },
+  {
+    "name": "abc-5-CAB-pos-2-A",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 5,
+    "position": 2,
+    "phase": "abc",
+    "qps": 141.3372308289481,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 23.5350254867,
+          "median": 22.879713,
+          "p95": 33.063505,
+          "p99": 41.769881,
+          "min": 10.344388,
+          "max": 145.502931
+        },
+        "complete_ms": {
+          "mean": 28.1855281555,
+          "median": 27.388074,
+          "p95": 38.393602,
+          "p99": 48.400041,
+          "min": 14.316233,
+          "max": 161.014754
+        },
+        "after_first_ms": {
+          "p50": 4.1072479999999985,
+          "p95": 7.4169599999999996,
+          "p99": 9.950579999999999
+        }
+      }
+    },
+    "warmup_samples": 7350
+  },
+  {
+    "name": "abc-5-CAB-pos-3-B",
+    "variant": "B-off",
+    "client_mode": "processes",
+    "block": 5,
+    "position": 3,
+    "phase": "abc",
+    "qps": 151.69382351747893,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 21.8841468303,
+          "median": 21.4811945,
+          "p95": 30.48109,
+          "p99": 35.770961,
+          "min": 9.670333,
+          "max": 81.992014
+        },
+        "complete_ms": {
+          "mean": 26.1790884435,
+          "median": 25.676775499999998,
+          "p95": 35.299217,
+          "p99": 41.062729,
+          "min": 13.268075,
+          "max": 87.071613
+        },
+        "after_first_ms": {
+          "p50": 3.9072369999999985,
+          "p95": 6.892016999999999,
+          "p99": 8.090007999999997
+        }
+      }
+    },
+    "warmup_samples": 7636
+  },
+  {
+    "name": "abc-6-CBA-pos-1-C",
+    "variant": "C-on",
+    "client_mode": "processes",
+    "block": 6,
+    "position": 1,
+    "phase": "abc",
+    "qps": 155.79467163482155,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 21.2760094789,
+          "median": 20.7960915,
+          "p95": 29.598038,
+          "p99": 36.579538,
+          "min": 9.580493,
+          "max": 82.986848
+        },
+        "complete_ms": {
+          "mean": 25.5423832262,
+          "median": 24.9307995,
+          "p95": 34.447251,
+          "p99": 42.590535,
+          "min": 13.186341,
+          "max": 91.946326
+        },
+        "after_first_ms": {
+          "p50": 3.8396159999999995,
+          "p95": 6.888093000000001,
+          "p99": 8.379998999999998
+        }
+      }
+    },
+    "warmup_samples": 7848
+  },
+  {
+    "name": "abc-6-CBA-pos-2-B",
+    "variant": "B-off",
+    "client_mode": "processes",
+    "block": 6,
+    "position": 2,
+    "phase": "abc",
+    "qps": 165.16980035081667,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 19.8946069749,
+          "median": 19.571069,
+          "p95": 27.350597,
+          "p99": 31.775016,
+          "min": 9.004432,
+          "max": 103.02924
+        },
+        "complete_ms": {
+          "mean": 24.0730772305,
+          "median": 23.6352275,
+          "p95": 32.179167,
+          "p99": 36.657912,
+          "min": 12.609969,
+          "max": 125.032356
+        },
+        "after_first_ms": {
+          "p50": 3.7957280000000004,
+          "p95": 6.820193,
+          "p99": 7.957511999999998
+        }
+      }
+    },
+    "warmup_samples": 8484
+  },
+  {
+    "name": "abc-6-CBA-pos-3-A",
+    "variant": "A-baseline",
+    "client_mode": "processes",
+    "block": 6,
+    "position": 3,
+    "phase": "abc",
+    "qps": 163.24422473927925,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 20.2164623558,
+          "median": 19.9019135,
+          "p95": 27.793958,
+          "p99": 32.499356,
+          "min": 9.103124,
+          "max": 98.573669
+        },
+        "complete_ms": {
+          "mean": 24.4325959796,
+          "median": 23.978727,
+          "p95": 32.68526,
+          "p99": 38.202248,
+          "min": 12.724127,
+          "max": 113.709864
+        },
+        "after_first_ms": {
+          "p50": 3.797689000000002,
+          "p95": 6.854457,
+          "p99": 8.357410000000002
+        }
+      }
+    },
+    "warmup_samples": 8728
+  }
+]

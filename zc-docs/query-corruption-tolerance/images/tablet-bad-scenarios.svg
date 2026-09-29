@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1240" viewBox="0 0 1440 1240" role="img" aria-labelledby="title description">
+  <title id="title">副本 BAD 标记场景分类</title>
+  <desc id="description">左侧列出已有的五类 BAD 标记场景：rowset 状态异常、副本版本回退、副本丢失、元数据恢复或调整、人工运维。右侧突出尚未覆盖的场景：元数据与副本上报仍正常，但读取 segment 时发现文件内容损坏，不能仅凭这类错误自动标记 BAD 并触发修复。</desc>
+  <defs>
+    <style>
+      text { font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #172b3a; }
+      .title { font-size: 42px; font-weight: 600; }
+      .subtitle { font-size: 23px; fill: #526575; }
+      .heading { font-size: 30px; font-weight: 600; }
+      .item-title { font-size: 25px; font-weight: 600; }
+      .body { font-size: 21px; fill: #344b59; }
+      .note { font-size: 19px; fill: #526575; }
+      .number { font-size: 20px; font-weight: 600; fill: #ffffff; text-anchor: middle; }
+      .green { fill: #16634e; }
+      .red { fill: #a52c25; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#8294a0"/>
+    </marker>
+  </defs>
+
+  <rect width="1440" height="1240" fill="#ffffff"/>
+  <text x="48" y="74" class="title">副本 BAD 标记场景分类</text>
+  <text x="48" y="118" class="subtitle">标记对象：指定 BE 上的 tablet 副本，不是整个逻辑 tablet</text>
+
+  <!-- Existing BAD-marking paths. -->
+  <rect x="48" y="160" width="770" height="944" rx="22" fill="#eff7f3"/>
+  <rect x="48" y="160" width="8" height="64" rx="4" fill="#27745c"/>
+  <text x="80" y="206" class="heading green">已有 BAD 标记场景</text>
+
+  <rect x="72" y="245" width="722" height="156" rx="14" fill="#ffffff"/>
+  <circle cx="108" cy="276" r="17" fill="#27745c"/>
+  <text x="108" y="283" class="number">1</text>
+  <text x="138" y="284" class="item-title">rowset 状态异常</text>
+  <text x="96" y="321" class="body">非主键 tablet 运行中，取不到最大版本 rowset</text>
+  <text x="96" y="350" class="body">BE 上报 used=false；FE 满足处理条件后标记 BAD</text>
+  <text x="96" y="379" class="note">这里检查元数据，不检查 segment 文件内容</text>
+
+  <rect x="72" y="415" width="722" height="116" rx="14" fill="#ffffff"/>
+  <circle cx="108" cy="448" r="17" fill="#27745c"/>
+  <text x="108" y="455" class="number">2</text>
+  <text x="138" y="456" class="item-title">副本版本回退</text>
+  <text x="96" y="496" class="body">本次上报的数据版本低于上次上报版本</text>
+
+  <rect x="72" y="545" width="722" height="152" rx="14" fill="#ffffff"/>
+  <circle cx="108" cy="578" r="17" fill="#27745c"/>
+  <text x="108" y="585" class="number">3</text>
+  <text x="138" y="586" class="item-title">副本丢失</text>
+  <text x="96" y="626" class="body">FE 仅剩一个副本，BE 已不再报告该 tablet</text>
+  <text x="96" y="657" class="body">且 recover_with_empty_tablet 未开启</text>
+
+  <rect x="72" y="711" width="722" height="144" rx="14" fill="#ffffff"/>
+  <circle cx="108" cy="744" r="17" fill="#27745c"/>
+  <text x="108" y="751" class="number">4</text>
+  <text x="138" y="752" class="item-title">元数据恢复或调整</text>
+  <text x="96" y="792" class="body">恢复或调整分区版本时，仍存在多个副本</text>
+  <text x="96" y="823" class="body">将版本高于恢复目标的副本标记为 BAD</text>
+
+  <rect x="72" y="869" width="722" height="114" rx="14" fill="#ffffff"/>
+  <circle cx="108" cy="902" r="17" fill="#27745c"/>
+  <text x="108" y="909" class="number">5</text>
+  <text x="138" y="910" class="item-title">人工运维</text>
+  <text x="96" y="950" class="body">管理员明确指定 tablet 和 BE，设置副本 BAD</text>
+
+  <text x="80" y="1025" class="note">自动处理均有适用条件。FE 处理 used=false 时，</text>
+  <text x="80" y="1054" class="note">还需检查副本状态和上报版本；version=-1 时跳过该恢复判断。</text>
+
+  <!-- A content-read failure does not itself feed the BAD-marking paths. -->
+  <rect x="838" y="160" width="554" height="944" rx="22" fill="#fff3ec"/>
+  <rect x="838" y="160" width="8" height="92" rx="4" fill="#b94b33"/>
+  <text x="870" y="202" class="heading red">尚未覆盖的</text>
+  <text x="870" y="241" class="heading red">segment 文件损坏场景</text>
+
+  <rect x="862" y="278" width="506" height="166" rx="14" fill="#ffffff"/>
+  <text x="890" y="321" class="item-title">元数据与副本上报仍正常</text>
+  <text x="890" y="360" class="body">tablet / rowset 元数据仍在</text>
+  <text x="890" y="392" class="body">副本状态和版本上报仍正常</text>
+
+  <path d="M 1115 456 L 1115 483" fill="none" stroke="#8294a0" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="1115" y="516" class="body" text-anchor="middle">实际读取 segment 时</text>
+
+  <rect x="862" y="535" width="506" height="166" rx="14" fill="#ffffff"/>
+  <text x="890" y="578" class="item-title">segment 内容已损坏</text>
+  <text x="890" y="617" class="body">校验和不匹配</text>
+  <text x="890" y="649" class="body">magic number / footer 异常</text>
+
+  <path d="M 1115 713 L 1115 742 M 1115 791 L 1115 819" fill="none" stroke="#b94b33" stroke-width="3" stroke-dasharray="6 6"/>
+  <text x="1115" y="775" text-anchor="middle" class="item-title red">缺少自动衔接</text>
+
+  <rect x="862" y="832" width="506" height="169" rx="14" fill="#fbe1d8"/>
+  <text x="890" y="878" class="item-title red">不会仅凭文件损坏</text>
+  <text x="890" y="915" class="item-title red">自动标记副本 BAD</text>
+  <text x="890" y="957" class="body">未针对本次损坏触发副本修复</text>
+
+  <text x="870" y="1039" class="note">结果：查询报错、相关 compaction 失败</text>
+  <text x="870" y="1068" class="note">损坏可能长期存在</text>
+
+  <rect x="48" y="1130" width="1344" height="76" rx="14" fill="#edf1f5"/>
+  <text x="720" y="1177" text-anchor="middle" font-size="25" font-weight="600">关键缺口：读取发现 segment 损坏 ≠ FE 自动识别坏副本并启动修复</text>
+</svg>

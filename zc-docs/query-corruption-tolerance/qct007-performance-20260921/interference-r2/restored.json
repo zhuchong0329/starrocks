@@ -1,0 +1,94 @@
+{
+  "sql": "select k,message from qct_faults.one_tablet order by k",
+  "settings": {
+    "enable_query_cache": "false",
+    "enable_tablet_internal_parallel": "false",
+    "enable_short_circuit": "false",
+    "enable_global_runtime_filter": "false",
+    "pipeline_dop": "2",
+    "enable_profile": "true",
+    "pipeline_profile_level": "2",
+    "cbo_cte_reuse_rate": "0"
+  },
+  "plan": "RESOURCE GROUP: default_wg\n\nPLAN COST\n  CPU: 2359296.0\n  Memory: 1572864.0\n\nPLAN FRAGMENT 0(F01)\n  Fragment Cost: 3145728.0\n  Output Exprs:1: k | 2: message\n  Input Partition: UNPARTITIONED\n  RESULT SINK\n\n  2:MERGING-EXCHANGE\n     distribution type: GATHER\n     cardinality: 32768\n\nPLAN FRAGMENT 1(F00)\n  Fragment Cost: 3538944.0\n\n  Input Partition: RANDOM\n  OutPut Partition: UNPARTITIONED\n  OutPut Exchange Id: 02\n\n  1:SORT\n  |  order by: [1, BIGINT, true] ASC\n  |  offset: 0\n  |  cardinality: 32768\n  |  \n  0:OlapScanNode\n     table: one_tablet, rollup: one_tablet\n     preAggregation: on\n     partitionsRatio=1/1, tabletsRatio=1/1\n     tabletList=10155\n     actualRows=32768, avgRowSize=2.0\n     cardinality: 32768",
+  "result": {
+    "sql": "select k,message from qct_faults.one_tablet order by k",
+    "expectation": "healthy",
+    "columns": [
+      "k",
+      "message"
+    ],
+    "rows": 32768,
+    "sample": [
+      [
+        1,
+        "qct-1-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        2,
+        "qct-2-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        3,
+        "qct-3-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        4,
+        "qct-4-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        5,
+        "qct-5-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        6,
+        "qct-6-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        7,
+        "qct-7-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        8,
+        "qct-8-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        9,
+        "qct-9-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        10,
+        "qct-10-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        11,
+        "qct-11-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        12,
+        "qct-12-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        13,
+        "qct-13-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        14,
+        "qct-14-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        15,
+        "qct-15-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ],
+      [
+        16,
+        "qct-16-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-local-log-message-"
+      ]
+    ],
+    "ordered_rows_sha256": "c91ff23369051ae01ed075351730e75b2373010f3d6ad2ab8176f7ad12aa046f",
+    "warning_count": 0,
+    "elapsed_ms": 232.93089697835967,
+    "warnings": []
+  },
+  "passed": true
+}

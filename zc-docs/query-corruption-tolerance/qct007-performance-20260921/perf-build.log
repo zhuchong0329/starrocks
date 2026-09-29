@@ -1,0 +1,26 @@
+Mon Sep 21 09:44:22 AM UTC 2026
+46ca14950dc76004c5df355ce2c975a77c50041a
+gen_build_version.py be/src/gen_cpp/build/gen_cpp/version.cpp: old fingerprint = a778a79106d48048742f009e87d641c2, new fingerprint = 3a6db998c280fd142f0bc2a7d9028860
+Mon Sep 21 09:46:24 AM UTC 2026
+Mon Sep 21 09:48:03 AM UTC 2026
+4.0.11-QCT-007-46ca14950dc76004c5df355ce2c975a77c50041a
+BuildType: RELEASE
+Build distributor id: ubuntu
+Build arch: aarch64
+Built on 2026-09-21 09:44:22 by StarRocks@docker (Ubuntu 22.04.5 LTS)
+Compiled from "Version.java"
+public class com.starrocks.common.Version {
+  public static final java.lang.String STARROCKS_VERSION = "4.0.11-QCT-007";
+  public static final java.lang.String STARROCKS_COMMIT_HASH = "46ca14950dc76004c5df355ce2c975a77c50041a";
+  public static final java.lang.String STARROCKS_BUILD_TYPE = "RELEASE";
+  public static final java.lang.String STARROCKS_BUILD_TIME = "2026-09-21 09:46:38";
+  public static final java.lang.String STARROCKS_BUILD_USER = "StarRocks";
+  public static final java.lang.String STARROCKS_BUILD_HOST = "docker (Ubuntu 22.04.5 LTS)";
+  public static final java.lang.String STARROCKS_BUILD_DISTRO_ID = "ubuntu";
+  public static final java.lang.String STARROCKS_BUILD_ARCH = "aarch64";
+  public static final java.lang.String STARROCKS_JAVA_COMPILE_VERSION = "openjdk full version \"17.0.15+6-Ubuntu-0ubuntu122.04\"";
+  public com.starrocks.common.Version();
+}
+06d9581ab99934b3d53f3df4c45d9574c2810bbc9345488dc38bb71a39bb1ac5  be/output/lib/starrocks_be
+21a4f53f4563486f8538e21fde19a76c74c17e588890701df3846d9263d151bc  fe/fe-core/target/starrocks-fe.jar
+Mon Sep 21 09:48:13 AM UTC 2026

@@ -1,0 +1,34 @@
+{
+  "samples": 361512,
+  "completed_files": 123,
+  "plan_groups": 22,
+  "normalized_compile_commands_equal": true,
+  "compile_units": 1266,
+  "all_plans_identical": true,
+  "all_tablet_placements_versions_identical": true,
+  "oom_kill_counts": [
+    2
+  ],
+  "artifacts": {
+    "('A-baseline', 'starrocks_be')": [
+      "3ee4a23699c0d7c51b86d4ba3055496ef7f4b3d4e71bebe61401269d13de849f"
+    ],
+    "('A-baseline', 'starrocks-fe.jar')": [
+      "4740883b0d822079c931802d4e0579b38a3c5820678e46f8fdb35209eb37879d"
+    ],
+    "('B-off', 'starrocks_be')": [
+      "06d9581ab99934b3d53f3df4c45d9574c2810bbc9345488dc38bb71a39bb1ac5"
+    ],
+    "('B-off', 'starrocks-fe.jar')": [
+      "21a4f53f4563486f8538e21fde19a76c74c17e588890701df3846d9263d151bc"
+    ],
+    "('C-on', 'starrocks_be')": [
+      "06d9581ab99934b3d53f3df4c45d9574c2810bbc9345488dc38bb71a39bb1ac5"
+    ],
+    "('C-on', 'starrocks-fe.jar')": [
+      "21a4f53f4563486f8538e21fde19a76c74c17e588890701df3846d9263d151bc"
+    ]
+  },
+  "faults_restored": true,
+  "all_qct_nodes_stopped": true
+}

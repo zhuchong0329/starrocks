@@ -1,0 +1,375 @@
+From 46ca14950dc76004c5df355ce2c975a77c50041a Mon Sep 17 00:00:00 2001
+From: Patch Verification <patch-verification@localhost>
+Date: Mon, 21 Sep 2026 16:29:40 +0800
+Subject: perf(query-corruption): [QCT-007] simplify query opt-in and warning
+ cleanup
+
+Problem
+The original opt-in walks scan sources, Pipeline compatibility and remote runtime filters even though diagnostic delivery is now explicitly best-effort. Warning cleanup also inspects statement types when no previous diagnostic exists.
+
+Implementation
+Replace plan walks with fixed-size eligibility checks. Allow EXPLAIN ANALYZE, mixed sources and remote runtime filters; reuse the existing OUTFILE boolean and retain DefaultCoordinator type safety. Short-circuit on the global switch and refresh opt-in state for every existing execution attempt. Return early from beginStatement when no warning is stored. Update requirements, design, deployment guidance and QCT-007 evidence.
+
+Compatibility
+Keep internal/write/OUTFILE/short-circuit/Arrow/HTTP-raw exclusions and all BE error boundaries unchanged. Do not change SHOW WARNINGS/ERRORS, planning, scheduling, cancellation, Query Cache, or wire definitions. Mixed queries tolerate only already-integrated local readers; pure external HTTP queries may gain false/empty diagnostic fields. A missing warning no longer certifies that no tolerated corruption occurred.
+
+Tests
+Passed FE Maven package and 41 tests across 9 classes twice, with zero failures, errors or skips, in the isolated QCT arm64 container. Includes real optimized-plan checks, no-plan-walk guards, warning lifecycle, MySQL packets, both JDBC drivers and HTTP socket regressions using simulated BE statistics. The first package had UNKNOWN version metadata; the repeat package uses an explicit QCT-007 worktree marker, not a release commit label. Verified source checksums and git diff --check.
+Not run: performance acceptance or profiling, explicitly deferred by the user; new physical-corruption integration coverage, full BE tests/sanitizers, or BE rebuild because BE code is unchanged. Historical QCT-006 performance is not evidence for this commit. No push or patch-bundle regeneration.
+---
+ .../starrocks/qe/QueryCorruptionPolicy.java   | 52 ++----------
+ .../starrocks/qe/QueryCorruptionWarning.java  |  3 +
+ .../java/com/starrocks/qe/StmtExecutor.java   |  9 ++-
+ .../qe/QueryCorruptionPolicyTest.java         | 81 ++++++++++++++-----
+ .../qe/QueryCorruptionWarningTest.java        | 10 +++
+ .../sql/plan/QueryCorruptionPlanTest.java     | 22 ++++-
+ 6 files changed, 106 insertions(+), 71 deletions(-)
+
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java b/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java
+index 5cf87b2c457b46b493f9f868427714b49e397ac5..d2441fe1504d8216ec2270f12a51268c1323be8c 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java
+@@ -15,70 +15,34 @@
+ package com.starrocks.qe;
+ 
+ import com.starrocks.http.HttpConnectContext;
+-import com.starrocks.planner.ExchangeNode;
+-import com.starrocks.planner.OlapScanNode;
+-import com.starrocks.planner.PlanFragment;
+-import com.starrocks.planner.PlanNode;
+ import com.starrocks.planner.ResultSink;
+-import com.starrocks.planner.RuntimeFilterBuildNode;
+-import com.starrocks.planner.RuntimeFilterDescription;
+-import com.starrocks.planner.ScanNode;
+ import com.starrocks.sql.ast.QueryStatement;
+ import com.starrocks.sql.ast.StatementBase;
+ import com.starrocks.sql.plan.ExecPlan;
+ 
+-/** Eligibility only: never rewrites the plan or disables an optimization to enable tolerance. */
++/** Constant-time opt-in only; supported BE readers decide whether to tolerate corruption. */
+ public final class QueryCorruptionPolicy {
+     private QueryCorruptionPolicy() {
+     }
+ 
+     // Invoked only by the user-query execution entry point. Internal coordinators must not opt in.
+     public static boolean isEligible(boolean configured, boolean internal, ConnectContext context,
+-                                     StatementBase statement, ExecPlan plan, boolean httpSupported) {
+-        if (!configured || internal || !(statement instanceof QueryStatement) || statement.isExplain()
+-                || ((QueryStatement) statement).hasOutFileClause() || plan == null || plan.isShortCircuit()
+-                || context.isArrowFlightSql() || !context.getSessionVariable().isEnablePipelineEngine()) {
++                                     StatementBase statement, ExecPlan plan, boolean isOutfileQuery) {
++        // The caller has already computed isOutfileQuery for the existing query execution flow.
++        if (!configured || internal || !(statement instanceof QueryStatement) || isOutfileQuery
++                || plan == null || plan.isShortCircuit() || context.isArrowFlightSql()) {
+             return false;
+         }
+         if (context instanceof HttpConnectContext
+-                && (!httpSupported || ((HttpConnectContext) context).isOnlyOutputResultRaw())) {
++                && ((HttpConnectContext) context).isOnlyOutputResultRaw()) {
+             return false;
+         }
+         if (plan.getScanNodes().isEmpty() || plan.getFragments().isEmpty()
+                 || !(plan.getFragments().get(0).getSink() instanceof ResultSink)) {
+             return false;
+         }
+-        for (ScanNode scan : plan.getScanNodes()) {
+-            if (!(scan instanceof OlapScanNode) || scan.isRunningAsConnectorOperator()
+-                    || ((OlapScanNode) scan).getOlapTable().isCloudNativeTableOrMaterializedView()) {
+-                return false;
+-            }
+-        }
+-        for (PlanFragment fragment : plan.getFragments()) {
+-            if (!fragment.canUsePipeline() || hasRemoteRuntimeFilter(fragment.getPlanRoot())) {
+-                return false;
+-            }
+-        }
++        // Do not inspect scan types, Pipeline support or runtime filters. Unsupported readers
++        // retain their errors; diagnostics from tolerated corruption are best-effort only.
+         return true;
+     }
+-
+-    // Remote filters can affect another input before its data/EOS carries the diagnostic.
+-    // Keep these plans strict until their control channel is supported; never turn filters off.
+-    private static boolean hasRemoteRuntimeFilter(PlanNode node) {
+-        if (node instanceof RuntimeFilterBuildNode) {
+-            for (RuntimeFilterDescription filter : ((RuntimeFilterBuildNode) node).getBuildRuntimeFilters()) {
+-                if (filter.isHasRemoteTargets()) {
+-                    return true;
+-                }
+-            }
+-        }
+-        if (!(node instanceof ExchangeNode)) {
+-            for (PlanNode child : node.getChildren()) {
+-                if (hasRemoteRuntimeFilter(child)) {
+-                    return true;
+-                }
+-            }
+-        }
+-        return false;
+-    }
+ }
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionWarning.java b/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionWarning.java
+index 54a3f3d62b33536ab5d9ab7fd2281ccf8cb7d0a1..d74d9c95d2d460546497609488f7349cbbf1b367 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionWarning.java
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionWarning.java
+@@ -30,6 +30,9 @@ public final class QueryCorruptionWarning {
+     }
+ 
+     public static void beginStatement(ConnectContext context, StatementBase statement, boolean internal) {
++        if (context.getQueryCorruptionWarning() == null) {
++            return;
++        }
+         if (!internal && !(statement instanceof ShowWarningStmt)) {
+             context.clearQueryCorruptionWarning();
+         }
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/StmtExecutor.java b/fe/fe-core/src/main/java/com/starrocks/qe/StmtExecutor.java
+index ba6669b488963fbd710328c5ed03facc2ef95b69..0a5d250a4ee1e6ae53a13749d764dd4cf3c0b532 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/qe/StmtExecutor.java
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/StmtExecutor.java
+@@ -1627,11 +1627,14 @@ public class StmtExecutor {
+             coord = getCoordinatorFactory().createQueryScheduler(context, fragments, scanNodes, descTable, execPlan);
+         }
+ 
+-        if (coord instanceof DefaultCoordinator && QueryCorruptionPolicy.isEligible(
+-                Config.enable_query_corruption_tolerance, isInternalStmt, context, parsedStmt, execPlan, true)) {
++        boolean corruptionToleranceEnabled = false;
++        if (Config.enable_query_corruption_tolerance && coord instanceof DefaultCoordinator
++                && QueryCorruptionPolicy.isEligible(true, isInternalStmt, context, parsedStmt, execPlan, isOutfileQuery)) {
+             ((DefaultCoordinator) coord).getJobSpec().getQueryOptions().setEnable_query_corruption_tolerance(true);
+-            context.getState().setQueryCorruptionToleranceEnabled(true);
++            corruptionToleranceEnabled = true;
+         }
++        // A retry may use a different plan/coordinator; never retain the previous attempt's opt-in.
++        context.getState().setQueryCorruptionToleranceEnabled(corruptionToleranceEnabled);
+ 
+         // Predict the cost of this query
+         if (Config.enable_query_cost_prediction) {
+diff --git a/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionPolicyTest.java b/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionPolicyTest.java
+index 5f80666fee2687e368a7f99178ba429aef90b941..46df2213d0d52b6d204967bc6c7c8a28991d36ec 100644
+--- a/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionPolicyTest.java
++++ b/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionPolicyTest.java
+@@ -30,12 +30,15 @@ import com.starrocks.thrift.TQueryOptions;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ 
++import java.util.AbstractList;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+ import static org.junit.jupiter.api.Assertions.assertFalse;
+ import static org.junit.jupiter.api.Assertions.assertTrue;
+ import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.verify;
+ import static org.mockito.Mockito.verifyNoInteractions;
+ import static org.mockito.Mockito.when;
+ 
+@@ -94,36 +97,44 @@ class QueryCorruptionPolicyTest {
+     }
+ 
+     @Test
+-    void explainAndOutfileAreStrict() {
++    void explainIncludingAnalyzeMayOptInButOutfileIsStrict() {
+         when(statement.isExplain()).thenReturn(true);
+-        assertFalse(eligible());
+-        when(statement.isExplain()).thenReturn(false);
+-        when(statement.hasOutFileClause()).thenReturn(true);
+-        assertFalse(eligible());
++        for (StatementBase.ExplainLevel level : StatementBase.ExplainLevel.values()) {
++            when(statement.getExplainLevel()).thenReturn(level);
++            assertTrue(eligible());
++        }
++        assertFalse(QueryCorruptionPolicy.isEligible(true, false, context, statement, plan, true));
++        // Reuse the caller's existing OUTFILE boolean; do not inspect the AST again.
++        verify(statement, never()).hasOutFileClause();
++        verify(statement, never()).isExplain();
++        verify(statement, never()).getExplainLevel();
+     }
+ 
+     @Test
+-    void shortCircuitAndNonPipelineAreNotRewritten() {
++    void shortCircuitRemainsStrictButPipelineSupportIsNotChecked() {
+         when(plan.isShortCircuit()).thenReturn(true);
+         assertFalse(eligible());
+         when(plan.isShortCircuit()).thenReturn(false);
+         when(fragment.canUsePipeline()).thenReturn(false);
+-        assertFalse(eligible());
+-        when(fragment.canUsePipeline()).thenReturn(true);
+         when(session.isEnablePipelineEngine()).thenReturn(false);
+-        assertFalse(eligible());
++        assertTrue(eligible());
++        verify(fragment, never()).canUsePipeline();
++        verifyNoInteractions(session);
+     }
+ 
+     @Test
+-    void lakeConnectorAndMixedSourcesAreStrict() {
++    void lakeConnectorAndMixedSourcesMayCarryTheOptionWithoutNewReaderSupport() {
+         when(table.isCloudNativeTableOrMaterializedView()).thenReturn(true);
+-        assertFalse(eligible());
++        assertTrue(eligible());
+         when(table.isCloudNativeTableOrMaterializedView()).thenReturn(false);
+         when(scan.isRunningAsConnectorOperator()).thenReturn(true);
+-        assertFalse(eligible());
++        assertTrue(eligible());
+         when(scan.isRunningAsConnectorOperator()).thenReturn(false);
+         when(plan.getScanNodes()).thenReturn(List.of(scan, mock(ScanNode.class)));
+-        assertFalse(eligible());
++        assertTrue(eligible());
++        when(plan.getScanNodes()).thenReturn(List.of(mock(ScanNode.class)));
++        assertTrue(eligible());
++        verifyNoInteractions(scan, table);
+     }
+ 
+     @Test
+@@ -136,24 +147,54 @@ class QueryCorruptionPolicyTest {
+     }
+ 
+     @Test
+-    void remoteRuntimeFilterRemainsEnabledButQueryIsStrict() {
++    void remoteRuntimeFilterDoesNotPreventOptInOrGetInspected() {
+         HashJoinNode join = mock(HashJoinNode.class);
+         RuntimeFilterDescription filter = mock(RuntimeFilterDescription.class);
+         when(join.getBuildRuntimeFilters()).thenReturn(List.of(filter));
+         when(fragment.getPlanRoot()).thenReturn(join);
+         assertTrue(eligible());
+         when(filter.isHasRemoteTargets()).thenReturn(true);
+-        assertFalse(eligible());
++        assertTrue(eligible());
++        verify(fragment, never()).getPlanRoot();
++        verifyNoInteractions(join, filter);
+     }
+ 
+     @Test
+-    void httpMustBeIntegratedAndRawIsAlwaysStrict() {
++    void standardHttpMayOptInAndRawIsStrict() {
+         HttpConnectContext http = mock(HttpConnectContext.class);
+-        when(http.getSessionVariable()).thenReturn(session);
+-        assertFalse(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, false));
+-        assertTrue(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, true));
++        assertTrue(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, false));
++        when(plan.getScanNodes()).thenReturn(List.of(mock(ScanNode.class)));
++        assertTrue(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, false));
+         when(http.isOnlyOutputResultRaw()).thenReturn(true);
+-        assertFalse(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, true));
++        assertFalse(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, false));
++    }
++
++    @Test
++    void eligibilityDoesNotWalkScansOrFragmentTrees() {
++        when(plan.getScanNodes()).thenReturn(new AbstractList<ScanNode>() {
++            @Override
++            public ScanNode get(int index) {
++                throw new AssertionError("eligibility must not inspect scan nodes");
++            }
++
++            @Override
++            public int size() {
++                return 100_000;
++            }
++        });
++        PlanFragment other = mock(PlanFragment.class);
++        when(plan.getFragments()).thenReturn(new ArrayList<>(List.of(fragment, other)));
++        when(fragment.getPlanRoot()).thenThrow(new AssertionError("must not inspect the plan tree"));
++        when(fragment.canUsePipeline()).thenThrow(new AssertionError("must not recompute Pipeline support"));
++        assertTrue(eligible());
++        verifyNoInteractions(other, session, scan, table);
++    }
++
++    @Test
++    void missingPlanOrFragmentsRemainStrict() {
++        assertFalse(QueryCorruptionPolicy.isEligible(true, false, context, statement, null, false));
++        when(plan.getFragments()).thenReturn(new ArrayList<>());
++        assertFalse(eligible());
+     }
+ 
+     @Test
+diff --git a/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionWarningTest.java b/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionWarningTest.java
+index c68597a0cc33ebe6b695a97776c702fa4e45ab89..c07a20db6b0e0664777ffff7e5a3b94529be3810 100644
+--- a/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionWarningTest.java
++++ b/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionWarningTest.java
+@@ -31,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
+ import static org.junit.jupiter.api.Assertions.assertTrue;
+ import static org.mockito.Mockito.CALLS_REAL_METHODS;
+ import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.verifyNoMoreInteractions;
+ 
+ class QueryCorruptionWarningTest {
+     private ConnectContext context() {
+@@ -62,6 +64,14 @@ class QueryCorruptionWarningTest {
+         assertTrue(context.getQueryCorruptionWarning().contains(context.getQueryId().toString()));
+     }
+ 
++    @Test
++    void absentWarningReturnsWithoutClearingContext() {
++        ConnectContext context = mock(ConnectContext.class);
++        QueryCorruptionWarning.beginStatement(context, mock(QueryStatement.class), false);
++        verify(context).getQueryCorruptionWarning();
++        verifyNoMoreInteractions(context);
++    }
++
+     @Test
+     void resetThenShowPreservesSnapshotNextQueryClearsIt() {
+         ConnectContext context = context();
+diff --git a/fe/fe-core/src/test/java/com/starrocks/sql/plan/QueryCorruptionPlanTest.java b/fe/fe-core/src/test/java/com/starrocks/sql/plan/QueryCorruptionPlanTest.java
+index 80cee015d73c0c9bc8bf7a27c13055f08d0128bb..354a56d7187fac5ff9592039469ccde0a6eabdbf 100644
+--- a/fe/fe-core/src/test/java/com/starrocks/sql/plan/QueryCorruptionPlanTest.java
++++ b/fe/fe-core/src/test/java/com/starrocks/sql/plan/QueryCorruptionPlanTest.java
+@@ -16,6 +16,7 @@ package com.starrocks.sql.plan;
+ 
+ import com.starrocks.qe.QueryCorruptionPolicy;
+ import com.starrocks.qe.SessionVariable;
++import com.starrocks.sql.ast.QueryStatement;
+ import com.starrocks.sql.ast.StatementBase;
+ import com.starrocks.thrift.TExplainLevel;
+ import com.starrocks.utframe.UtFrameUtils;
+@@ -62,8 +63,9 @@ class QueryCorruptionPlanTest extends PlanTestBase {
+         StatementBase statement = UtFrameUtils.parseStmtWithNewParser(sql, connectContext);
+         ExecPlan plan = getExecPlan(sql);
+         String before = plan.getExplainString(TExplainLevel.VERBOSE);
+-        assertFalse(QueryCorruptionPolicy.isEligible(false, false, connectContext, statement, plan, true));
+-        assertEquals(expected, QueryCorruptionPolicy.isEligible(true, false, connectContext, statement, plan, true), before);
++        boolean outfile = ((QueryStatement) statement).hasOutFileClause();
++        assertFalse(QueryCorruptionPolicy.isEligible(false, false, connectContext, statement, plan, outfile));
++        assertEquals(expected, QueryCorruptionPolicy.isEligible(true, false, connectContext, statement, plan, outfile), before);
+         assertEquals(before, plan.getExplainString(TExplainLevel.VERBOSE));
+     }
+ 
+@@ -81,7 +83,7 @@ class QueryCorruptionPlanTest extends PlanTestBase {
+     }
+ 
+     @Test
+-    void realRemoteRuntimeFilterIsExcludedWithoutRemovingTheFilter() throws Exception {
++    void realRemoteRuntimeFilterOptsInWithoutRemovingTheFilter() throws Exception {
+         SessionVariable session = connectContext.getSessionVariable();
+         session.setEnableGlobalRuntimeFilter(true);
+         session.setGlobalRuntimeFilterProbeMinSize(0);
+@@ -89,7 +91,7 @@ class QueryCorruptionPlanTest extends PlanTestBase {
+                 + "join [broadcast] t1 vt3 on vt1.v1 = vt3.v4 "
+                 + "join [colocate] t0 vt4 on vt1.v1 = vt4.v1";
+         assertTrue(getExecPlan(sql).getExplainString(TExplainLevel.VERBOSE).contains("remote = true"));
+-        checkUnchanged(sql, false);
++        checkUnchanged(sql, true);
+         assertTrue(session.getEnableGlobalRuntimeFilter());
+     }
+ 
+@@ -103,6 +105,18 @@ class QueryCorruptionPlanTest extends PlanTestBase {
+         checkUnchanged(cte, true);
+     }
+ 
++    @Test
++    void explainAnalyzeOptsInWithoutChangingThePlan() throws Exception {
++        checkUnchanged("explain analyze select * from t0", true);
++    }
++
++    @Test
++    void nonPipelineOptInDoesNotEnablePipeline() throws Exception {
++        connectContext.getSessionVariable().setEnablePipelineEngine(false);
++        checkUnchanged("select * from t0", true);
++        assertFalse(connectContext.getSessionVariable().isEnablePipelineEngine());
++    }
++
+     @Test
+     void realShortCircuitPlanRemainsStrictAndUnchanged() throws Exception {
+         connectContext.getSessionVariable().setEnableShortCircuit(true);

@@ -1,0 +1,2800 @@
+{
+  "utc": "2026-09-21T10:45:20.753127+00:00",
+  "source_revision": "46ca14950dc76004c5df355ce2c975a77c50041a",
+  "checked_production_scopes": [
+    "be/src",
+    "be/CMakeLists.txt",
+    ":(glob)fe/*/src/main/**",
+    "fe/pom.xml",
+    ":(glob)fe/*/pom.xml",
+    "gensrc",
+    "build.sh",
+    "env.sh",
+    "CMakeLists.txt",
+    "cmake"
+  ],
+  "selection": {
+    "variant": "C-on",
+    "source": "/query-corruption-workspace/src",
+    "storage_page_cache": false,
+    "selected_utc": "20260921T104515.518640Z"
+  },
+  "be_version": "4.0.11-QCT-007-46ca14950dc76004c5df355ce2c975a77c50041a\nBuildType: RELEASE\nBuild distributor id: ubuntu\nBuild arch: aarch64\nBuilt on 2026-09-21 09:44:22 by StarRocks@docker (Ubuntu 22.04.5 LTS)\n",
+  "readiness": {
+    "backends": [
+      {
+        "BackendId": "10002",
+        "IP": "127.0.0.1",
+        "HeartbeatPort": "19402",
+        "BePort": "19401",
+        "HttpPort": "19400",
+        "BrpcPort": "19403",
+        "LastStartTime": "2026-09-21 10:45:19",
+        "LastHeartbeat": "2026-09-21 10:45:19",
+        "Alive": "true",
+        "SystemDecommissioned": "false",
+        "ClusterDecommissioned": "false",
+        "TabletNum": "16",
+        "DataUsedCapacity": "0.000 B",
+        "AvailCapacity": "128.985 GB",
+        "TotalCapacity": "442.619 GB",
+        "UsedPct": "70.86 %",
+        "MaxDiskUsedPct": "70.86 %",
+        "ErrMsg": "",
+        "Version": "4.0.11-QCT-007-46ca14950dc76004c5df355ce2c975a77c50041a",
+        "Status": "{\"lastSuccessReportTabletsTime\":\"2026-09-21 10:45:19\"}",
+        "DataTotalCapacity": "128.985 GB",
+        "DataUsedPct": "0.00 %",
+        "CpuCores": "6",
+        "MemLimit": "1.800GB",
+        "NumRunningQueries": "0",
+        "MemUsedPct": "0.00 %",
+        "CpuUsedPct": "0.0 %",
+        "DataCacheMetrics": "N/A",
+        "Location": "",
+        "StatusCode": "OK"
+      },
+      {
+        "BackendId": "10003",
+        "IP": "127.0.0.1",
+        "HeartbeatPort": "19502",
+        "BePort": "19501",
+        "HttpPort": "19500",
+        "BrpcPort": "19503",
+        "LastStartTime": "2026-09-21 10:45:19",
+        "LastHeartbeat": "2026-09-21 10:45:19",
+        "Alive": "true",
+        "SystemDecommissioned": "false",
+        "ClusterDecommissioned": "false",
+        "TabletNum": "13",
+        "DataUsedCapacity": "0.000 B",
+        "AvailCapacity": "128.985 GB",
+        "TotalCapacity": "442.619 GB",
+        "UsedPct": "70.86 %",
+        "MaxDiskUsedPct": "70.86 %",
+        "ErrMsg": "",
+        "Version": "4.0.11-QCT-007-46ca14950dc76004c5df355ce2c975a77c50041a",
+        "Status": "{\"lastSuccessReportTabletsTime\":\"2026-09-21 10:45:19\"}",
+        "DataTotalCapacity": "128.985 GB",
+        "DataUsedPct": "0.00 %",
+        "CpuCores": "6",
+        "MemLimit": "1.800GB",
+        "NumRunningQueries": "0",
+        "MemUsedPct": "0.00 %",
+        "CpuUsedPct": "0.0 %",
+        "DataCacheMetrics": "N/A",
+        "Location": "",
+        "StatusCode": "OK"
+      },
+      {
+        "BackendId": "10004",
+        "IP": "127.0.0.1",
+        "HeartbeatPort": "19602",
+        "BePort": "19601",
+        "HttpPort": "19600",
+        "BrpcPort": "19603",
+        "LastStartTime": "2026-09-21 10:45:19",
+        "LastHeartbeat": "2026-09-21 10:45:19",
+        "Alive": "true",
+        "SystemDecommissioned": "false",
+        "ClusterDecommissioned": "false",
+        "TabletNum": "11",
+        "DataUsedCapacity": "0.000 B",
+        "AvailCapacity": "128.985 GB",
+        "TotalCapacity": "442.619 GB",
+        "UsedPct": "70.86 %",
+        "MaxDiskUsedPct": "70.86 %",
+        "ErrMsg": "",
+        "Version": "4.0.11-QCT-007-46ca14950dc76004c5df355ce2c975a77c50041a",
+        "Status": "{\"lastSuccessReportTabletsTime\":\"2026-09-21 10:45:19\"}",
+        "DataTotalCapacity": "128.985 GB",
+        "DataUsedPct": "0.00 %",
+        "CpuCores": "6",
+        "MemLimit": "1.800GB",
+        "NumRunningQueries": "0",
+        "MemUsedPct": "0.00 %",
+        "CpuUsedPct": "0.0 %",
+        "DataCacheMetrics": "N/A",
+        "Location": "",
+        "StatusCode": "OK"
+      }
+    ],
+    "frontend_config": [
+      [
+        "enable_query_corruption_tolerance",
+        "[]",
+        "true",
+        "boolean",
+        "false",
+        ""
+      ]
+    ],
+    "balance_config": [
+      [
+        "tablet_sched_disable_balance",
+        "[disable_balance]",
+        "true",
+        "boolean",
+        "true",
+        ""
+      ]
+    ],
+    "fixture_tablets": {
+      "events": [
+        {
+          "TabletId": "10190",
+          "ReplicaId": "10191",
+          "BackendId": "10002",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "1.7MB",
+          "RowCount": "166780",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "2",
+          "PathHash": "-2641733136043798351",
+          "MetaUrl": "http://127.0.0.1:19400/api/meta/header/10190",
+          "CompactionStatus": "http://127.0.0.1:19400/api/compaction/show?tablet_id=10190",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        },
+        {
+          "TabletId": "10192",
+          "ReplicaId": "10193",
+          "BackendId": "10002",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "1.7MB",
+          "RowCount": "166610",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "2",
+          "PathHash": "-2641733136043798351",
+          "MetaUrl": "http://127.0.0.1:19400/api/meta/header/10192",
+          "CompactionStatus": "http://127.0.0.1:19400/api/compaction/show?tablet_id=10192",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        },
+        {
+          "TabletId": "10194",
+          "ReplicaId": "10195",
+          "BackendId": "10002",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "1.7MB",
+          "RowCount": "166787",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "2",
+          "PathHash": "-2641733136043798351",
+          "MetaUrl": "http://127.0.0.1:19400/api/meta/header/10194",
+          "CompactionStatus": "http://127.0.0.1:19400/api/compaction/show?tablet_id=10194",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        },
+        {
+          "TabletId": "10196",
+          "ReplicaId": "10197",
+          "BackendId": "10002",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "1.7MB",
+          "RowCount": "166737",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "2",
+          "PathHash": "-2641733136043798351",
+          "MetaUrl": "http://127.0.0.1:19400/api/meta/header/10196",
+          "CompactionStatus": "http://127.0.0.1:19400/api/compaction/show?tablet_id=10196",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        },
+        {
+          "TabletId": "10198",
+          "ReplicaId": "10199",
+          "BackendId": "10003",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "1.7MB",
+          "RowCount": "166433",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "2",
+          "PathHash": "5215559291640195343",
+          "MetaUrl": "http://127.0.0.1:19500/api/meta/header/10198",
+          "CompactionStatus": "http://127.0.0.1:19500/api/compaction/show?tablet_id=10198",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        },
+        {
+          "TabletId": "10200",
+          "ReplicaId": "10201",
+          "BackendId": "10004",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "1.7MB",
+          "RowCount": "166653",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "2",
+          "PathHash": "838431509918723358",
+          "MetaUrl": "http://127.0.0.1:19600/api/meta/header/10200",
+          "CompactionStatus": "http://127.0.0.1:19600/api/compaction/show?tablet_id=10200",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        }
+      ],
+      "points": [
+        {
+          "TabletId": "10208",
+          "ReplicaId": "10209",
+          "BackendId": "10002",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "17.8KB",
+          "RowCount": "1646",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "1",
+          "PathHash": "-2641733136043798351",
+          "MetaUrl": "http://127.0.0.1:19400/api/meta/header/10208",
+          "CompactionStatus": "http://127.0.0.1:19400/api/compaction/show?tablet_id=10208",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        },
+        {
+          "TabletId": "10210",
+          "ReplicaId": "10211",
+          "BackendId": "10003",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "18.4KB",
+          "RowCount": "1692",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "1",
+          "PathHash": "5215559291640195343",
+          "MetaUrl": "http://127.0.0.1:19500/api/meta/header/10210",
+          "CompactionStatus": "http://127.0.0.1:19500/api/compaction/show?tablet_id=10210",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        },
+        {
+          "TabletId": "10212",
+          "ReplicaId": "10213",
+          "BackendId": "10002",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "18.2KB",
+          "RowCount": "1675",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "1",
+          "PathHash": "-2641733136043798351",
+          "MetaUrl": "http://127.0.0.1:19400/api/meta/header/10212",
+          "CompactionStatus": "http://127.0.0.1:19400/api/compaction/show?tablet_id=10212",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        },
+        {
+          "TabletId": "10214",
+          "ReplicaId": "10215",
+          "BackendId": "10004",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "17.7KB",
+          "RowCount": "1630",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "1",
+          "PathHash": "838431509918723358",
+          "MetaUrl": "http://127.0.0.1:19600/api/meta/header/10214",
+          "CompactionStatus": "http://127.0.0.1:19600/api/compaction/show?tablet_id=10214",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        },
+        {
+          "TabletId": "10216",
+          "ReplicaId": "10217",
+          "BackendId": "10002",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "18.3KB",
+          "RowCount": "1680",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "1",
+          "PathHash": "-2641733136043798351",
+          "MetaUrl": "http://127.0.0.1:19400/api/meta/header/10216",
+          "CompactionStatus": "http://127.0.0.1:19400/api/compaction/show?tablet_id=10216",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        },
+        {
+          "TabletId": "10218",
+          "ReplicaId": "10219",
+          "BackendId": "10004",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "18.2KB",
+          "RowCount": "1677",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "1",
+          "PathHash": "838431509918723358",
+          "MetaUrl": "http://127.0.0.1:19600/api/meta/header/10218",
+          "CompactionStatus": "http://127.0.0.1:19600/api/compaction/show?tablet_id=10218",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        }
+      ],
+      "dimension": [
+        {
+          "TabletId": "10226",
+          "ReplicaId": "10227",
+          "BackendId": "10003",
+          "SchemaHash": "0",
+          "Version": "2",
+          "VersionHash": "0",
+          "LstSuccessVersion": "2",
+          "LstSuccessVersionHash": "0",
+          "LstFailedVersion": "-1",
+          "LstFailedVersionHash": "0",
+          "LstFailedTime": null,
+          "DataSize": "246B",
+          "RowCount": "8",
+          "State": "NORMAL",
+          "LstConsistencyCheckTime": null,
+          "CheckVersion": "-1",
+          "CheckVersionHash": "0",
+          "VersionCount": "2",
+          "PathHash": "5215559291640195343",
+          "MetaUrl": "http://127.0.0.1:19500/api/meta/header/10226",
+          "CompactionStatus": "http://127.0.0.1:19500/api/compaction/show?tablet_id=10226",
+          "DiskRootPath": "Unknown",
+          "IsConsistent": "true",
+          "Checksum": "-1"
+        }
+      ]
+    }
+  },
+  "nodes": {
+    "fe": {
+      "pid": 211268,
+      "start_ticks": "19006954",
+      "home": "/query-corruption-workspace/runtime/qct-cluster/fe",
+      "command": [
+        "/usr/lib/jvm/java-17-openjdk-arm64/bin/java",
+        "-Xms512m",
+        "-Xmx2g",
+        "-XX:+UseG1GC",
+        "-Dlog4j2.formatMsgNoLookups=true",
+        "-cp",
+        "/query-corruption-workspace/src/fe/fe-core/target/starrocks-fe.jar:/query-corruption-workspace/src/fe/fe-core/target/lib/*:/query-corruption-workspace/runtime/qct-cluster/fe/conf",
+        "com.starrocks.StarRocksFE"
+      ],
+      "selection": {
+        "variant": "C-on",
+        "source": "/query-corruption-workspace/src",
+        "storage_page_cache": false,
+        "selected_utc": "20260921T104515.518640Z"
+      }
+    },
+    "be0": {
+      "pid": 211269,
+      "start_ticks": "19006954",
+      "home": "/query-corruption-workspace/runtime/qct-cluster/be0",
+      "command": [
+        "/query-corruption-workspace/src/be/output/lib/starrocks_be"
+      ],
+      "selection": {
+        "variant": "C-on",
+        "source": "/query-corruption-workspace/src",
+        "storage_page_cache": false,
+        "selected_utc": "20260921T104515.518640Z"
+      }
+    },
+    "be1": {
+      "pid": 211270,
+      "start_ticks": "19006954",
+      "home": "/query-corruption-workspace/runtime/qct-cluster/be1",
+      "command": [
+        "/query-corruption-workspace/src/be/output/lib/starrocks_be"
+      ],
+      "selection": {
+        "variant": "C-on",
+        "source": "/query-corruption-workspace/src",
+        "storage_page_cache": false,
+        "selected_utc": "20260921T104515.518640Z"
+      }
+    },
+    "be2": {
+      "pid": 211271,
+      "start_ticks": "19006954",
+      "home": "/query-corruption-workspace/runtime/qct-cluster/be2",
+      "command": [
+        "/query-corruption-workspace/src/be/output/lib/starrocks_be"
+      ],
+      "selection": {
+        "variant": "C-on",
+        "source": "/query-corruption-workspace/src",
+        "storage_page_cache": false,
+        "selected_utc": "20260921T104515.518640Z"
+      }
+    }
+  },
+  "files": {
+    "/query-corruption-workspace/src/be/output/lib/starrocks_be": {
+      "bytes": 2359362072,
+      "sha256": "06d9581ab99934b3d53f3df4c45d9574c2810bbc9345488dc38bb71a39bb1ac5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/starrocks-fe.jar": {
+      "bytes": 30021862,
+      "sha256": "21a4f53f4563486f8538e21fde19a76c74c17e588890701df3846d9263d151bc"
+    },
+    "/query-corruption-workspace/src/be/build_Release/CMakeCache.txt": {
+      "bytes": 35085,
+      "sha256": "011226211aee19b3e14f21484599732e9ee7eb4cf20caafdea5ed5cac42a387d"
+    },
+    "/query-corruption-workspace/src/be/build_Release/compile_commands.json": {
+      "bytes": 2324797,
+      "sha256": "d3e133ac679c861996cf875d935e8a52cb3065e323b298558df8f67f72411ca6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/HikariCP-3.4.5.jar": {
+      "bytes": 156005,
+      "sha256": "8b732f9470570d4a841dc1ef6c826b586978b25ba830712ff1fa59de275dfa61"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/RoaringBitmap-0.8.13.jar": {
+      "bytes": 328625,
+      "sha256": "d3ccc68026e3e2ac0e1053492f3452b54fd2fa4f880fa8a5bfd52eb6a8fe96d5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ST4-4.3.4.jar": {
+      "bytes": 251081,
+      "sha256": "f927ac384c46d749f8b5ec68972a53aed21e00313509299616edb73bfa15ff33"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/accessors-smart-2.4.9.jar": {
+      "bytes": 29904,
+      "sha256": "accdd5c7ac4c49b155890aaea1ffca2a9ccd5826b562dd95a99fc1887003e031"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/activation-1.1.1.jar": {
+      "bytes": 69409,
+      "sha256": "ae475120e9fcd99b4b00b38329bd61cdc5eb754eee03fe66c01f50e137724f99"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/agrona-1.12.0.jar": {
+      "bytes": 443153,
+      "sha256": "fff0036594eb62519fa4e8f804b98e56df42e256e680d30ac2dcd148d08b3bdf"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aircompressor-2.0.3.jar": {
+      "bytes": 255256,
+      "sha256": "b86bb66f610079e0bf790d62e2ff68853eb0dc4748a6d68ae28bce92b68094aa"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aliyun-java-auth-0.1.13-beta.jar": {
+      "bytes": 81331,
+      "sha256": "be74234f5b326a85b50562d5d13f0e8bb260e94a0eef67e43d511373cff8d1f1"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aliyun-java-core-0.1.13-beta.jar": {
+      "bytes": 106020,
+      "sha256": "bc4e82f23d9ee8f275cbb874b8cf1ef183e68cded892ef59f5ca25db2f7a07a3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aliyun-java-sdk-core-4.5.10.jar": {
+      "bytes": 194215,
+      "sha256": "a0aa9ef1fa723e944848ba6a33da902309e621bbbe7dd2bd938263a6e10e1412"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aliyun-java-sdk-kms-2.11.0.jar": {
+      "bytes": 163698,
+      "sha256": "ce9d34bf15a5b117520a0fc927220240f38dc4d32a0b55a46e34af2b9b9ab105"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aliyun-java-sdk-ram-3.1.0.jar": {
+      "bytes": 220800,
+      "sha256": "cab0f01bd0ae3dbefd047401b58836ecc6e207e0eb5af18a959e211cb35080a1"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aliyun-sdk-oss-3.13.2.jar": {
+      "bytes": 782497,
+      "sha256": "b2e76a0e0deda04cace19dcf390e6aaf83336554871859c0da36cb72f8b779a6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/analyticsaccelerator-s3-1.3.1.jar": {
+      "bytes": 2473459,
+      "sha256": "4959a9747cbb479c73c3ffbcd479bee5b014f8b2880994585a8693fb9d24675e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/animal-sniffer-annotations-1.23.jar": {
+      "bytes": 3109,
+      "sha256": "9ffe526bf43a6348e9d8b33b9cd6f580a7f5eed0cf055913007eda263de974d0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/annotations-13.0.jar": {
+      "bytes": 17536,
+      "sha256": "ace2a10dc8e2d5fd34925ecac03e4988b2c0f851650c94b8cef49ba1bd111478"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/annotations-2.42.1.jar": {
+      "bytes": 13299,
+      "sha256": "e9847c4fb163d60ddfd28e7e07a573428b2b3319659822bb1b6bf4bd93e9646b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/annotations-4.1.1.4.jar": {
+      "bytes": 3120,
+      "sha256": "ba734e1e84c09d615af6a09d33034b4f0442f8772dec120efb376d86a565ae15"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/antlr-runtime-3.5.3.jar": {
+      "bytes": 173220,
+      "sha256": "68bf9f5a33dfcb34033495c587e6236bef4e37aa6612919f5b1e843b90669fb9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/antlr4-4.11.1.jar": {
+      "bytes": 2614139,
+      "sha256": "e9686e8a663ca512afe3a2eeb6f6ad3f303abb46188991f19ebc6a0fd9c1c14f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/antlr4-runtime-4.9.3.jar": {
+      "bytes": 336742,
+      "sha256": "131a6594969bc4f321d652ea2a33bc0e378ca312685ef87791b2c60b29d01ea5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aopalliance-repackaged-2.6.1.jar": {
+      "bytes": 27006,
+      "sha256": "bad77f9278d753406360af9e4747bd9b3161554ea9cd3d62411a0ae1f2c141fd"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/apache-client-2.42.1.jar": {
+      "bytes": 77018,
+      "sha256": "0c8b341bf13b3620e160c2c706b709f5eb3337fccf2a81fe9efe0bbcb1acdb95"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/arns-2.42.1.jar": {
+      "bytes": 16323,
+      "sha256": "716699180e076e48059d59459f98d1990a2171f3c1741feeed4ab17f1ab3b9fd"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/arrow-compression-4.0.0.jar": {
+      "bytes": 14182,
+      "sha256": "a33dcb53fb791a34afc21e1815bd4a01fac483b527750c99045f2855f2f2db7e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/arrow-format-18.0.0.jar": {
+      "bytes": 122458,
+      "sha256": "db45c204de53191faf1d8884f229ff11e3dc8b1a7559e641414c11ee3ae35332"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/arrow-jdbc-18.0.0.jar": {
+      "bytes": 124575,
+      "sha256": "5e4daf9435705817e4b832c7ca982eb673c7d7c032c87707dedb87bee91c03bc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/arrow-memory-core-18.0.0.jar": {
+      "bytes": 117801,
+      "sha256": "9be7ebb88afe20f90e063b219092e6f8f7eba8e0eb1147bdc35c324621e3ba30"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/arrow-memory-netty-18.0.0.jar": {
+      "bytes": 11753,
+      "sha256": "16f282939c564255ee71b735fedab0be8bf33454a67f8718b26c09f42413a8d4"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/arrow-memory-netty-buffer-patch-18.0.0.jar": {
+      "bytes": 36333,
+      "sha256": "963a96c22f150b7bfb974ceac3573bc67f903ade08bc12127ac86b57c9371773"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/arrow-vector-18.0.0.jar": {
+      "bytes": 2224246,
+      "sha256": "4e979361b771007edf96dd4e4ca69d3abd5e162c6ba04dbba909f28613a251c0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/asm-9.4.jar": {
+      "bytes": 122445,
+      "sha256": "39d0e2b3dc45af65a09b097945750a94a126e052e124f93468443a1d0e15f381"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/asm-analysis-9.4.jar": {
+      "bytes": 34331,
+      "sha256": "7b5f8c5e3bf341b5bb570d26f379e3fdebdc32732187159c42479164053f373d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/asm-tree-9.4.jar": {
+      "bytes": 52665,
+      "sha256": "c42d479cf24566a21eb20af7eeaeef4e86bdb4a886306cf72f483b65e75b2acf"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/asm-util-9.4.jar": {
+      "bytes": 91549,
+      "sha256": "3d7932b93ff55056641e7cfb601f96bcd5cd071e1b0503c78a5014232297a23e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aspectjrt-1.8.9.jar": {
+      "bytes": 117528,
+      "sha256": "403913aa06b8dfe3a847211350f164ef98ce7221d65442ce930c1ddd0d3ef2cd"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/async-1.4.1.jar": {
+      "bytes": 18074,
+      "sha256": "118bce251e41b829459eb5a14124bd9edbc42ff554514c048395cc3c6830c73a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/async-profiler-4.0.jar": {
+      "bytes": 803459,
+      "sha256": "177f340015b0e52b6673afb38a07edb12d58cf27920a4dc9ba9e76e9d0eca986"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/audience-annotations-0.13.0.jar": {
+      "bytes": 20891,
+      "sha256": "3bfbb397b06f63a2a0a361f62ed32cf199bd92ddd48ea99281f4987edec9777b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/auth-2.42.1.jar": {
+      "bytes": 238800,
+      "sha256": "da4c5a5556386a3fe219ed04092aebadc57cc566cd3b2290fbf27e663fc1fc8c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/auto-value-annotations-1.10.4.jar": {
+      "bytes": 7493,
+      "sha256": "e1c45e6beadaef9797cb0d9afd5a45621ad061cd8632012f85582853a3887825"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/avro-1.12.0.jar": {
+      "bytes": 713436,
+      "sha256": "1f5fbfff9b7427d6832cc3031a3c81413d3e21d9e2551847d9231c28493f9492"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/avro-ipc-1.11.4.jar": {
+      "bytes": 185623,
+      "sha256": "95fb8e9254e02b6093642f70187f412a3d75abc41aa80a4e7eda83cd694c9197"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/avro-mapred-1.11.4.jar": {
+      "bytes": 188832,
+      "sha256": "9da2f2ef253691a5374800615919a57ebcf2d63b5220f6cb9bf020cfd6d3605e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aws-core-2.42.1.jar": {
+      "bytes": 192483,
+      "sha256": "f45a5c9c8ae73ff8c614be27307b1440b4ab9e231c96b8d7cfa42dd1d7208b54"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aws-json-protocol-2.42.1.jar": {
+      "bytes": 142667,
+      "sha256": "1b927d7cad06bce9584a06c15f40d4534b1534a46bd4c90c4a089ce2137c1e63"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aws-query-protocol-2.42.1.jar": {
+      "bytes": 69368,
+      "sha256": "5e864331c0aa264916f170ce774a189655ade585e266f45c088cded8421466a9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/aws-xml-protocol-2.42.1.jar": {
+      "bytes": 102271,
+      "sha256": "3d0cf4c9462d782cfee7821b5e853907474707f387aa85dbcd42100f5988f66e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-core-1.55.3.jar": {
+      "bytes": 872865,
+      "sha256": "53f64121176aca98b8634bd79fddabeea26c0ebcc092e342631a2b0d2dcec9e5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-core-http-netty-1.15.11.jar": {
+      "bytes": 82580,
+      "sha256": "34862571f2d95b07b23073f0eb87db25a0393087e3192d205115099fa18aa62f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-data-lake-store-sdk-2.3.9.jar": {
+      "bytes": 113966,
+      "sha256": "9c2747a459d1878359d423ae8bcd6fb5c0e990d5bae36f5e6e30e6f1f92e5a85"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-identity-1.15.4.jar": {
+      "bytes": 255802,
+      "sha256": "3e7c4ca616570ad2a5886528c909d6888feb0fd8db637f19dadbc3f987cae2c0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-json-1.5.0.jar": {
+      "bytes": 326046,
+      "sha256": "65b1ec85f5d734221f1028d60c95bf5b453515797d6ab68ea8c36a6f2d5bc56b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-keyvault-core-1.0.0.jar": {
+      "bytes": 10288,
+      "sha256": "d8c6ca5bc1c50fd2c74d81b8731b67aa72fa5c9e086623439ba4e950138937a0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-storage-7.0.1.jar": {
+      "bytes": 815331,
+      "sha256": "32249cf9b550e247e257c0a508f93526d35e072509aa637fd33b3d54e267b1e2"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-storage-blob-12.30.0.jar": {
+      "bytes": 902823,
+      "sha256": "17d2e1cae298cf9727836265760817b4174fbb43a4eba88465c475d8e07e6379"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-storage-common-12.29.0.jar": {
+      "bytes": 143500,
+      "sha256": "b7a108a5da8956fb8129933d31947a1a487fba9ce4579e834b0978b94a7bdb5c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-storage-internal-avro-12.15.0.jar": {
+      "bytes": 71239,
+      "sha256": "1e69a52ee3c13156faadef23fee83934213b327f32d1e8dd3f0106acd7c048d3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/azure-xml-1.2.0.jar": {
+      "bytes": 240793,
+      "sha256": "69d9559c561d3125bfd2bf9b5248601e442902bc755d935dde3edba97dc0d931"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/bcprov-jdk15on-1.70.jar": {
+      "bytes": 5867298,
+      "sha256": "8f3c20e3e2d565d26f33e8d4857a37d0d7f8ac39b62a7026496fcab1bdac30d4"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/bcprov-jdk18on-1.84.jar": {
+      "bytes": 8919063,
+      "sha256": "64d6c5a6121fcd927152dd182cbed39afe0fda641a970d9bcc0c9cb1858b2731"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/byteman-4.0.24.jar": {
+      "bytes": 859770,
+      "sha256": "d3a5299e42ce0775243818e739ccadfdb24922d11656ca9037f3673055369350"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/caffeine-2.9.3.jar": {
+      "bytes": 912143,
+      "sha256": "1e0a7bbef1dd791653143f3f05d0e489934bf5481e58a87c9e619cd46b68729b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/chdfs_hadoop_plugin_network-3.2.jar": {
+      "bytes": 22207,
+      "sha256": "f6783bc86bf6486e8fb90243ea3cf22aaa309796ee999b494377df37df83f304"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/checker-qual-3.33.0.jar": {
+      "bytes": 223979,
+      "sha256": "e316255bbfcd9fe50d165314b85abb2b33cb2a66a93c491db648e498a82c2de1"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/checksums-2.42.1.jar": {
+      "bytes": 72026,
+      "sha256": "40ffc8e3be72def774b69297749a1c1ac76d824f2bf79f224823678c266c73ad"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/checksums-spi-2.42.1.jar": {
+      "bytes": 8044,
+      "sha256": "55c41a5c2aa63f4addfb8a853c6aff36010305012291940c0e47f49b65b36719"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/chill-java-0.10.0.jar": {
+      "bytes": 58683,
+      "sha256": "52afd3c1256d6f89293ba616c0c9ebf11191bb9e8159cd0c1cfdc99e5e0c5ffe"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/chill_2.12-0.10.0.jar": {
+      "bytes": 212374,
+      "sha256": "5cb5db46112699e6de681dedc0c1d0b300f5ccc2c0921b6bb3e4dba2e66c6fe6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/clickhouse-jdbc-0.4.6.jar": {
+      "bytes": 1267113,
+      "sha256": "ebd96708b9a96c89e997c0d3df0ebff7c9bbdf71e65c497b04045380c21b98a8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-beanutils-1.11.0.jar": {
+      "bytes": 246806,
+      "sha256": "9e44ba68ec9a3f21286fa2a8bbb003b735c0f69101bb43144b79f4f8aaa74709"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-cli-1.4.jar": {
+      "bytes": 53820,
+      "sha256": "fd3c7c9545a9cdb2051d1f9155c4f76b1e4ac5a57304404a6eedb578ffba7328"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-codec-1.13.jar": {
+      "bytes": 344339,
+      "sha256": "61f7a3079e92b9fdd605238d0295af5fd11ac411a0a0af48deace1f6c5ffa072"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-collections-3.2.2.jar": {
+      "bytes": 588337,
+      "sha256": "eeeae917917144a68a741d4c0dff66aa5c5c5fd85593ff217bced3fc8ca783b8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-collections4-4.4.jar": {
+      "bytes": 751914,
+      "sha256": "1df8b9430b5c8ed143d7815e403e33ef5371b2400aadbe9bda0883762e0846d1"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-compress-1.26.1.jar": {
+      "bytes": 1079377,
+      "sha256": "27bb5d40f37c3bb7205b4a0540247df057715e9f6cbbd97d626ab8b50318bb04"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-configuration2-2.10.1.jar": {
+      "bytes": 657516,
+      "sha256": "d5642131fbd7d85e9a4b824c52711528a1dde0a7866dfbd22a8711dbabd9eabc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-crypto-1.1.0.jar": {
+      "bytes": 166244,
+      "sha256": "44dc28551cdba731658090d9b10d2eead9839c269d70cdcd7d56c0423df5227f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-daemon-1.0.13.jar": {
+      "bytes": 24239,
+      "sha256": "fd63b583fd3e8baeae22efacbd5a4f91c1fd97f56248e62e2615efa7b81daeaa"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-digester-2.1.jar": {
+      "bytes": 196768,
+      "sha256": "e0b2b980a84fc6533c5ce291f1917b32c507f62bcad64198fff44368c2196a3d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-io-2.16.1.jar": {
+      "bytes": 508826,
+      "sha256": "f41f7baacd716896447ace9758621f62c1c6b0a91d89acee488da26fc477c84f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-lang-2.4.jar": {
+      "bytes": 261809,
+      "sha256": "2c73b940c91250bc98346926270f13a6a10bb6e29d2c9316a70d134e382c873e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-lang3-3.9.jar": {
+      "bytes": 503880,
+      "sha256": "de2e1dcdcf3ef917a8ce858661a06726a9a944f28e33ad7f9e08bea44dc3c230"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-logging-1.2.jar": {
+      "bytes": 61829,
+      "sha256": "daddea1ea0be0f56978ab3006b8ac92834afeefbd9b7e4e6316fca57df0fa636"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-math3-3.6.1.jar": {
+      "bytes": 2213560,
+      "sha256": "1e56d7b058d28b65abd256b8458e3885b674c1d588fa43cd7d1cbb9c7ef2b308"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-net-3.9.0.jar": {
+      "bytes": 316431,
+      "sha256": "e3c1566f821b84489308cd933f57e8c00dd8714dc96b898bef844386510d3461"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-pool-1.6.jar": {
+      "bytes": 111119,
+      "sha256": "46c42b4a38dc6b2db53a9ee5c92c63db103665d56694e2cfce2c95d51a6860cc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-pool2-2.3.jar": {
+      "bytes": 109568,
+      "sha256": "3e794e75be78f63cc31b6676697e45f07085903a1039169459132513d85c62ae"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-text-1.10.0.jar": {
+      "bytes": 238400,
+      "sha256": "770cd903fa7b604d1f7ef7ba17f84108667294b2b478be8ed1af3bffb4ae0018"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/commons-validator-1.7.jar": {
+      "bytes": 189675,
+      "sha256": "4d74f4ce4fb68b2617edad086df6defdf9338467d2377d2c62e69038e1c4f02f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/compress-lzf-1.1.2.jar": {
+      "bytes": 81831,
+      "sha256": "a9a76c85a3cef3a22d4c0e8647a1449b638885f2ceb4d8c9f66df3c677cc228e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/concurrent-202.jar": {
+      "bytes": 31364,
+      "sha256": "4c9b04d47d8c11a962d9aa00138cdcec9cc7d62f98eb1bc72924997ca57f01ee"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/content-type-2.3.jar": {
+      "bytes": 8877,
+      "sha256": "60349793e006fba96b532cb0c21e10e969fe0db8d87f91c3b9eaf82ba2998895"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/cos-sts-java-3.0.8.jar": {
+      "bytes": 22938,
+      "sha256": "d8a2236208825c68d15d4c10eb8bff700762973703fec05ef063caea07ea4ee0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/cos_api-bundle-5.6.137.2.jar": {
+      "bytes": 11668487,
+      "sha256": "31890d3c499f9de25b7dba1f369d9860f499e757114558c4787a38c5d208470e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/crt-core-2.42.1.jar": {
+      "bytes": 18126,
+      "sha256": "6dab9c305e7f7bc35b5e134d3e3619854b3abc0ed09e03be77b9b888dcc38ea6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/curator-client-5.2.0.jar": {
+      "bytes": 2983237,
+      "sha256": "345ec409bc026e114e8fd471a9273f631a3a494f0e091b092c1ac94499ddee4f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/curator-framework-2.13.0.jar": {
+      "bytes": 201965,
+      "sha256": "db084e5e0fed0548a8128f12a3e7a15c875c9595e75316c9578d64e77375c4a9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/curator-recipes-2.13.0.jar": {
+      "bytes": 283653,
+      "sha256": "22be05c1a3e6c5ede22e77372b08dc631a3b93b64acb7f682537ea65a6ddba06"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/delta-kernel-api-4.0.0rc1.jar": {
+      "bytes": 251788,
+      "sha256": "6060c2bf4ee3640c13b154bdcc4265aee36d13e5d61bb5ccb97c1a9b36eaa16d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/delta-kernel-defaults-4.0.0rc1.jar": {
+      "bytes": 189034,
+      "sha256": "fec7d40dfd52921deb304b646e7929639049b94c01c6878dbc527062bcc554c0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/delta-storage-4.0.0rc1.jar": {
+      "bytes": 25029,
+      "sha256": "373ce22ecd0b37617d41bfdaba568714e51b54910455dc20489a5e001fd38c6c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/disruptor-3.4.2.jar": {
+      "bytes": 83064,
+      "sha256": "f412ecbb235c2460b45e63584109723dea8d94b819c78c9bfc38f50cba8546c0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/dnsjava-3.6.3.jar": {
+      "bytes": 588267,
+      "sha256": "ce279b5acb753f58661756b6dcacdcc4dee76748cff04d2abf14edcc7e26a8de"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/dom4j-2.1.3.jar": {
+      "bytes": 323630,
+      "sha256": "549f3007c6290f6a901e57d1d331b4ed0e6bf7384f78bf10316ffceeca834de6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/dynamodb-2.42.1.jar": {
+      "bytes": 2895459,
+      "sha256": "7d0c3567873bdf22027933e0525faab9ddab609fcccf948a083fc60e55995884"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/encoder-1.3.1.jar": {
+      "bytes": 40221,
+      "sha256": "c9c56c8970c7cb11b231913ba5190ce930f8fd4fac2bd918810642dc3848e757"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/endpoints-spi-2.42.1.jar": {
+      "bytes": 13167,
+      "sha256": "3589e87b688fa601e0788d8058fe407d5bc4ec45580db4a068d383a9c81ea1aa"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/error_prone_annotations-2.18.0.jar": {
+      "bytes": 16017,
+      "sha256": "9e6814cb71816988a4fd1b07a993a8f21bb7058d522c162b1de849e19bea54ae"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/eventstream-1.0.1.jar": {
+      "bytes": 30193,
+      "sha256": "0c37d8e696117f02c302191b8110b0d0eb20fa412fce34c3a269ec73c16ce822"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/failsafe-3.3.2.jar": {
+      "bytes": 143998,
+      "sha256": "2c5dc879a6dac7ea3a7b29d795e27bd49b8e7908b05c2f3e56053c19d79850f5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/failureaccess-1.0.1.jar": {
+      "bytes": 4617,
+      "sha256": "a171ee4c734dd2da837e4b16be9df4661afab72a41adaf31eb84dfdaf936ca26"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/fastutil-8.5.15.jar": {
+      "bytes": 23730770,
+      "sha256": "cffeb6673bdf1e6e4377d684df2f55ac359cf5cf6df613e05e62deeea500936a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/fe-common-1.0.0.jar": {
+      "bytes": 19203,
+      "sha256": "83a1222faae64561b03d10dd1c667f7788fac8c25a1fcea84e916c91e9a14409"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/flatbuffers-java-24.3.25.jar": {
+      "bytes": 110887,
+      "sha256": "f5b50034a53debda980aca803b8b06949f93a40163bc1db6cd69581d3718e355"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/flight-core-18.0.0.jar": {
+      "bytes": 1058786,
+      "sha256": "c76e07aa1d986ffefece57d2a4ae47ccb2a293bdd7be2800db16064f962148ae"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/flight-sql-18.0.0.jar": {
+      "bytes": 80852,
+      "sha256": "d4b5ccd6b1e56a267f9d350f716ec14ffa5f3e5ce2820beb2dafec29e4209db7"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/fluent-hc-4.5.14.jar": {
+      "bytes": 31574,
+      "sha256": "6916043081fd7b0acb3e50a12a0e82187063d7a6dfed3d2fb2f3296b580ab0f8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/gcs-connector-3.0.13-shaded.jar": {
+      "bytes": 37973705,
+      "sha256": "40d1ea5415247e04c23d564ef1d2dda06a8950c17c5c3bc0c125c056375d3e56"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/gethostname4j-1.0.0.jar": {
+      "bytes": 4112,
+      "sha256": "a20c075e8b360882062979a4c1cffafa85d060586ec91d7d22e39d2d641b0f5f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/glue-2.42.1.jar": {
+      "bytes": 9416307,
+      "sha256": "b7ee948ebe42681519d8a6320d6d0e22a361a77651eb02de8eb6ae5d476f745b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/google-api-client-2.8.1.jar": {
+      "bytes": 302981,
+      "sha256": "f19a438e0ccec1d2f05f3a1d9272dac0cd7fca30ba6d4259bbe81559bd44f170"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/google-auth-library-credentials-1.30.0.jar": {
+      "bytes": 8428,
+      "sha256": "8ba819243516fc5d90dce89476f8d46e4e4a685b2aaac79dc4be205540bb66de"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/google-auth-library-oauth2-http-1.30.0.jar": {
+      "bytes": 285918,
+      "sha256": "ebb097c88bcd836a2d9b752ca12faec141e0592a284f3beda5b9608ae58b9991"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/google-http-client-2.0.0.jar": {
+      "bytes": 295913,
+      "sha256": "bf12f864c7b77731694e5ef5117ca81cbdd9662f3c86e5a71525055d8ad43d84"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/google-http-client-apache-v2-2.0.0.jar": {
+      "bytes": 11666,
+      "sha256": "9dfeedb952d2f0351dabc3327c42d87431acba63ad15eee272282af56ec033ab"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/google-http-client-gson-2.0.0.jar": {
+      "bytes": 12825,
+      "sha256": "ba4c6c3642b5a4a3dec1fa8b35daf47ce098731d049e2085db6fabc7c3f2f11d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/google-oauth-client-1.36.0.jar": {
+      "bytes": 81744,
+      "sha256": "8fee7bbe7aaee214ce461f0cd983e3c438fd43941697394391aaa01edb7d703b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/groovy-4.0.9.jar": {
+      "bytes": 7565452,
+      "sha256": "1ab4fc9606adaf424597ac01fa8146c20877a58aecfd30288336b1692774f531"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/groovy-console-4.0.9.jar": {
+      "bytes": 793890,
+      "sha256": "f5af8f089b94a06355acde6e902dc6a75ba46a5b24252a7863a30c9405011c68"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/groovy-groovysh-4.0.9.jar": {
+      "bytes": 420519,
+      "sha256": "3f6e348ea1217b8193f1c4b71f75fdd77a0f02116ea210bba190a48c96a9f583"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/groovy-swing-4.0.9.jar": {
+      "bytes": 333627,
+      "sha256": "28d0857a7f2a0a296e3f2c049bd8d1cbf16093a3ebcdff7082c3df95046d4c44"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/groovy-templates-4.0.9.jar": {
+      "bytes": 91039,
+      "sha256": "4567bb7166869f5689e865eb0932f612484fa30c42b49daa2be476479f668c29"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/groovy-xml-4.0.9.jar": {
+      "bytes": 212657,
+      "sha256": "3c66e31f295f7a32e5b50223273fa5e2ff4dd3e480db458b913b87d7748b8eaa"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/grpc-api-1.63.0.jar": {
+      "bytes": 297526,
+      "sha256": "21d747911e1e5931004f1b058417f3c3f72f1fbf8aea16f5fc6af7a3f0caf35a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/grpc-context-1.63.0.jar": {
+      "bytes": 293,
+      "sha256": "d7f50185bb858131d02314de23ea3cc797131ed98b215e845429f45a81dd5fed"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/grpc-core-1.63.0.jar": {
+      "bytes": 634235,
+      "sha256": "246e4e583cc11c70ed15cc8f988eff8e76fed5c06426e8310d51c4da6f5cc81b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/grpc-netty-1.65.0.jar": {
+      "bytes": 288121,
+      "sha256": "cee9307f5809858fd7b4bc11d52c6acff8da989df288222d0c68abed09ba488d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/grpc-netty-shaded-1.63.0.jar": {
+      "bytes": 9753447,
+      "sha256": "4d170c599e47214f35c8955cda3edd7cdb8171229b45795d4d61eb43dfa76402"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/grpc-protobuf-1.63.0.jar": {
+      "bytes": 5223,
+      "sha256": "260e0abaf8ac72fc71deec9f88d2beeb163e6d19494bbabe45676a4b4ce87087"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/grpc-protobuf-lite-1.63.0.jar": {
+      "bytes": 7853,
+      "sha256": "5e7f36c03600c7cfa8e10d2d0321f0ba8c32d74cd044873f44b026704f355fb7"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/grpc-stub-1.63.0.jar": {
+      "bytes": 50249,
+      "sha256": "a92fc7c7f1ac9d580c5e3df5825b977c842f442874794663b78db22b27d649e0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/grpc-util-1.63.0.jar": {
+      "bytes": 99374,
+      "sha256": "b15006f22e76a6631dfb137a6930aaf9e0cb3a797499ec42394d79641fb770ee"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/gson-2.8.9.jar": {
+      "bytes": 258075,
+      "sha256": "d3999291855de495c94c743761b8ab5176cfeabe281a5ab0d8e8d45326fd703e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/guava-32.0.1-jre.jar": {
+      "bytes": 3037368,
+      "sha256": "bd7fa227591fb8509677d0d1122cf95158f3b8a9f45653f58281d879f6dc48c5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-aliyun-3.4.3.jar": {
+      "bytes": 93559,
+      "sha256": "b2af8775f24ff7ac76d49f73fda725c047c1d3e7aaa6a3f073e6ea49f63c954b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-annotations-3.4.3.jar": {
+      "bytes": 25516,
+      "sha256": "523c1f218af5354fae5b78aebe643a6f1535b9be281517b3307ae69761b7888a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-auth-3.4.3.jar": {
+      "bytes": 113393,
+      "sha256": "31fe9d26066ac98515476098133e2ccdfbc262f9b75d2b66a76c2d6a087f290c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-aws-3.4.3.jar": {
+      "bytes": 942173,
+      "sha256": "810a7fb66d613501ec28648ff4f6b6a250d324fa9ff357c9ab89a212360e0e6a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-azure-3.4.3.jar": {
+      "bytes": 817981,
+      "sha256": "b1732387ab5bb7278af958b2efd7e44517e411ab874f172485ba7879325455cc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-azure-datalake-3.4.3.jar": {
+      "bytes": 33297,
+      "sha256": "a2a4f77ec236168e87b55cebbc84aa950bef0992a55bf871c3e75690721cf4e1"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-client-3.4.3.jar": {
+      "bytes": 8936,
+      "sha256": "a993961ce67fb5935e2096b3ee272840c5a91947f5de03a3d45ffe3865eaba24"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-client-api-3.4.3.jar": {
+      "bytes": 19669807,
+      "sha256": "6443332781f26a7199009d9517cd1eb013fbf54ca1c9759a2a9e487542b1d52a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-client-runtime-3.4.3.jar": {
+      "bytes": 30878646,
+      "sha256": "bd20267b0555766ae84697dd888f074ca326d8e2ec3c0008928a6ac2966c67de"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-common-3.4.3.jar": {
+      "bytes": 4717717,
+      "sha256": "73cc542694c25555b026a41c91f6192863afee18de947551f6225acfe23faf7a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-cos-3.3.0-8.3.2.jar": {
+      "bytes": 203037,
+      "sha256": "edd450518942e6718dc3d34149116605a3b74384f40c22117493a56fd5125e2f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-distcp-2.10.2.jar": {
+      "bytes": 164049,
+      "sha256": "db946a63c32860345e1f508a34a50a7c3cbc5d90fa06b2b039bd2850e32ad45d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-hdfs-3.4.3.jar": {
+      "bytes": 6369253,
+      "sha256": "4479635529bfa7e2c655a4e2359e98cc2e02f0ea9fc037ee5b799aa15c8aa6b9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-hdfs-client-3.4.3.jar": {
+      "bytes": 5552013,
+      "sha256": "6f15bf0e903945079f8161c491a9950256cc989265f60421d98e32d39d85a7c0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-mapreduce-client-common-3.4.3.jar": {
+      "bytes": 789755,
+      "sha256": "c04dce08a7c8199078b84cf63ba2f78b6d7835452f13a8103f8d2a12995d8be0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-mapreduce-client-core-3.4.3.jar": {
+      "bytes": 1843881,
+      "sha256": "27a2f2ccca486d9fe4150ec01cd3929ffe582c24d1c3f667f6354f4f23bfef4d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-mapreduce-client-jobclient-3.4.3.jar": {
+      "bytes": 50254,
+      "sha256": "4d0b5b90865d69d8e375b8f48af93de836f003ff60cd74f51b3f61510193968f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-shaded-guava-1.5.0.jar": {
+      "bytes": 3501106,
+      "sha256": "70d5c152622df6fffbf8836af7833215dc7acdd5d9c881af11b8c0fbf30cdc0a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-shaded-protobuf_3_25-1.5.0.jar": {
+      "bytes": 1953000,
+      "sha256": "b3182ff49abd6c3ee0f0504bcea027434e7f2dfd7b5cc7111c6292ba3e9f3b8e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-yarn-api-3.4.3.jar": {
+      "bytes": 3829394,
+      "sha256": "91e7191db91a069eb6ebf54a8a2b4e87c3ff339ebaafce939ce49c30cfc0de0e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-yarn-client-3.4.3.jar": {
+      "bytes": 317460,
+      "sha256": "aa4c39ed67c3eb7caa80d4ab695a8053f2bcbcf0204fd20b73ec13d985380256"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hadoop-yarn-common-3.4.3.jar": {
+      "bytes": 2529767,
+      "sha256": "caa2c5c07d09b9a512b9406f6cd297795cb66f1a23f07f38abde1103a1ce78f1"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-asyncfs-2.6.2.jar": {
+      "bytes": 107018,
+      "sha256": "592274b11034e39186da8bd75c7d2fe6dd84d5e05f4b1675ae8ce4f64ef0b373"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-client-2.6.2.jar": {
+      "bytes": 2149428,
+      "sha256": "92fa2b048d87b21a2b958adfc704a719102748839497c8a29551e8f0a5b9e551"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-common-2.6.2.jar": {
+      "bytes": 908198,
+      "sha256": "69de1026ac295977ff5c97796b3d117d14aa1c7f494b530d3b4de2537545936d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-hadoop-compat-2.6.2.jar": {
+      "bytes": 74540,
+      "sha256": "b527455a1fdbe08b961be5f5034d95b666e14fddafee662986bdac45e1c6c864"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-hadoop2-compat-2.6.2.jar": {
+      "bytes": 167094,
+      "sha256": "88836a6ce8eef8b5debe77fbe662e046a543e29db47a04409e706c42770fa9e9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-logging-2.6.2.jar": {
+      "bytes": 14276,
+      "sha256": "f9f07f9f08db7d0a7b5f3e3c0a05cc8bf6ff83a2a37d4a4b04f8e7bffcde7e19"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-metrics-2.6.2.jar": {
+      "bytes": 29592,
+      "sha256": "b6d90339f760dfddde0ab2fb4fbcd19bc5a109d892649eb8a02843bffd3b17c3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-metrics-api-2.6.2.jar": {
+      "bytes": 22650,
+      "sha256": "8daf8fbd30227c0b03e80909a30274e3aebecbd135dc2bffaeaff10be1eaaf28"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-procedure-2.6.2.jar": {
+      "bytes": 210842,
+      "sha256": "696fe62a4eab720d5705ed55c5c10936ccc3773b17d0a16c6987203bb19e5a30"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-protocol-2.6.2.jar": {
+      "bytes": 3288489,
+      "sha256": "9cd4cb44b1e765e4ee7cbe3e5ca57ef6c9af6ebaebe1fe0a53071336209fe6c2"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-protocol-shaded-2.6.2.jar": {
+      "bytes": 7239783,
+      "sha256": "c70c747cb732d1cda00b0e5958bddf5b04ab76cf518b3ee176f435d9169d47fc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-replication-2.6.2.jar": {
+      "bytes": 52510,
+      "sha256": "37a0f4eb8ba7483690dad04640d010b0a7eacfe9a7d522701ae030f43d18afa5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-server-2.6.2.jar": {
+      "bytes": 5703310,
+      "sha256": "d61a563b2c1a927d6fc3a9b06c2b6bf3f19a907ee0e862460558bda21c718eca"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-shaded-gson-4.1.10.jar": {
+      "bytes": 322271,
+      "sha256": "7f1d843d31b54c3528da71205126c392e9a8e62cb93962cbf1efe11b091298c4"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-shaded-miscellaneous-4.1.10.jar": {
+      "bytes": 4190926,
+      "sha256": "0abc8c71c74885c90dab56073eb67c0104e7721c26ac4de8382cdf8887aba676"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-shaded-protobuf-4.1.10.jar": {
+      "bytes": 1888023,
+      "sha256": "d18db2e49920eeb87720075866c8385ed58cfa2ca47f0c9574cf98f68485aa95"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-unsafe-4.1.10.jar": {
+      "bytes": 20402,
+      "sha256": "50c4fbae8083235978410cd503ac01e35afef9f04fd03eeb3ce1ec99d922e1ff"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hbase-zookeeper-2.6.2.jar": {
+      "bytes": 109629,
+      "sha256": "3540c722f4a3d83a7ce2d75fbd1f08d7abbb5a59fa07c85dc65b9718707de146"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hive-apache-3.1.2-22.jar": {
+      "bytes": 34758550,
+      "sha256": "4ac590fb2e4f818697ba75cf3e79a5794fd9a72b1a8dcacf0dc34fac16a0b7b5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hive-storage-api-2.8.1.jar": {
+      "bytes": 258346,
+      "sha256": "2bb77d246a9724a371301049239c6e53039efe4136b0ed34ee5a9c7b3cd861d8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hk2-api-2.6.1.jar": {
+      "bytes": 200223,
+      "sha256": "c2cb80a01e58440ae57d5ee59af4d4d94e5180e04aff112b0cb611c07d61e773"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hk2-locator-2.6.1.jar": {
+      "bytes": 203358,
+      "sha256": "febc668deb9f2000c76bd4918d8086c0a4c74d07bd0c60486b72c6bd38b62874"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hk2-utils-2.6.1.jar": {
+      "bytes": 131590,
+      "sha256": "30727f79086452fdefdab08451d982c2082aa239d9f75cdeb1ba271e3c887036"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hppc-0.8.0.jar": {
+      "bytes": 1193515,
+      "sha256": "bb3e09e831b4202bd701c22a1e675e055ed61a44c75779793b9f63690028838b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/http-auth-2.42.1.jar": {
+      "bytes": 17487,
+      "sha256": "a5c7ea2cae2f4f6cdc6b776c1dbe391be1cd32375dd4bcb78eae312dae4a504e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/http-auth-aws-2.42.1.jar": {
+      "bytes": 178205,
+      "sha256": "df6104ab5057bc698264dd4fd93dab7ab7b821ab84a0ada3d1bd059c4e2521e9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/http-auth-aws-eventstream-2.42.1.jar": {
+      "bytes": 8704,
+      "sha256": "da8dd821cb62c6e9a8dfa94137706fceb72c0c14c5f1263c9c4b64c98a09bcae"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/http-auth-spi-2.42.1.jar": {
+      "bytes": 48063,
+      "sha256": "3a148f6b32af2b10e47c8ea5dec478513de897ecf8667ab58bca90c110810de0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/http-client-spi-2.42.1.jar": {
+      "bytes": 91684,
+      "sha256": "9835cae904ee29e31ad19d22640ced26d5ce3620545211fae26ec55d15c22872"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/httpclient-4.5.13.jar": {
+      "bytes": 780321,
+      "sha256": "6fe9026a566c6a5001608cf3fc32196641f6c1e5e1986d1037ccdbd5f31ef743"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/httpclient5-5.4.3.jar": {
+      "bytes": 909854,
+      "sha256": "739e035679c68e15efa93b44c808a453bc98eaac1722e5a80cab15c026223022"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/httpcore-4.4.16.jar": {
+      "bytes": 327891,
+      "sha256": "6c9b3dd142a09dc468e23ad39aad6f75a0f2b85125104469f026e52a474e464f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/httpcore5-5.3.4.jar": {
+      "bytes": 908601,
+      "sha256": "f2b2fd7a0164e8c3120cd8437bc9fea439239e165c17262b3e907daa7e979f80"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/httpcore5-h2-5.3.4.jar": {
+      "bytes": 241692,
+      "sha256": "1fb4f34e4b612e7c127ad693335583587850b17ce9b1c366f9de1ca49fe2c781"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hudi-common-1.0.2.jar": {
+      "bytes": 2355812,
+      "sha256": "661ab7cf0be755e50ad6ad65230db6d9a793643360ba4f550b23b3edfb65177f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hudi-hadoop-common-1.0.2.jar": {
+      "bytes": 201349,
+      "sha256": "8fbdb17f3966156a037cc8937405e571c1da6e779eca11921b35d07a3ff9c97e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hudi-hadoop-mr-1.0.2.jar": {
+      "bytes": 219850,
+      "sha256": "d7febdfff8153df7fd3b3bd54472efe7c6166b670b3f15c7338d3a8a5131faf0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/hudi-io-1.0.2.jar": {
+      "bytes": 156531,
+      "sha256": "4921d34cc8f538a5e455bf4dc857bd7a9a783e43187d452857ff394a6b580d07"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/iceberg-api-1.10.0.jar": {
+      "bytes": 673277,
+      "sha256": "627061d401dba9d1a8cada2da6394640c2e803102bb676fb34e5f65503cf2c51"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/iceberg-aws-1.10.0.jar": {
+      "bytes": 222538,
+      "sha256": "fe9b8980fb79f6a89e94c6c8f61453f723403fdf00a9813e92d4a5954587c22a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/iceberg-bundled-guava-1.10.0.jar": {
+      "bytes": 1794018,
+      "sha256": "05b79072e19071b1bcf7a4e382d624b3b2ccad6eaf79627676219bb48e4e834d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/iceberg-common-1.10.0.jar": {
+      "bytes": 31782,
+      "sha256": "5ce6ec8262b4c6f8151d9e36ebe013bd23ec0f310508173f72c43bc073d5f519"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/iceberg-core-1.10.0.jar": {
+      "bytes": 2351440,
+      "sha256": "54091489dbdcb31b5a4514372abfc908a7b0be69f76e785f1e82279be4fbd6cc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/iceberg-hive-metastore-1.10.0.jar": {
+      "bytes": 92842,
+      "sha256": "cf25b9aa0a004b01066d281f23dfd0f782743edb0794ed2fb936e228e3d1725d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/icu4j-71.1.jar": {
+      "bytes": 13963762,
+      "sha256": "91c4f8ebf0ceb489547098fe9d5c09a65eb419caea6ed714867f5280800bcf1a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/identity-spi-2.42.1.jar": {
+      "bytes": 30962,
+      "sha256": "a7eb684893cb12f4993edaca84380bb4dd37c89739a56299bef1a8edc1399bce"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ipaddress-5.4.2.jar": {
+      "bytes": 890364,
+      "sha256": "07b761834a9fbb910aa8743785bacfa238a74cd2c01bf2f311c0cf9b157b5722"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ivy-2.5.2.jar": {
+      "bytes": 1405631,
+      "sha256": "98428d545ea63cd9a0aaf255caf42cb8cb64fe430dbb5e709aed536d4daeed04"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/j2objc-annotations-2.8.jar": {
+      "bytes": 9301,
+      "sha256": "f02a95fa1a5e95edb3ed859fd0fb7df709d121a35290eff8b74dce2ab7f4d6ed"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-annotations-2.21.jar": {
+      "bytes": 82104,
+      "sha256": "53ca085f4a150f703f49e1aabd935bd03b43e1ea3d55d135438292af22cef56b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-core-2.21.1.jar": {
+      "bytes": 594806,
+      "sha256": "1edd5f2e49dca5f8e4519957c24b7b3050bd1c7ee883920da33cff031ff1f7c0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-databind-2.21.1.jar": {
+      "bytes": 1701769,
+      "sha256": "b011eb5202d9ec889e27f1dcbdf6c63f06a76e7a16c0a1b30c6048d556c9a28e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-dataformat-yaml-2.21.1.jar": {
+      "bytes": 60605,
+      "sha256": "5c94fa55d4b93bd4ea9ac6f2cf4928ff50822d1c43e521e715d3abf23031a06d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-datatype-jsr310-2.15.2.jar": {
+      "bytes": 122937,
+      "sha256": "7574c81ad570476ef6aad26f419288fd466733f3315bee3012f2f29c9dc008c8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-jaxrs-base-2.17.2.jar": {
+      "bytes": 32062,
+      "sha256": "fddf4a9fe080593678c2161818592dd5b6f59256611f2a15a8f45d035c4b1a98"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-jaxrs-json-provider-2.17.2.jar": {
+      "bytes": 16808,
+      "sha256": "6e60f2aac6a6e3dc7d0714b7bdd7879e52aa453e95c92fd49adb566e5fbabe2f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-jr-objects-2.13.2.jar": {
+      "bytes": 99986,
+      "sha256": "4567452acfb6bce915b5f0d6ce29c13e266a814c49ca1eb97b23780f972d2087"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-module-afterburner-2.15.2.jar": {
+      "bytes": 215969,
+      "sha256": "4b21f0f76a197de87b2e04c19a42c89ae84557983c8cc3a8b9f9411e659d73dd"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-module-jaxb-annotations-2.21.1.jar": {
+      "bytes": 37022,
+      "sha256": "2c038ef228d60646a2dfaa607032e0e1c7726b456c496be149406802ecd4eaf9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jackson-module-scala_2.12-2.15.2.jar": {
+      "bytes": 513968,
+      "sha256": "81259ec6730f6d4b85d5586c9eaa6e75a6885b34bfca572be03126a9179719fe"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jakarta.activation-2.0.0.jar": {
+      "bytes": 62731,
+      "sha256": "db9c7e30f4d61ec33fd47942c9b7cf6e094025e7d5d8e20db73fce5a912a4366"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jakarta.activation-api-1.2.2.jar": {
+      "bytes": 46613,
+      "sha256": "a187a939103aef5849a7af84bd7e27be2d120c410af291437375ffe061f4f09d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jakarta.annotation-api-2.1.1.jar": {
+      "bytes": 26141,
+      "sha256": "5f65fdaf424eee2b55e1d882ba9bb376be93fb09b37b808be6e22e8851c909fe"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jakarta.inject-2.6.1.jar": {
+      "bytes": 18140,
+      "sha256": "5e88c123b3e41bca788b2683118867d9b6dec714247ea91c588aed46a36ee24f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jakarta.servlet-api-5.0.0.jar": {
+      "bytes": 307850,
+      "sha256": "33d3a5bda82c7d2f1b898685faa954f1fc34f7b0ae5c2f6ccc6d051e8a10973b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jakarta.validation-api-2.0.2.jar": {
+      "bytes": 91930,
+      "sha256": "b42d42428f3d922c892a909fa043287d577c0c5b165ad9b7d568cebf87fc9ea4"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jakarta.ws.rs-api-2.1.6.jar": {
+      "bytes": 140376,
+      "sha256": "4cea299c846c8a6e6470cbfc2f7c391bc29b9caa2f9264ac1064ba91691f4adf"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jakarta.xml.bind-api-4.0.2.jar": {
+      "bytes": 131033,
+      "sha256": "0d6bcfe47763e85047acf7c398336dc84ff85ebcad0a7cb6f3b9d3e981245406"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jamon-runtime-2.4.1.jar": {
+      "bytes": 24543,
+      "sha256": "0dc41d463124b3815d0ce2ce8064b00b2ed0237c187ab277e1052ec7c82ba28d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/java-uuid-generator-5.1.0.jar": {
+      "bytes": 56068,
+      "sha256": "ef66f9c90fb18b4b9f2b1c0cc01b686a3c2dbd07384874533caa5f4556e24a43"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/javacsv-2.0.jar": {
+      "bytes": 13417,
+      "sha256": "c287e9d431e4e05a0f7c9c023d133edf8a40112885cdb6e81b07773eee4680ed"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/javaparser-core-3.25.0.jar": {
+      "bytes": 1379911,
+      "sha256": "0e108efc34440bff8ded84b1f8b95ea93a538c64b03b0e40508864a0955b1dad"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/javassist-3.29.2-GA.jar": {
+      "bytes": 794137,
+      "sha256": "a90ddb25135df9e57ea9bd4e224e219554929758f9bae9965f29f81d60a3293f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/javax.activation-1.2.0.jar": {
+      "bytes": 78030,
+      "sha256": "993302b16cd7056f21e779cc577d175a810bb4900ef73cd8fbf2b50f928ba9ce"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/javax.activation-api-1.2.0.jar": {
+      "bytes": 56674,
+      "sha256": "43fdef0b5b6ceb31b0424b208b930c74ab58fac2ceeb7b3f6fd3aeb8b5ca4393"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/javax.annotation-api-1.3.2.jar": {
+      "bytes": 26586,
+      "sha256": "e04ba5195bcd555dc95650f7cc614d151e4bcd52d29a10b8aa2197f3ab89ab9b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/javax.json-1.1.4.jar": {
+      "bytes": 128770,
+      "sha256": "17fdeb7e22375a7fb40bb0551306f6dcf2b5743078668adcdf6c642c9a9ec955"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/javax.servlet-api-3.1.0.jar": {
+      "bytes": 95806,
+      "sha256": "af456b2dd41c4e82cf54f3e743bc678973d9fe35bd4d3071fa05c7e5333b8482"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/javax.servlet.jsp-api-2.3.1.jar": {
+      "bytes": 53239,
+      "sha256": "b1306f5cc721e25e290d2b244af7bfb870a7e072bd32f17350712d1626a74f4b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jaxb-api-2.2.12.jar": {
+      "bytes": 102480,
+      "sha256": "68a621ec18485f951d09ac76f43e57eee394dbe42cb8f2a4c59c93296fa9dcc6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jaxb-core-3.0.0.jar": {
+      "bytes": 238251,
+      "sha256": "b1e4b8137505333ed59b08e748c46c3894795fa1d524d042354609fd9ca6754f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jaxb-impl-2.2.3-1.jar": {
+      "bytes": 890168,
+      "sha256": "fa3e1499b192c310312bf02881274b68394aaea4c9563e6c554cc406ae644ff8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jboss-logging-3.3.1.Final.jar": {
+      "bytes": 66023,
+      "sha256": "9f7d8b884370763b131bf48a0fc91edec89ad80e0e40c47658098a686a905bb2"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jboss-threads-2.3.6.Final.jar": {
+      "bytes": 167834,
+      "sha256": "357e6be0f3e4ca28fa96b780c0ad1735176319215261da176ca6fa438aaaa206"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jcip-annotations-1.0-1.jar": {
+      "bytes": 4722,
+      "sha256": "4fccff8382aafc589962c4edb262f6aa595e34f1e11e61057d1c6a96e8fc7323"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jcl-over-slf4j-2.0.7.jar": {
+      "bytes": 21143,
+      "sha256": "41806757e1d26dae5d6db2ca7d4a5176eed2d6e709cd86564d4a11dab0601742"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jcodings-1.0.58.jar": {
+      "bytes": 1739960,
+      "sha256": "e2f85def67d6848a7a41c648248645689e3990d17ab8f253ab2fd7e69407df67"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jdom2-2.0.6.1.jar": {
+      "bytes": 327806,
+      "sha256": "0b20f45e3a0fd8f0d12cdc5316b06776e902b1365db00118876f9175c60f302c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-client-1.19.4.jar": {
+      "bytes": 134066,
+      "sha256": "639c825c5db580f8115bf49ffc893093526d2ed1079fbc929b6a5fbd0b2eda40"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-client-2.40.jar": {
+      "bytes": 301876,
+      "sha256": "fdeaa03c46a8a0c7618a751617c6beccdebc8082d0e992c0c7965bc50fd7daa0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-common-2.40.jar": {
+      "bytes": 1230119,
+      "sha256": "dac402e730e12816ba72b1fe3107301efb0a589ca65617255d86bc5b705080fe"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-container-servlet-2.40.jar": {
+      "bytes": 32298,
+      "sha256": "f16fc54ca51c0964a9a187e277dce0fa36b296c3d02b02bd685589b5f2766ed2"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-container-servlet-core-2.40.jar": {
+      "bytes": 73256,
+      "sha256": "689909c8dbcebdbd91e80f79e057115904c02f7ee04dff9aabadc66243760fc0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-core-1.19.4.jar": {
+      "bytes": 436731,
+      "sha256": "64b03198e0264849d0fc341857ebcc9c882b1909a2dc35a0972fe7d901b826e5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-hk2-2.40.jar": {
+      "bytes": 78477,
+      "sha256": "e5f69ac32a5c82e0603fb90b689bf9ef0ba237b3ba4f2bba3159f7d8c756b397"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-json-1.22.0.jar": {
+      "bytes": 158890,
+      "sha256": "2a7161550b5632b5c8f86bb13b15a03ae07ff27c92d9d089d9bf264173706702"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-server-1.19.4.jar": {
+      "bytes": 705276,
+      "sha256": "afc0f6cd21d4742d312cb511a8fa2a253213285f5425dda005708fd5928504e6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-server-2.40.jar": {
+      "bytes": 950564,
+      "sha256": "ffa6c93f15f9543158841e0d7e102c3ba9bd6f845db2dde0aad3518bc417d178"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jersey-servlet-1.19.4.jar": {
+      "bytes": 128990,
+      "sha256": "08c80d4e83ad8d20dcfbc633235bfa68f8519ceddb8ad2d6d112e95f43288e90"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jettison-1.5.4.jar": {
+      "bytes": 90184,
+      "sha256": "fc3a68a7c17688ee50817340fef265d8d3f6c192c92bbee00d17f18a6d3dfeda"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jetty-client-9.4.58.v20250814.jar": {
+      "bytes": 331809,
+      "sha256": "629371e5f65f321832930538bd485e5fd637d180412ea75f592881921e2d4b83"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jetty-http-9.4.58.v20250814.jar": {
+      "bytes": 253267,
+      "sha256": "8f49b8583fc8dbbfe3a0ba80a04c97df64ebabca2981b56ee403c989aba9d4da"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jetty-io-9.4.58.v20250814.jar": {
+      "bytes": 184953,
+      "sha256": "f55b2cc7c05244fd7b1773e99979b740002b0186e45b8a688243d89c7006fe21"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jetty-security-9.4.58.v20250814.jar": {
+      "bytes": 119718,
+      "sha256": "301548ebf008551a3a4312b04df0ea0468acc2780f863b83cc9cf0d668e62252"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jetty-server-9.4.58.v20250814.jar": {
+      "bytes": 749129,
+      "sha256": "608dbd3e1c4184374f02c70704e5d1c9daaded45e6a31d07824f40dac6083ba9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jetty-servlet-9.4.58.v20250814.jar": {
+      "bytes": 147612,
+      "sha256": "1c6bb17326147e642c8a41e4657b32bca5057c8958db4da770d09c0904aefcff"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jetty-util-9.4.58.v20250814.jar": {
+      "bytes": 595403,
+      "sha256": "8d591679d318d20c8fb2b1e83900562b3c4571ff7a189696be700293e0204146"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jetty-util-ajax-9.4.58.v20250814.jar": {
+      "bytes": 67215,
+      "sha256": "185430a2eafcdffba18204dbf51cb18436ab4ca09b74d97c1dc13abbadd9704b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jetty-webapp-9.4.58.v20250814.jar": {
+      "bytes": 141935,
+      "sha256": "3f58ac238deb2218140ffa446661c1d1323752bc4b4ae01653d9500c3fca38aa"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jetty-xml-9.4.58.v20250814.jar": {
+      "bytes": 69507,
+      "sha256": "2fc7f7364ec009fe2bbae574554994cef16c4230de170bd6be51ecd6f6bb95d3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jflex-1.4.3.jar": {
+      "bytes": 179102,
+      "sha256": "c756a074064f40ffe92634a691985c6d77a2542ec0b2578e449e957fbfc76e74"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jline-2.14.6.jar": {
+      "bytes": 268780,
+      "sha256": "97d1acaac82409be42e622d7a54d3ae9d08517e8aefdea3d2ba9791150c2f02d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jline-3.9.0.jar": {
+      "bytes": 707273,
+      "sha256": "d2b986fd15d05e0b900faba776c1de9b4dc4a4fcdfeaa12a8ab8fb2b290ed527"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jna-5.12.1.jar": {
+      "bytes": 1866196,
+      "sha256": "91a814ac4f40d60dee91d842e1a8ad874c62197984403d0e3c30d39e55cf53b3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jna-platform-5.12.1.jar": {
+      "bytes": 1356627,
+      "sha256": "8ce969116cac95bd61b07a8d5e07174b352e63301473caac72c395e3c08488d2"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/joda-time-2.9.9.jar": {
+      "bytes": 634048,
+      "sha256": "b049a43c1057942e6acfbece008e4949b2e35d1658d0c8e06f4485397e2fa4e7"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jol-core-0.16.jar": {
+      "bytes": 117875,
+      "sha256": "7ba48c1dbcd8b6ce5ca722cabc4a59f5a3fac8e87bddc02e7a5cd9b63d52eb55"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/joni-2.2.1.jar": {
+      "bytes": 230217,
+      "sha256": "b3e4b657a3ed1d8f684114f6baa462d553a5932a865c1574695498dda8577748"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jprotobuf-protoparser-1.0.1.jar": {
+      "bytes": 84109,
+      "sha256": "7c95868ebcfa96763b5a884c2276eb66334977e47804d85c858195049919dbf6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jprotobuf-rpc-common-1.9.jar": {
+      "bytes": 11563,
+      "sha256": "d9fbee9ac1bd0bcbaaed91163956135bd559c8e82da800f78340486791b96d34"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jprotobuf-rpc-core-4.2.1.jar": {
+      "bytes": 195023,
+      "sha256": "21e566f94b0544c1bf992a82b086e53fbbf36334a61b6ac999b669ceb16c7a60"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jprotobuf-rpc-core-test-4.2.1.jar": {
+      "bytes": 25412,
+      "sha256": "f2bbb58110aab768a41ed6eb0537a0cc052d10ccc5c6e2bc4ac7dc09cfc04681"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jprotobuf-starrocks-1.0.0.jar": {
+      "bytes": 208135,
+      "sha256": "14f3e4f83a105eab7de9213d75a91954383c53eb028800438b3ed7e97ac2259e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jsch-0.1.55.jar": {
+      "bytes": 282591,
+      "sha256": "d492b15a6d2ea3f1cc39c422c953c40c12289073dbe8360d98c0f6f9ec74fc44"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/json-20231013.jar": {
+      "bytes": 74702,
+      "sha256": "0f18192df289114e17aa1a0d0a7f8372cc9f5c7e4f7e39adcf8906fe714fa7d3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/json-smart-2.4.10.jar": {
+      "bytes": 120206,
+      "sha256": "70cab5e9488630dc631b1fc6e7fa550d95cddd19ba14db39ceca7cabfbd4e5ae"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/json-utils-2.42.1.jar": {
+      "bytes": 33302,
+      "sha256": "eb4f665b9e4befb4ebdfdc198cce2b91001a8d2d06df51af596fec1515634ff6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/json4s-ast_2.12-3.7.0-M11.jar": {
+      "bytes": 89855,
+      "sha256": "f9388c0ad4a969bf1a1867e85ce24ed87ca5a1095342b96b35c356fd971b544d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/json4s-core_2.12-3.7.0-M11.jar": {
+      "bytes": 526286,
+      "sha256": "2fd8e66a3715565294c4edb5d2514e7ff59a14960c7f8dd84cf0991661a48a10"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/json4s-jackson_2.12-3.7.0-M11.jar": {
+      "bytes": 37065,
+      "sha256": "d03ed279c83870b9bd624b1817fe6290822d7e74207d1e250860fbdd935643dc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/json4s-scalap_2.12-3.7.0-M11.jar": {
+      "bytes": 348265,
+      "sha256": "d2a1f84b618e1cba12c4e8ce2babc23d78a12de5f568abf8fbaeca39c52e0eb8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jsp-api-2.1.jar": {
+      "bytes": 100636,
+      "sha256": "545f4e7dc678ffb4cf8bd0fd40b4a4470a409a787c0ea7d0ad2f08d56112987b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jsr305-3.0.2.jar": {
+      "bytes": 19936,
+      "sha256": "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/jul-to-slf4j-1.7.30.jar": {
+      "bytes": 4592,
+      "sha256": "bbcbfdaa72572255c4f85207a9bfdb24358dc993e41252331bd4d0913e4988b9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kerb-core-2.0.3.jar": {
+      "bytes": 223129,
+      "sha256": "89247dda5c0e61e8c658ed36109ca6ec662ebae9fa2c40d937466035d023419b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kerb-crypto-2.0.3.jar": {
+      "bytes": 115065,
+      "sha256": "9e368bdc1e8a22e87c775e42d0a15599bdd9e16954f55a964f42ff1d9f94adb2"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kerb-util-2.0.3.jar": {
+      "bytes": 36361,
+      "sha256": "59da956d1c65f5ddfe43606ccfcccd1a4508936fb726d01b2f3753b292b97b34"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kerby-asn1-2.0.3.jar": {
+      "bytes": 100095,
+      "sha256": "3f1532d2bfa0dd6fec171744a07990c0046e0f2f0f65ca21780b408a3827dbd2"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kerby-config-2.0.3.jar": {
+      "bytes": 30190,
+      "sha256": "5137cab8fd70ce322f92a6ab7678f63d2660dab2c14d339dabae9f8e14067d06"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kerby-pkix-2.0.3.jar": {
+      "bytes": 200581,
+      "sha256": "aec2d810b0ad3ff939bd4c70ebfce96539642c20f52cb3fbe4852dc827fec2c9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kerby-util-2.0.3.jar": {
+      "bytes": 40787,
+      "sha256": "65afc7a01a6d43b7db9e0a6768a750607fd318656da10a7f654414a5ccf5dc8a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kms-2.42.1.jar": {
+      "bytes": 1558340,
+      "sha256": "79edc58f7f61773fe667cf3e3f756b14dbf0391dde3c6007d43f5a85d6749f9b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kotlin-stdlib-1.6.20.jar": {
+      "bytes": 1509405,
+      "sha256": "eeb51c2b67b26233fd81d0bc4f8044ec849718890905763ceffd84a31e2cb799"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kotlin-stdlib-common-1.5.31.jar": {
+      "bytes": 198322,
+      "sha256": "dfa2a18e26b028388ee1968d199bf6f166f737ab7049c25a5e2da614404e22ad"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kotlin-stdlib-jdk7-1.5.31.jar": {
+      "bytes": 22986,
+      "sha256": "a25bf47353ce899d843cbddee516d621a73473e7fba97f8d0301e7b4aed7c15f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kotlin-stdlib-jdk8-1.5.31.jar": {
+      "bytes": 16121,
+      "sha256": "b548f7767aacf029d2417e47440742bd6d3ebede19b60386e23554ce5c4c5fdc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kryo-shaded-4.0.2.jar": {
+      "bytes": 410874,
+      "sha256": "a4899f57fef456b9ec66f730e7b493ecb3dc494cc5758721ed9c18416fd2d3b6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/kudu-client-1.17.1.jar": {
+      "bytes": 16745328,
+      "sha256": "b47157a27b4d16c4cc2dcaf8c148c06cffeaf28001db2ec92e52128a6b1e23c7"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/lang-tag-1.7.jar": {
+      "bytes": 11170,
+      "sha256": "e8c1c594e2425bdbea2d860de55c69b69fc5d59454452449a0f0913c2a5b8a31"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/leveldbjni-all-1.8.jar": {
+      "bytes": 1356630,
+      "sha256": "40eb0c4f8c8a4b819c5949b19c38333411c1a4620f6e960a3313854d4adc7c83"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/libthrift-0.23.0.jar": {
+      "bytes": 369881,
+      "sha256": "8b41b67a5ff13c371ab18b6d34506121dcecf11372829f7d50115cfb1bf72d42"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar": {
+      "bytes": 2199,
+      "sha256": "b372a037d4230aa57fbeffdef30fd6123f9c0c2db85d0aced00c91b974f33f99"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/log-202.jar": {
+      "bytes": 3908,
+      "sha256": "0a7f0c376d1ff6ac062cedfc681889327fe7afee7086ab9507d84e21557ddc19"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/log4j-1.2-api-2.19.0.jar": {
+      "bytes": 348997,
+      "sha256": "60480a6c81978a9871099e002997df84a05fc11789fb248e3e803a0dcb19e0cd"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/log4j-api-2.19.0.jar": {
+      "bytes": 317566,
+      "sha256": "5ccb24ad9f92e768d0bc456d3061a737951262df803e004d2cad096b75a88d60"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/log4j-core-2.19.0.jar": {
+      "bytes": 1864386,
+      "sha256": "b4a1796fab7bfc36df015c1b4052459147997e8d215a7199d71d05f9e747e4f4"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/log4j-layout-template-json-2.19.0.jar": {
+      "bytes": 234870,
+      "sha256": "d5b0d581dde1a95fd29286723a97259b7982c4db623c2c48839e05061d304d25"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/log4j-slf4j-impl-2.19.0.jar": {
+      "bytes": 25040,
+      "sha256": "015d5c229f3cd5c0ebf175c1da08d596d94043362ae9d92637d88848c90537c8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/logging-interceptor-2.7.5.jar": {
+      "bytes": 7753,
+      "sha256": "995576e55173cca3bf4fd472c128d1dca2675d9f56f76320b74c4d6ddbd3d600"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/lz4-java-1.10.1.jar": {
+      "bytes": 910232,
+      "sha256": "a58a84c4271e50df4c96ed916ccb7e48a869f8ed9cdcda1ad5d3d4c33b0214a3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/mail-1.4.7.jar": {
+      "bytes": 521157,
+      "sha256": "78c33b4f7c7b60f4b680f2d2405b1f063d71929cf1a4fbc328888379f365fcfb"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/mariadb-java-client-3.3.2.jar": {
+      "bytes": 662472,
+      "sha256": "2a67ef3cc1ca481965a0e7f2d4174d126f3464d02b4055a441261fad8c196769"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/metastore-client-common-0.2.14.jar": {
+      "bytes": 96470,
+      "sha256": "fffb5394bd599b4f3cea7dcf48d448ef4095ceda8fe9bc3567dc13300b55a759"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/metastore-client-hive-common-0.2.14.jar": {
+      "bytes": 66249,
+      "sha256": "e88da4f2dce358ab3b94afda350d72e2982ce87f0b7f29c3b924e9fcaf134ef5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/metastore-client-hive3-0.2.14.jar": {
+      "bytes": 131478,
+      "sha256": "2f6bb2ed181b0281ae5a3f10b3322167f8abd5ce6c9ba95113b8e50a1ba24ea7"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/metrics-core-4.2.19.jar": {
+      "bytes": 129647,
+      "sha256": "fa967bc2b37c8bff5bc377e60e439504fd9df5d335c7a42b37212403250023df"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/metrics-graphite-4.2.19.jar": {
+      "bytes": 23890,
+      "sha256": "53d5417288b0e2a390d379a6f784210b43ebfbaa0a1f3349e2638a35bc2c0877"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/metrics-jmx-4.2.19.jar": {
+      "bytes": 21568,
+      "sha256": "d51c124b6e1ec77b7711dffd4b46b47db529074ff522b49f2343c7c2e82798af"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/metrics-json-4.2.19.jar": {
+      "bytes": 17037,
+      "sha256": "cfbccdfd8fc073dbbd47ae734785c0a2a12a00c0c3903549719fc416e8b646c6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/metrics-jvm-4.2.19.jar": {
+      "bytes": 24683,
+      "sha256": "996a602152db07aa5cbc669265b564099c20acef2508ec5e717f20b98b5acbc5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/metrics-spi-2.42.1.jar": {
+      "bytes": 27270,
+      "sha256": "9ea2530f583880060c6bdee40a5e0b8a079d02281fdbb848a6b76a265f38079e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/minlog-1.3.0.jar": {
+      "bytes": 5711,
+      "sha256": "f7b399d3a5478a4f3e0d98bd1c9f47766119c66414bc33aa0f6cde0066f24cc2"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/msal4j-1.19.1.jar": {
+      "bytes": 374244,
+      "sha256": "5c8bbf40c72d259230c7717348fc026dcaf2a6cb7f029eb78abc2d0235e66e0f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/msal4j-persistence-extension-1.3.0.jar": {
+      "bytes": 27005,
+      "sha256": "dfc41c817fbfa76057af6ffe4379dbca6a5e16b8e87df8bdda23f371756c2d09"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/mssql-jdbc-12.4.2.jre11.jar": {
+      "bytes": 1451535,
+      "sha256": "e14bc6afacadef91085f2aaf2a9c275fe54ee93f4f7a499fb4d5a2e288043f01"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-all-4.1.133.Final.jar": {
+      "bytes": 4534,
+      "sha256": "438b9c18c7bf773eb7feadaf6ade45645d114e72c0ea25d5767cbe63cba2e623"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-buffer-4.1.133.Final.jar": {
+      "bytes": 357929,
+      "sha256": "386d560b5eb8fa5317190c67be1b657e33163eeecd0b25ab36a15bdf235ff204"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-4.1.133.Final.jar": {
+      "bytes": 359183,
+      "sha256": "65d9fd0b5ae80ddda532b3a98bf5adbd4f34ec6ae19ba2439eab2ed3d6d79c5a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-dns-4.1.133.Final.jar": {
+      "bytes": 68311,
+      "sha256": "b0ad104c6281ed101ea5d9b511f9bd5ba7ff92e9b240ca799f4597f7b8ce4d92"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-haproxy-4.1.133.Final.jar": {
+      "bytes": 37844,
+      "sha256": "44b0bbd1482e4982ea9a0c9e77e3febddeedaa3694b70bd84628d4fa87e9cbdb"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-http-4.1.133.Final.jar": {
+      "bytes": 690807,
+      "sha256": "cb82f9fd12d9cd3c3bf2306080e2230a29fcddaab388fc8a36bd7b2c7e1e49ec"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-http2-4.1.133.Final.jar": {
+      "bytes": 501675,
+      "sha256": "0e07715264db137a41b75aa3733b7bb5ab597403abb9668385ea776692ee41d0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-memcache-4.1.133.Final.jar": {
+      "bytes": 44796,
+      "sha256": "c8468eda77b1af23382feede17ef79a6d5d13957e3e75cb66954b582a0d06cf9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-mqtt-4.1.133.Final.jar": {
+      "bytes": 113888,
+      "sha256": "097bfa25e6131e361dce3182eadb8912c4d4177f0d1a56178b563c259e123567"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-redis-4.1.133.Final.jar": {
+      "bytes": 46203,
+      "sha256": "8b410553bfeb7629308e6772a334ee04fa4c54f7784264741223f89e20fd5e15"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-smtp-4.1.133.Final.jar": {
+      "bytes": 22231,
+      "sha256": "cbbf7893eb92aba9c93073b46e01c8442a6bdb6dd4ed49d647b8abf6de6ec0c8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-socks-4.1.133.Final.jar": {
+      "bytes": 121088,
+      "sha256": "83a031b42f7b577cd38726ebcc769a3dfc0a904a1b426041c34f2c9784a2a682"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-stomp-4.1.133.Final.jar": {
+      "bytes": 34713,
+      "sha256": "21bd3ebf6b4010b21a10e4179b7b907adb835bc19cbea001660b5fb5d964867a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-codec-xml-4.1.133.Final.jar": {
+      "bytes": 19881,
+      "sha256": "031470f2271dfa04a31d7e09f5aeeef3895f234c10bf90aa8c3b10b71ce989ff"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-common-4.1.133.Final.jar": {
+      "bytes": 738481,
+      "sha256": "799930f8e36ea3611f90372f1ed54c212aee8ae70bf38bdf082417d6db672b0a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-handler-4.1.133.Final.jar": {
+      "bytes": 584768,
+      "sha256": "b468863c1b0fd13ba20f8b1a2b04f8f23d3d6bb50ee3003d372fd8ec7eb87265"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-handler-proxy-4.1.133.Final.jar": {
+      "bytes": 25785,
+      "sha256": "562c8c851983a0913bcfe2044da774c677dc98afb910891a66b01401eadf0c3c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-handler-ssl-ocsp-4.1.133.Final.jar": {
+      "bytes": 26892,
+      "sha256": "459c454c2ee74425be9411721e3daa7a90d38562236b8c8d4f21e55fb33fa4bc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-nio-client-2.42.1.jar": {
+      "bytes": 293260,
+      "sha256": "1aaeb9f7219922466dd2b898ad050b5a01d08f342b138cf61ca83c5ada16acdf"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-resolver-4.1.133.Final.jar": {
+      "bytes": 37905,
+      "sha256": "8b9ee3129bd6f8d0b5b09007b4e41e78c6ea63f18a8d33cb171455ffabcda10e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-resolver-dns-4.1.133.Final.jar": {
+      "bytes": 188347,
+      "sha256": "16ea68b2ae21e0181e9bb30e71424c189a28648ab880e86d0934b3da7481228f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-resolver-dns-classes-macos-4.1.133.Final.jar": {
+      "bytes": 9209,
+      "sha256": "f4b792b2f4fb8c7a7c2d28e0526c59e645a9674e310f6aa6dd9351f33ce4dc71"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-resolver-dns-native-macos-4.1.133.Final-osx-aarch_64.jar": {
+      "bytes": 20039,
+      "sha256": "609e0c85265d3c5b0db88f94799099f5124b3a49c29c88a96feee812ef371017"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-resolver-dns-native-macos-4.1.133.Final-osx-x86_64.jar": {
+      "bytes": 19640,
+      "sha256": "61205811c24a1ec6004d0119a0bea5fa3ff8da5a5505f65ecd0865012273512e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-tcnative-boringssl-static-2.0.77.Final-linux-aarch_64.jar": {
+      "bytes": 1289532,
+      "sha256": "32f73dd78d8af143a0b2274cdea9ecdb406cfcd536ce200287577bd09ef9a4dc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-tcnative-boringssl-static-2.0.77.Final-linux-x86_64.jar": {
+      "bytes": 1386961,
+      "sha256": "7c97f40ca4441aa2c878dd4a5ab3c73c4eb140d31a77d07a00b2396b6288f826"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-tcnative-boringssl-static-2.0.77.Final-osx-aarch_64.jar": {
+      "bytes": 1146856,
+      "sha256": "7d2ff3a2527ade2949ccc5f00f48dbe84823a7997d938d47c0c2587acdf23f96"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-tcnative-boringssl-static-2.0.77.Final-osx-x86_64.jar": {
+      "bytes": 1254046,
+      "sha256": "05edbc65d17a5d21bd5cf8bd07b5ad20a8a7a645f1e56e1fe4194788ad301e46"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-tcnative-boringssl-static-2.0.77.Final-windows-x86_64.jar": {
+      "bytes": 1156354,
+      "sha256": "fb680744cb305a59373f12afdd5d49faaaa054481fc12e0c5877e71ee07328c3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-tcnative-boringssl-static-2.0.77.Final.jar": {
+      "bytes": 3782,
+      "sha256": "73a2272656e17483f65fcec78c0e93ed14d5f584bda5a7d51ea5a636d5cf60ef"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-tcnative-classes-2.0.77.Final.jar": {
+      "bytes": 37389,
+      "sha256": "d492269308336001b7a7eca02703282c3d74c8c3b4fe08c5078cfefeeda7e34f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-4.1.133.Final.jar": {
+      "bytes": 521719,
+      "sha256": "9895abfebf5cb8c185e4534f3936759d7ecd133353cef18d2ae9ae3c58845142"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-classes-epoll-4.1.133.Final.jar": {
+      "bytes": 147776,
+      "sha256": "d21448bca3a3691437e88e974f24a36270783a62a79eff3a615fb6f730d6714b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-classes-kqueue-4.1.133.Final.jar": {
+      "bytes": 112718,
+      "sha256": "7897e30c0d228474c66988bc08dfd9d41676d250cbe03f2dcb2ca37a8031d54a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-native-epoll-4.1.133.Final-linux-aarch_64.jar": {
+      "bytes": 42653,
+      "sha256": "50b9eff093e1c43434c85e48c13165c82a7ac48c708bbac659dfcdb02d14e97f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-native-epoll-4.1.133.Final-linux-riscv64.jar": {
+      "bytes": 36974,
+      "sha256": "405eade942e6aea7091399f2a341c23c71929e959f392a0751b2dad16c71178f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-native-epoll-4.1.133.Final-linux-x86_64.jar": {
+      "bytes": 40926,
+      "sha256": "fdc76fe46e7218ef54547c1002aff69c4597291cc3ef34322d6f1a2f3090c880"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-native-epoll-4.1.133.Final.jar": {
+      "bytes": 6406,
+      "sha256": "a4d7c56f55570b7051b84c7abf34887f36d5bd01dd722249bc40de7ceb3755ea"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-native-kqueue-4.1.133.Final-osx-aarch_64.jar": {
+      "bytes": 26399,
+      "sha256": "4c1322733d48b9860903676fe6e5e406c7af36d36b49b7e83090321e7355b413"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-native-kqueue-4.1.133.Final-osx-x86_64.jar": {
+      "bytes": 25640,
+      "sha256": "5e246b541f72d33d9fe5ec72a0b6cadded0d1978399704f6ac966bd73fbb0fa6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-native-unix-common-4.1.133.Final.jar": {
+      "bytes": 44324,
+      "sha256": "75681c3be01ff3c5bb6a39a7583e70289f64fd926e4fc29859ce9cf223ad99fc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-rxtx-4.1.133.Final.jar": {
+      "bytes": 18240,
+      "sha256": "abadc8bf8e56ffeb027a13c3c240dabafdbbb1af9274655a0887e195905dc6f0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-sctp-4.1.133.Final.jar": {
+      "bytes": 50925,
+      "sha256": "a1b345642d6e440e3ef1231bab32ffe1b86437227abb1186993d00db4c4c8335"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/netty-transport-udt-4.1.133.Final.jar": {
+      "bytes": 32183,
+      "sha256": "a0e5d952ea36df233c0b4ab866a56136df7f43efaf75f7774309996390439b0d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/nimbus-jose-jwt-9.37.2.jar": {
+      "bytes": 779369,
+      "sha256": "73bca52833f7ad9571f9c054964007e54f0abcc60e0703a003d1cfa2080336bb"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/oauth2-oidc-sdk-11.23.jar": {
+      "bytes": 902589,
+      "sha256": "aaabce3dbf002ec053cb4e370864c8eecbd71381905e14d52ae1e12dba896343"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/objenesis-3.3.jar": {
+      "bytes": 49423,
+      "sha256": "02dfd0b0439a5591e35b708ed2f5474eb0948f53abf74637e959b8e4ef69bfeb"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/odps-sdk-commons-0.48.7-public.jar": {
+      "bytes": 206777,
+      "sha256": "b8beadf265b5449877ff51caa9f69f024486b3c9e7e0150b48044b430ff1973e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/odps-sdk-core-0.48.7-public.jar": {
+      "bytes": 2950733,
+      "sha256": "9c95ea08900e9fc8774737b71f1793771de9bdb0b3d1823fa66d0c3c2fc15d21"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/odps-sdk-table-api-0.48.7-public.jar": {
+      "bytes": 251854,
+      "sha256": "655b156d284415013ca101a26bde61a31931b86be9399466ece3a7d43f490c41"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ofs-sdk-definition-1.0.4.jar": {
+      "bytes": 4024,
+      "sha256": "76b7cfdc06e545fa052117fcd1565f616f9cf6ec86145171a566344641f48f96"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ojdbc10-19.18.0.0.jar": {
+      "bytes": 4521359,
+      "sha256": "16292ee8cf7265da3ee9980b8c6f40604826e107692f110f3352aacb12e2786b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/okhttp-2.7.5.jar": {
+      "bytes": 331034,
+      "sha256": "88ac9fd1bb51f82bcc664cc1eb9c225c90dc4389d660231b4cc737bebfe7d0aa"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/okhttp-4.10.0.jar": {
+      "bytes": 782603,
+      "sha256": "7580f14fa1691206e37081ad3f92063b1603b328da0bb316f2fef02e0562e7ec"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/okio-3.4.0.jar": {
+      "bytes": 25744,
+      "sha256": "18780c5d229bd00895cf28b913c5a1e585dbf0aab8f410fc48392e1783abb442"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/okio-jvm-3.0.0.jar": {
+      "bytes": 350780,
+      "sha256": "be64a0cc1f28ea9cd5c970dd7e7557af72c808d738c495b397bf897c9921e907"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opencensus-api-0.31.1.jar": {
+      "bytes": 355405,
+      "sha256": "f1474d47f4b6b001558ad27b952e35eda5cc7146788877fc52938c6eba24b382"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opencensus-contrib-http-util-0.31.1.jar": {
+      "bytes": 23415,
+      "sha256": "3ea995b55a4068be22989b70cc29a4d788c2d328d1d50613a7a9afd13fdd2d0a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opencsv-5.7.1.jar": {
+      "bytes": 238754,
+      "sha256": "d05a7bd25fd62bf27803d71b80f98ad2d929420072648c09a26d45344d25d6b8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-api-1.14.0.jar": {
+      "bytes": 123275,
+      "sha256": "5922fb477144cfdba2ae149e4addb3cf79ccc783b3300856b0a47c6e8dee6a7e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-context-1.14.0.jar": {
+      "bytes": 45609,
+      "sha256": "2498e5196a862c1a9155dc8d73609b320c063e1ac143a503ad3f16146ece09ed"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-exporter-jaeger-1.14.0.jar": {
+      "bytes": 37377,
+      "sha256": "e656950877137347f02683382e5ffe1109eedddaf540637e05c93eeae07ef4cc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-exporter-otlp-1.14.0.jar": {
+      "bytes": 1027,
+      "sha256": "8a029f728cd4571fbc81ffbe001114b5fc7820f49e34f4277c7c8c87c98c5417"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-exporter-otlp-common-1.14.0.jar": {
+      "bytes": 190504,
+      "sha256": "9c9435e084dee4bcf7a301bbf4759cf5beddfc16288e895d210229cc694cfcc9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-exporter-otlp-metrics-1.14.0.jar": {
+      "bytes": 10701,
+      "sha256": "512c2e603fb09ca5b548eab65fa0e0efbaf5043c94f0b3c19f2ee2cbe97b0aff"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-exporter-otlp-trace-1.14.0.jar": {
+      "bytes": 10334,
+      "sha256": "c407b2a740bfe31f384192a3af35e92a9673f799fde0c4cf8bb4f4e064685f86"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-sdk-1.14.0.jar": {
+      "bytes": 5157,
+      "sha256": "e2328e0363b3a1ab8dbf5d7d1955aa332a6d55ee0f4bf254fa7a6164ef4f77c1"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-sdk-common-1.14.0.jar": {
+      "bytes": 32673,
+      "sha256": "be394212144560a9b1a8bb45e2e51b18a810b556347c7a6e8911fd05eea7556f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-sdk-logs-1.14.0-alpha.jar": {
+      "bytes": 43811,
+      "sha256": "cf35c7035de8ef6b485620c570cf71e5319b4f7c8acddca136b17f84b05da3e5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-sdk-metrics-1.14.0.jar": {
+      "bytes": 285371,
+      "sha256": "c5ac862eba5f9c6273766e888be8a6a78b603e8b2a344e4b72463c94ae91a80f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-sdk-trace-1.14.0.jar": {
+      "bytes": 115039,
+      "sha256": "f9fe68b809fdb64f34804825d380d9fbbbd766c124ac763bb86e401f06c602a5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentelemetry-semconv-1.14.0-alpha.jar": {
+      "bytes": 29229,
+      "sha256": "cafdfbc3173e930c57c46021369bab237ae7b70cdbbbb60883caa3a7fe0b0662"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentracing-api-0.33.0.jar": {
+      "bytes": 18189,
+      "sha256": "4534541b8e9f41a17bcdf1d09affe45b98c13574db6e529a93a58264b9472c7c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentracing-noop-0.33.0.jar": {
+      "bytes": 10542,
+      "sha256": "8529f91e10047b2b94cb21b50086a3d3913fa4da43594eddbd9ecf5917efe040"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/opentracing-util-0.33.0.jar": {
+      "bytes": 7504,
+      "sha256": "22c5dfbb9b0e2f08f7371bf3d68372c7604c804d3129499b43f37a8877c4379e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/orai18n-19.18.0.0.jar": {
+      "bytes": 1664182,
+      "sha256": "f3398266044061ec436b2d75a9628fccb83a69e2f0ee8e435ec6098133e2e4b0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/orc-core-1.9.1.jar": {
+      "bytes": 1159271,
+      "sha256": "929f2daa3588a3354c76e523b3872f8d5d43f481fc27c6558b05d9c215d7b835"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/orc-shims-1.9.7.jar": {
+      "bytes": 29012,
+      "sha256": "ba77a2b8f7178f18f03b4bd92a416d3d2468891eed93cda96c4cfedf535f7e95"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/org.abego.treelayout.core-1.0.3.jar": {
+      "bytes": 26773,
+      "sha256": "fa5e31395c39c2e7d46aca0f81f72060931607b2fa41bd36038eb2cb6fb93326"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/org.jacoco.agent-0.8.5-runtime.jar": {
+      "bytes": 281989,
+      "sha256": "6732c1161579954dc5884d38dd202ea16c3418b311259cbab7433525a6fc82ac"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/oro-2.0.8.jar": {
+      "bytes": 65261,
+      "sha256": "e00ccdad5df7eb43fdee44232ef64602bf63807c2d133a7be83ba09fd49af26e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/osgi-resource-locator-1.0.3.jar": {
+      "bytes": 19479,
+      "sha256": "aab5d7849f7cfcda2cc7c541ba1bd365151d42276f151c825387245dfde3dd74"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/oshi-core-6.2.1.jar": {
+      "bytes": 947049,
+      "sha256": "13683fa8a8adb977e893af166afc3494a9c019ea89fcd75c0d9973c25b6b6121"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/paimon-bundle-1.3.1.jar": {
+      "bytes": 46120921,
+      "sha256": "ec0a91c0cf6c1da46c7175b7778e3207395eca10272d891fa49770ec7a780162"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/paimon-oss-1.3.1.jar": {
+      "bytes": 29158155,
+      "sha256": "b86bf0fa2191eeb9c6846119ed4a56a29cc456e68982f180032d620fffd4d9cb"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/paimon-s3-1.3.1.jar": {
+      "bytes": 31776897,
+      "sha256": "f103c3cd22590e92efad3a89414a718d4921041c32f181b74a3595c9d3a754f6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/paranamer-2.8.jar": {
+      "bytes": 34654,
+      "sha256": "688cb118a6021d819138e855208c956031688be4b47a24bb615becc63acedf07"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/parquet-avro-1.15.2.jar": {
+      "bytes": 1735259,
+      "sha256": "ffb32d4245648338966d82c9aedd461efb8785fbea27d85b2f2d1ac2a14e6808"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/parquet-column-1.15.2.jar": {
+      "bytes": 3231753,
+      "sha256": "856e759164450d1373e98f761968bd19a6a26899c2f93720770501a1b0e59e4c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/parquet-common-1.15.2.jar": {
+      "bytes": 124577,
+      "sha256": "a1e57537661f18f259d342a93123db10b5796e30a0585d0652af987ea7c33596"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/parquet-encoding-1.15.2.jar": {
+      "bytes": 849404,
+      "sha256": "da2b2df9749cce2eee3205a6f4ec07612f985d51aebbd8f5861d8ec344824dc1"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/parquet-format-structures-1.15.2.jar": {
+      "bytes": 767181,
+      "sha256": "417175f24f18e50f82873d604f36532c6b1c924611c4357dff5851c631d87a45"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/parquet-hadoop-1.15.2.jar": {
+      "bytes": 1182337,
+      "sha256": "a9015cbd8548a43bed459d1ee5cbc2748110f1cf484fdab785e5171e515d810f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/parquet-jackson-1.15.2.jar": {
+      "bytes": 2389994,
+      "sha256": "0df26fcc7958e155da758676cdcc1028702d1876e62e4f87c406cee42cffcfe4"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/perfmark-api-0.26.0.jar": {
+      "bytes": 6816,
+      "sha256": "b7d23e93a34537ce332708269a0d1404788a5b5e1949e82f5535fce51b3ea95b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/pickle-1.3.jar": {
+      "bytes": 54279,
+      "sha256": "259aca378cbcee48797d047169e573666640312a188e2428a03cb19b0fbc7664"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/plugin-common-1.0.0.jar": {
+      "bytes": 26053,
+      "sha256": "04a30613e47f07b26aebb60bbaf8f881d3779c8215e097c47f164e656953e860"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/postgresql-42.7.11.jar": {
+      "bytes": 1142677,
+      "sha256": "1981b31d3993c58702783c1cddf10a34e48c1f413d70ff1cb6def0a143484647"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/profiles-2.42.1.jar": {
+      "bytes": 52561,
+      "sha256": "64bec8bfd0dcd7b2b17f2a0bd7c75b80b3d3353e56afd624fea1043522817f0c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-config-1.0.0.jar": {
+      "bytes": 32252,
+      "sha256": "0e7ae44b2aa8a05630b638c10bc22e6e341513a8baa27c4a90ae66457d611883"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-core-1.0.0.jar": {
+      "bytes": 94145,
+      "sha256": "7132f2b9e3db1074cbeec65339e2a2f466298d53c1d3927e8044978d1a37f6a6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-exporter-common-1.0.0.jar": {
+      "bytes": 10142,
+      "sha256": "07e4765ece8eaaeacba59ccff9255d1f3c9e958730571df820a5533cd31a06ab"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-exporter-httpserver-1.0.0.jar": {
+      "bytes": 17851,
+      "sha256": "d922ea2b7b6cc66e112a9c57a2432070e8c164599ac866f3ab53fbec125fc865"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-exposition-formats-1.0.0.jar": {
+      "bytes": 197792,
+      "sha256": "8a5a6a5d031ce2c1ce26646285427b118a36018b193896d179ea0013f279820f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-model-1.0.0.jar": {
+      "bytes": 87332,
+      "sha256": "4838903efeea5ee4f0f984dc3dc58fe366b0f4df2a25437f8161de1761886957"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-shaded-protobuf-1.0.0.jar": {
+      "bytes": 1724322,
+      "sha256": "efe574671b53250b3adbf04ed2bcabb9ddbf3a7e89d1ab3d10fe3bc2e6044d10"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-tracer-common-1.0.0.jar": {
+      "bytes": 3375,
+      "sha256": "5744849d868bc72c9e2185c2363f6b003d4f4f41af0963adaf556b0da4f8f644"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-tracer-initializer-1.0.0.jar": {
+      "bytes": 4057,
+      "sha256": "90b1b1d3b7cbc20f9bc18667b6e5795141b8312147b04cd93f3747ff26ff26a9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-tracer-otel-1.0.0.jar": {
+      "bytes": 4082,
+      "sha256": "def0bb71faf1a09f61b954f4983af929291001b52270ffb2635ab0add36adf0c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/prometheus-metrics-tracer-otel-agent-1.0.0.jar": {
+      "bytes": 4399,
+      "sha256": "943c95282ce10e0591ba2e411b30823794ce8ce316472460aa38e49e24bcd42e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/proto-google-common-protos-2.29.0.jar": {
+      "bytes": 2030846,
+      "sha256": "ee9c751f06b112e92b37f75e4f73a17d03ef2c3302c6e8d986adbcc721b63cb0"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/protobuf-java-3.25.5.jar": {
+      "bytes": 1875414,
+      "sha256": "8540247fad9e06baefa8fb45eb313802d019f485f14300e0f9d6b556ed88e753"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/protobuf-java-util-3.25.5.jar": {
+      "bytes": 73140,
+      "sha256": "dacc58b2c3d2fa8d4bddc1acb881e78d6cf7c137dd78bc1d67f6aca732436a8d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/protocol-core-2.42.1.jar": {
+      "bytes": 44369,
+      "sha256": "72ffc520f3b232a2ff692ca761ca456e930530a816503a091c94619b92020a97"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/py4j-0.10.9.7.jar": {
+      "bytes": 124506,
+      "sha256": "4d67d584e7b0f456deedffbd3f43047efd6748ff3d13b443abb61ec54cf7af13"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/quartz-2.5.0.jar": {
+      "bytes": 613247,
+      "sha256": "eef3c9198e3f346ea1da386a0b940ed43d7904cf217ecc5755fbe7f4729f0804"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ranger-audit-core-2.8.0.jar": {
+      "bytes": 164650,
+      "sha256": "b6ab03664ed11b4053ceb3ed69db6dc4c418f8de725d674c259667e7beee969b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ranger-authz-api-2.8.0.jar": {
+      "bytes": 46760,
+      "sha256": "379357479a94776798bc84dee959c02628f15b6389fc0bc523329ea86638f3b8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ranger-plugin-classloader-2.8.0.jar": {
+      "bytes": 16287,
+      "sha256": "926c75a255556eb9964c24fa019d9edd2b2756d559711a38473cd36b36a2b1d6"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ranger-plugins-common-2.8.0.jar": {
+      "bytes": 1198814,
+      "sha256": "10ad212120866d79566a595ff1282e92a6e43e1460eab558ef0ad4ec1e27d59e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ranger-plugins-cred-2.8.0.jar": {
+      "bytes": 18452,
+      "sha256": "3f88e242d1c99130fa6355a3c23445cec7710af6d0c6a54c3b2124e12bfb5017"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/re2j-1.1.jar": {
+      "bytes": 128414,
+      "sha256": "24ada84d1b5de584e3e84b06f0c7dd562cee6eafe8dea8083bd8eb123823bbe7"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/reactive-streams-1.0.4.jar": {
+      "bytes": 11640,
+      "sha256": "f75ca597789b3dac58f61857b9ac2e1034a68fa672db35055a8fb4509e325f28"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/reactor-core-3.4.41.jar": {
+      "bytes": 1744967,
+      "sha256": "27ffc421736b78481e815c407acc8a169a417d2bea6ed79bf56eb2a32d80ade8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/reactor-netty-core-1.0.48.jar": {
+      "bytes": 414930,
+      "sha256": "29b20a42d039de5cd92ab77f5079d2bf66ea7af86b5627aab610dec152dc9268"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/reactor-netty-http-1.0.48.jar": {
+      "bytes": 373456,
+      "sha256": "dcc612f4f98978815a293b3941ac286583eb7476129cabf0dbc24c660f74575e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/regions-2.42.1.jar": {
+      "bytes": 953338,
+      "sha256": "bdc2427ad826db4d499d4043297e86c615ee4a7c8b653c26cf119280c7f26c48"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/reload4j-1.2.22.jar": {
+      "bytes": 332398,
+      "sha256": "222f90d3e69541218ef6e70547749d693bd4c1846817e5bd7949b3e28950f99f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/retries-2.42.1.jar": {
+      "bytes": 66309,
+      "sha256": "543fbe659d048f6c64c60427209d21be4ac5831ae084fbebf2667c5386477e8a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/retries-spi-2.42.1.jar": {
+      "bytes": 31486,
+      "sha256": "641a54bbd47d0941299f49de663d10ce1e8b6178c7f79db297c9b29169c1852b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/rocksdbjni-8.3.2.jar": {
+      "bytes": 59326387,
+      "sha256": "289cafede18172b2a477833485360f938fb82f5fc2c4aaaf2801a8b62f8e153b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/s3-2.42.1.jar": {
+      "bytes": 4064484,
+      "sha256": "164de46f3a0eb77e0101fd1a1d370fc1d403b8927f4c2c3df464bf044331150b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/s3-transfer-manager-2.42.1.jar": {
+      "bytes": 252647,
+      "sha256": "7895b657afc44ddfe0251f3e807efbc8902ff98af0714e4c98ddfb6e8d381b06"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/scala-collection-compat_2.12-2.7.0.jar": {
+      "bytes": 247466,
+      "sha256": "fb68864a0248af0979d45921869eb1230b5926aa61e5c0a8737c3f73ae582e92"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/scala-library-2.12.10.jar": {
+      "bytes": 5276900,
+      "sha256": "0a57044d10895f8d3dd66ad4286891f607169d948845ac51e17b4c1cf0ab569d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/scala-reflect-2.12.18.jar": {
+      "bytes": 3670535,
+      "sha256": "d6a24e175246541ffcbc965a231aa1d3bb01d61def196f91495690fabf9783bc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/scala-xml_2.12-2.1.0.jar": {
+      "bytes": 466520,
+      "sha256": "d9a6df43cfac692f05e7166d39aae4476a246dac7740c7794a3072f1a67280ce"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/sdk-core-2.42.1.jar": {
+      "bytes": 1018325,
+      "sha256": "14595e6c8cd71f7f8f9ed1007aa381ea1384ad453743b8d26fea9e8b858af485"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/security-202.jar": {
+      "bytes": 21671,
+      "sha256": "85789f1424a6d87741e656c8a573b29740a10a897d0e1c1f62ee500478da6568"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/servlet-api-2.4.jar": {
+      "bytes": 97693,
+      "sha256": "243f8b5577f59bffdd30fd15cc25fc13004a6b08773a61cc32e48726c3633b7c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/shims-0.8.13.jar": {
+      "bytes": 2125,
+      "sha256": "c2b15e7c859c5c1fdedefc44dbed755a2b4f437aa57c3a648f916406032a1535"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/shims-cdh-hive2-0.2.14.jar": {
+      "bytes": 11639,
+      "sha256": "d02ed2101d09cd642a89e89624f9629f6c3004e22afba02834cdcb810a7e4c73"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/shims-common-0.2.14.jar": {
+      "bytes": 6542,
+      "sha256": "9039bcb6dbb2224b8c37ded6de93a9a31d817b930f77d4d57ac7939b96daf2c9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/shims-hive2-0.2.14.jar": {
+      "bytes": 11606,
+      "sha256": "bc14b6e96e3a3d58229d1e6197a1954f92916c542f0df0f36f2834651a8ff81e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/shims-hive3-0.2.14.jar": {
+      "bytes": 11185,
+      "sha256": "70119ad8d58f78710a57220e030210a2f0f797dfe0647207fdb20fe363850643"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/shims-load-0.2.14.jar": {
+      "bytes": 4179,
+      "sha256": "25541c33a2494ff85dd78cb94e7c8749e2a260867c326b09ad931a3d7466a1ae"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/simpleclient-0.8.0.jar": {
+      "bytes": 59477,
+      "sha256": "4a7a4966d6d369d4b82dee3c42fe488bd4173ec4928b4315e928afe378835e44"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/simpleclient_common-0.8.0.jar": {
+      "bytes": 5840,
+      "sha256": "8aa113443e876124eab257a68c3bfca489bebda9dd633e4938c96804c81b0d62"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/simpleclient_dropwizard-0.8.0.jar": {
+      "bytes": 16382,
+      "sha256": "a21af93ca885285a0320c983c56831ba7e48c093bb07951d0dfaf033fb044c4b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/simpleclient_httpserver-0.8.0.jar": {
+      "bytes": 10055,
+      "sha256": "c0354d4b7c177c0e2f4f1a3e219d078f39d36042daf5a0786e1471d405e4f026"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/simpleclient_pushgateway-0.8.0.jar": {
+      "bytes": 9332,
+      "sha256": "83901a44b75af43dc0f34924475bd634214c44a190f2dfa38e07157906184235"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/slf4j-api-1.7.30.jar": {
+      "bytes": 41472,
+      "sha256": "cdba07964d1bb40a0761485c6b1e8c2f8fd9eb1d19c53928ac0d7f9510105c57"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/snakeyaml-2.5.jar": {
+      "bytes": 340015,
+      "sha256": "e6682acf1ace77508ef13649cbf4f8d09d2cf5457bdb61d25ffb6ac0233d78dd"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/snappy-java-1.1.10.5.jar": {
+      "bytes": 2299797,
+      "sha256": "0f3f1857ed33116583f480b4df5c0218836c47bfbc9c6221c0d73f356decf37b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/spark-common-utils_2.12-3.5.7.jar": {
+      "bytes": 244699,
+      "sha256": "c4932aef7945fde830a4bc9d8da1987688c1f58ebbfc68a042f640b15c5dab77"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/spark-core_2.12-3.5.7.jar": {
+      "bytes": 14704194,
+      "sha256": "26b25d65fb97e00a4f55fbff83b2827b234e8db9d4e85cfe59477420b99ada03"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/spark-dpp-1.0.0.jar": {
+      "bytes": 7592622,
+      "sha256": "8990bc39438fe5ec57ec52f5582eb2768b5bf415277978b4812b17a62ca3aeff"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/spark-kvstore_2.12-3.5.7.jar": {
+      "bytes": 84200,
+      "sha256": "fa84f7767cac6c18bbbbf194f05aed73ae0c9162c8609c0fff8b9049254b4e56"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/spark-launcher_2.12-3.5.7.jar": {
+      "bytes": 79239,
+      "sha256": "18a3899ddf997a38f99046f33d9d78f1a395a6f8652a85fdb7ce784474ed8a92"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/spark-network-common_2.12-3.5.7.jar": {
+      "bytes": 2434034,
+      "sha256": "78ac676403cb563eab5749190c3f11463f97a9bc160526056d4582501c7ef185"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/spark-network-shuffle_2.12-3.5.7.jar": {
+      "bytes": 177742,
+      "sha256": "e9ed5459e6fbed2cf242f68950002b3e5c4cb7b59e10f5c3566f3734e3f8b02c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/spark-tags_2.12-3.5.7.jar": {
+      "bytes": 15161,
+      "sha256": "db5f4b99d69cbe3a098ec6c2e9e50ad1ebf2ba4ae182471ef40ebf37fe48315b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/spark-unsafe_2.12-3.5.7.jar": {
+      "bytes": 54772,
+      "sha256": "564a1532b8bd59867c7ffd2b1bead18c9e486b7366428579b6739a5f138e5104"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/sso-2.42.1.jar": {
+      "bytes": 279890,
+      "sha256": "f8f51055db9d9585273ca68fd14cd6d21e8fb97d9412339314bd7d5428493143"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ssooidc-2.42.1.jar": {
+      "bytes": 459956,
+      "sha256": "c0f36b651b720d460997fb584723df11a3d138231d3bc3bb397546f5698e840a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/starclient-4.0.5.jar": {
+      "bytes": 27839,
+      "sha256": "870fc231ca165cc30543e8d3409e07142a295614defa0e1b18511bc06e3abe5e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/starcommon-4.0.5.jar": {
+      "bytes": 2914258,
+      "sha256": "b0d8474db9356fb4138b2bdd3567c01c3777f2827cf1564355699afd774682cb"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/starmanager-4.0.5.jar": {
+      "bytes": 330301,
+      "sha256": "58ba8489b6c983e5a2d3b3f03eeeaff596cc5dd2cf14172662b3da1fb5164e4c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/starrocks-bdb-je-18.3.20.jar": {
+      "bytes": 3503483,
+      "sha256": "2541ff842bd5d7957501ba7a51d0d7dbb32895ce80447296c3bc94af902012a3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/stax-1.2.0.jar": {
+      "bytes": 179346,
+      "sha256": "df6905a047b05e23bc91f03ba57ac2f87c1ddf83e048aa0e5bd13169d5ebf0d9"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/stax-api-1.0.1.jar": {
+      "bytes": 26514,
+      "sha256": "d1968436fc216c901fb9b82c7e878b50fd1d30091676da95b2edd3a9c0ccf92e"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/stax2-api-4.2.1.jar": {
+      "bytes": 195909,
+      "sha256": "678567e48b51a42c65c699f266539ad3d676d4b1a5b0ad7d89ece8b9d5772579"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/sts-2.42.1.jar": {
+      "bytes": 483945,
+      "sha256": "86d25bc3cbe9b21121416f3ad0f2f3e1d51ac6cc3c8004c070b334e5f60c1e25"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tally-core-0.13.0.jar": {
+      "bytes": 57037,
+      "sha256": "b3ccc572be36be91c47447c7778bc141a74591279cdb40224882e8ac8271b58b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tally-m3-0.13.0.jar": {
+      "bytes": 129788,
+      "sha256": "0543cdbb9ce9fe5d6126c5f1d72253378df0750e3fedd93c6009207c142f90db"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tencentcloud-sdk-java-common-3.1.213.jar": {
+      "bytes": 31820,
+      "sha256": "cbd3883a94cc5a8a14aba9da2045dc85546ddb39716824562bc9760ffea05103"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tencentcloud-sdk-java-kms-3.1.213.jar": {
+      "bytes": 143627,
+      "sha256": "98786d78362e6a28f58d2c4ebab4c9403ec8113f87e39c00b1291e506148c154"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/third-party-jackson-core-2.42.1.jar": {
+      "bytes": 577559,
+      "sha256": "0f9a3b9afa8278cb7932fc82705c8379eb0f684d2c951181018971ba10547554"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/threeten-extra-1.7.2.jar": {
+      "bytes": 256904,
+      "sha256": "a1045fe98171dd84c79682b412dbfdd7e4dd72415ecdee14135f726e11604e80"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tink-1.9.0.jar": {
+      "bytes": 2168533,
+      "sha256": "8faf92d116a0ba138ee4e99a7418e985897818c2f6a9d4c01b8fe6b07db60eb7"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tomcat-api-9.0.93.jar": {
+      "bytes": 11647,
+      "sha256": "331e27f01ad1ba8e54a091929ebb059970db544350cc8a9d26fa79fbca1a2918"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tomcat-el-api-9.0.93.jar": {
+      "bytes": 89557,
+      "sha256": "e495c9f85312f3663a960ab282e70c0d7be46bf0cbee55d22aa0f24c2a48967f"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tomcat-jasper-9.0.93.jar": {
+      "bytes": 576695,
+      "sha256": "d920c050fd9e6b869585655877fb721ae6b54fcf3bbce727b1cd3c4d40ff0694"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tomcat-jasper-el-9.0.93.jar": {
+      "bytes": 173924,
+      "sha256": "2f7c4d13f29b5c099a30e6400d37b3b45a203d47c5f100dce11e7daa2a61c0a8"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tomcat-juli-9.0.93.jar": {
+      "bytes": 49609,
+      "sha256": "6051ba8f34729c5b9ff75eb605242657b316b910aa1a1ecc390170c6db80d84b"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tomcat-util-9.0.93.jar": {
+      "bytes": 229600,
+      "sha256": "8c8918be7d12f5650fde086e838e3c89d3a1be0ad2955f49a51f257b806b2d76"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/tomcat-util-scan-9.0.93.jar": {
+      "bytes": 227690,
+      "sha256": "d7192927a20892e831dd59b7725059569d8ed43671e3ae291a2e355f5ca04b22"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/trino-parser-385.jar": {
+      "bytes": 1371647,
+      "sha256": "5d4ec44380e967ee95f55a8b48a6fed27de12d49af1d76297f8aaffdbb5ffd77"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/ugsync-util-2.8.0.jar": {
+      "bytes": 25008,
+      "sha256": "ace9bbe30a3682e6524d0025593209c854f41333a176658abc5b248d21167ea7"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/units-1.0.jar": {
+      "bytes": 17197,
+      "sha256": "449a25dd5fdfe5fecbb2ae42fb99c92a5aa8a70ec562bb89d6832867c4741e3d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/url-connection-client-2.42.1.jar": {
+      "bytes": 33046,
+      "sha256": "5edc647ec70b87753ea01803c6f631ef26cc73bb19a51caddd59338755fe6192"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/utils-2.42.1.jar": {
+      "bytes": 248429,
+      "sha256": "b73cbe1a31166cd4a5647e9de0a336bd571bb9657baa88e6e202bb7c987e18e3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/utils-lite-2.42.1.jar": {
+      "bytes": 8797,
+      "sha256": "7184edbe657c95d6494e89bc5cd72c2540f19aab8c096251d35492d5f755bbcc"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/validation-api-1.1.0.Final.jar": {
+      "bytes": 63777,
+      "sha256": "f39d7ba7253e35f5ac48081ec1bc28c5df9b32ac4b7db20853e5a8e76bf7b0ed"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/velocity-engine-core-2.4.1.jar": {
+      "bytes": 515658,
+      "sha256": "1c19157d1171d560088e485be97c93a7a2f7e9f56e517f0a30273c5c39df6231"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/waffle-jna-3.3.0.jar": {
+      "bytes": 71735,
+      "sha256": "301cb389402618a0a8e7fb56c4b47e20f1f9c774f99a3d7272435bae2d323580"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/websocket-api-9.4.57.v20241219.jar": {
+      "bytes": 52192,
+      "sha256": "5933b3678c9b59552bab900d521deade8bb24c441d3f35db957a87210a478c2d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/websocket-client-9.4.57.v20241219.jar": {
+      "bytes": 45597,
+      "sha256": "994a6ce882440d3ce41adae46f60c14ea692faa884fd8e44247f6a955cdeb4fe"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/websocket-common-9.4.57.v20241219.jar": {
+      "bytes": 214602,
+      "sha256": "100cafab74235b3e4a1d9fbb1504bbd51ad2da9a2670c18adc28949a6dc8e61d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/wildfly-client-config-1.0.1.Final.jar": {
+      "bytes": 47396,
+      "sha256": "80a4e963ce94ebb043ecb0f2c0e77d327f23dc87d81350b863752eedfa2c3bb3"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/wildfly-common-1.5.4.Final.jar": {
+      "bytes": 284642,
+      "sha256": "9fda3caf8bd528dec56ebc70daf78f5a9ff5d0bfcea8b3e41ab7ae838747e46a"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/wildfly-openssl-2.2.5.Final.jar": {
+      "bytes": 584138,
+      "sha256": "71fb7932f99a727edb23c5a2cb8c6855ac7196fad41aa0669b3998e277165154"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/woodstox-core-5.4.0.jar": {
+      "bytes": 522679,
+      "sha256": "dbb958cb89f1d45238b061e146249494ff887f5f42b671a3956e98956e0d5c53"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/xbean-asm9-shaded-4.23.jar": {
+      "bytes": 262591,
+      "sha256": "0a9f790cd4759b7fb83fb6872504c73d669f72e731d9681f3e2da7ed3232c467"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/xnio-api-3.8.16.Final.jar": {
+      "bytes": 588677,
+      "sha256": "3572098fe1687dabd90f0222080fb158f63ca771c42ef1d39974434849f78bc4"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/xnio-nio-3.8.16.Final.jar": {
+      "bytes": 111648,
+      "sha256": "cee1ad9674ff4615f492a314a986c77b7c223ae03255c77aacc60c6cea62d59c"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/xpp3-1.1.3.3.jar": {
+      "bytes": 93395,
+      "sha256": "b14a6716def83417542d5515677d947fecd2597c125f2c82aa9be8792f66b5ee"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/xz-1.9.jar": {
+      "bytes": 116013,
+      "sha256": "211b306cfc44f8f96df3a0a3ddaf75ba8c5289eed77d60d72f889bb855f535e5"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/zero-allocation-hashing-0.16.jar": {
+      "bytes": 90203,
+      "sha256": "3bc39c640cc8314575de4ebcb1a0bca540516d3c60d49f8de7d638b09868553d"
+    },
+    "/query-corruption-workspace/src/fe/fe-core/target/lib/zstd-jni-1.5.5-4.jar": {
+      "bytes": 5940719,
+      "sha256": "e234c9ccbe9e36e19cc36c633d15f4a461f1bdc985d66662a2abbaa89859e522"
+    },
+    "/query-corruption-workspace/runtime/qct-cluster/fe/conf/fe.conf": {
+      "bytes": 570,
+      "sha256": "08c656d98cee1c7ec1673e95d15602231478de14e270b440abd776bef6717670"
+    },
+    "/query-corruption-workspace/runtime/qct-cluster/be0/conf/be.conf": {
+      "bytes": 610,
+      "sha256": "10a1531b9a68ed2f2297ab57653399f49a7ee5b84747a9f732f3d6b70c2f07fe"
+    },
+    "/query-corruption-workspace/runtime/qct-cluster/be1/conf/be.conf": {
+      "bytes": 610,
+      "sha256": "6485f883ba849f6aa1c927f560c92b3a966cf521351f03b1ec2482e28b28c5ef"
+    },
+    "/query-corruption-workspace/runtime/qct-cluster/be2/conf/be.conf": {
+      "bytes": 610,
+      "sha256": "f977c796135c8bba901f3209f561cf516339545a9810d3f152b960e68a9f0d48"
+    }
+  },
+  "tool_sha256": {
+    "matrix.py": "457ce7abb87e024a57b351ab93cb5fc7cd001979ebcbbcbcb2f403a2892eaecc",
+    "benchmark.py": "a17dc4e20cb0f612fa29d0eb64a3f3a824d36329782feaf7d3bde29a4816becb"
+  }
+}

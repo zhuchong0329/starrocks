@@ -1,0 +1,772 @@
+[
+  {
+    "name": "aa-before-1",
+    "variant": "A-baseline",
+    "block": null,
+    "position": null,
+    "qps": 99.1346466251015,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.5727907601,
+          "median": 16.279366,
+          "p95": 23.470824,
+          "p99": 28.09832,
+          "min": 8.685853,
+          "max": 96.953726
+        },
+        "complete_ms": {
+          "mean": 40.2417905069,
+          "median": 36.54427,
+          "p95": 71.373094,
+          "p99": 81.349018,
+          "min": 12.193626,
+          "max": 213.698664
+        },
+        "after_first_ms": {
+          "p50": 20.498939999999997,
+          "p95": 52.453483000000006,
+          "p99": 60.553823
+        }
+      }
+    },
+    "warmup_samples": 5598
+  },
+  {
+    "name": "aa-before-2",
+    "variant": "A-baseline",
+    "block": null,
+    "position": null,
+    "qps": 101.33844733148925,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 15.9525254363,
+          "median": 15.766207,
+          "p95": 22.550086,
+          "p99": 25.76209,
+          "min": 8.793098,
+          "max": 42.437002
+        },
+        "complete_ms": {
+          "mean": 39.3944691931,
+          "median": 36.630872,
+          "p95": 69.114878,
+          "p99": 78.939831,
+          "min": 12.540987,
+          "max": 207.587435
+        },
+        "after_first_ms": {
+          "p50": 21.271348000000003,
+          "p95": 50.478734,
+          "p99": 59.655191
+        }
+      }
+    },
+    "warmup_samples": 6091
+  },
+  {
+    "name": "block-1-ABC-pos-1-A",
+    "variant": "A-baseline",
+    "block": 1,
+    "position": 1,
+    "qps": 97.32523766073682,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.6313563496,
+          "median": 16.3526145,
+          "p95": 23.681273,
+          "p99": 28.080905,
+          "min": 8.674518,
+          "max": 85.666797
+        },
+        "complete_ms": {
+          "mean": 40.9792756198,
+          "median": 37.8451575,
+          "p95": 73.008732,
+          "p99": 82.918945,
+          "min": 12.223603,
+          "max": 133.972909
+        },
+        "after_first_ms": {
+          "p50": 21.760756,
+          "p95": 53.643123,
+          "p99": 62.16013099999999
+        }
+      }
+    },
+    "warmup_samples": 5749
+  },
+  {
+    "name": "block-1-ABC-pos-2-B",
+    "variant": "B-off",
+    "block": 1,
+    "position": 2,
+    "qps": 102.11771940020293,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.5023451409,
+          "median": 16.198707,
+          "p95": 23.290786,
+          "p99": 28.213427,
+          "min": 8.595236,
+          "max": 106.728018
+        },
+        "complete_ms": {
+          "mean": 39.1027707285,
+          "median": 34.614405500000004,
+          "p95": 70.683593,
+          "p99": 80.56193,
+          "min": 12.378774,
+          "max": 191.392684
+        },
+        "after_first_ms": {
+          "p50": 18.390577999999998,
+          "p95": 51.537688,
+          "p99": 59.763137
+        }
+      }
+    },
+    "warmup_samples": 5819
+  },
+  {
+    "name": "block-1-ABC-pos-3-C",
+    "variant": "C-on",
+    "block": 1,
+    "position": 3,
+    "qps": 97.32808144849511,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.5558459978,
+          "median": 16.237614,
+          "p95": 23.514063,
+          "p99": 27.672444,
+          "min": 8.327869,
+          "max": 74.04823
+        },
+        "complete_ms": {
+          "mean": 40.9907233736,
+          "median": 37.6286165,
+          "p95": 72.979681,
+          "p99": 81.385916,
+          "min": 11.800871,
+          "max": 191.743476
+        },
+        "after_first_ms": {
+          "p50": 21.310642,
+          "p95": 53.754888,
+          "p99": 61.311972999999995
+        }
+      }
+    },
+    "warmup_samples": 5508
+  },
+  {
+    "name": "block-2-ACB-pos-1-A",
+    "variant": "A-baseline",
+    "block": 2,
+    "position": 1,
+    "qps": 101.17698395649047,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.1869586044,
+          "median": 15.8497485,
+          "p95": 22.754533,
+          "p99": 27.334423,
+          "min": 8.718845,
+          "max": 195.047976
+        },
+        "complete_ms": {
+          "mean": 39.4374229153,
+          "median": 35.3068665,
+          "p95": 70.702222,
+          "p99": 81.72333,
+          "min": 12.447231,
+          "max": 209.142746
+        },
+        "after_first_ms": {
+          "p50": 19.544219,
+          "p95": 51.966836,
+          "p99": 60.669605
+        }
+      }
+    },
+    "warmup_samples": 5802
+  },
+  {
+    "name": "block-2-ACB-pos-2-C",
+    "variant": "C-on",
+    "block": 2,
+    "position": 2,
+    "qps": 97.42240182192505,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.0931584979,
+          "median": 15.767293,
+          "p95": 22.972684,
+          "p99": 27.189854,
+          "min": 8.41526,
+          "max": 78.737713
+        },
+        "complete_ms": {
+          "mean": 40.992254261,
+          "median": 38.3593015,
+          "p95": 72.373564,
+          "p99": 81.990146,
+          "min": 12.854696,
+          "max": 200.319531
+        },
+        "after_first_ms": {
+          "p50": 22.757204,
+          "p95": 53.524063,
+          "p99": 61.380613000000004
+        }
+      }
+    },
+    "warmup_samples": 5921
+  },
+  {
+    "name": "block-2-ACB-pos-3-B",
+    "variant": "B-off",
+    "block": 2,
+    "position": 3,
+    "qps": 100.67223963925984,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.2541077158,
+          "median": 16.0095565,
+          "p95": 23.091152,
+          "p99": 27.148947,
+          "min": 8.601697,
+          "max": 55.896318
+        },
+        "complete_ms": {
+          "mean": 39.6757958326,
+          "median": 35.8154875,
+          "p95": 70.395385,
+          "p99": 81.14391,
+          "min": 12.679619,
+          "max": 176.665961
+        },
+        "after_first_ms": {
+          "p50": 20.507028999999996,
+          "p95": 51.518165,
+          "p99": 59.828012
+        }
+      }
+    },
+    "warmup_samples": 5898
+  },
+  {
+    "name": "block-3-BAC-pos-1-B",
+    "variant": "B-off",
+    "block": 3,
+    "position": 1,
+    "qps": 96.36574360141138,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 17.2235362649,
+          "median": 16.6021505,
+          "p95": 24.17368,
+          "p99": 31.445817,
+          "min": 8.396465,
+          "max": 285.049213
+        },
+        "complete_ms": {
+          "mean": 41.4314076704,
+          "median": 38.1044945,
+          "p95": 72.308136,
+          "p99": 88.404269,
+          "min": 12.113138,
+          "max": 331.298116
+        },
+        "after_first_ms": {
+          "p50": 22.038925000000003,
+          "p95": 52.287575000000004,
+          "p99": 63.356431
+        }
+      }
+    },
+    "warmup_samples": 5848
+  },
+  {
+    "name": "block-3-BAC-pos-2-A",
+    "variant": "A-baseline",
+    "block": 3,
+    "position": 2,
+    "qps": 101.62898164408882,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.0162576978,
+          "median": 15.6888315,
+          "p95": 22.703231,
+          "p99": 26.774171,
+          "min": 8.595321,
+          "max": 119.750551
+        },
+        "complete_ms": {
+          "mean": 39.2224581866,
+          "median": 35.7714895,
+          "p95": 69.464695,
+          "p99": 79.21029,
+          "min": 11.976025,
+          "max": 169.608915
+        },
+        "after_first_ms": {
+          "p50": 20.169843,
+          "p95": 50.647890000000004,
+          "p99": 59.365589
+        }
+      }
+    },
+    "warmup_samples": 5956
+  },
+  {
+    "name": "block-3-BAC-pos-3-C",
+    "variant": "C-on",
+    "block": 3,
+    "position": 3,
+    "qps": 99.49357287272059,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 15.6607180641,
+          "median": 15.5015105,
+          "p95": 22.004831,
+          "p99": 25.193379,
+          "min": 8.521772,
+          "max": 74.473552
+        },
+        "complete_ms": {
+          "mean": 40.1370593961,
+          "median": 37.5993645,
+          "p95": 70.060132,
+          "p99": 80.869728,
+          "min": 12.348767,
+          "max": 179.693663
+        },
+        "after_first_ms": {
+          "p50": 22.902169,
+          "p95": 51.591775999999996,
+          "p99": 61.389892999999994
+        }
+      }
+    },
+    "warmup_samples": 5978
+  },
+  {
+    "name": "block-4-BCA-pos-1-B",
+    "variant": "B-off",
+    "block": 4,
+    "position": 1,
+    "qps": 99.26182087040982,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 15.7173175287,
+          "median": 15.4438865,
+          "p95": 22.262917,
+          "p99": 25.791492,
+          "min": 8.580268,
+          "max": 45.218369
+        },
+        "complete_ms": {
+          "mean": 40.2267617729,
+          "median": 37.969823,
+          "p95": 70.780798,
+          "p99": 82.431417,
+          "min": 12.061017,
+          "max": 211.789726
+        },
+        "after_first_ms": {
+          "p50": 23.158398,
+          "p95": 52.470029999999994,
+          "p99": 61.976820000000004
+        }
+      }
+    },
+    "warmup_samples": 6044
+  },
+  {
+    "name": "block-4-BCA-pos-2-C",
+    "variant": "C-on",
+    "block": 4,
+    "position": 2,
+    "qps": 98.31562141760973,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.0187801064,
+          "median": 15.7010485,
+          "p95": 22.397792,
+          "p99": 25.646312,
+          "min": 8.683074,
+          "max": 265.217476
+        },
+        "complete_ms": {
+          "mean": 40.5201534612,
+          "median": 37.817752,
+          "p95": 70.734434,
+          "p99": 81.481326,
+          "min": 12.302766,
+          "max": 418.953574
+        },
+        "after_first_ms": {
+          "p50": 22.64103,
+          "p95": 51.994009,
+          "p99": 62.344933
+        }
+      }
+    },
+    "warmup_samples": 6019
+  },
+  {
+    "name": "block-4-BCA-pos-3-A",
+    "variant": "A-baseline",
+    "block": 4,
+    "position": 3,
+    "qps": 97.41996736474952,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.0351299085,
+          "median": 15.7660165,
+          "p95": 22.770124,
+          "p99": 26.527978,
+          "min": 8.514511,
+          "max": 108.683973
+        },
+        "complete_ms": {
+          "mean": 40.945036935,
+          "median": 38.671547000000004,
+          "p95": 71.572301,
+          "p99": 81.646117,
+          "min": 12.627281,
+          "max": 129.449175
+        },
+        "after_first_ms": {
+          "p50": 23.632908,
+          "p95": 53.047380000000004,
+          "p99": 62.77286
+        }
+      }
+    },
+    "warmup_samples": 5791
+  },
+  {
+    "name": "block-5-CAB-pos-1-C",
+    "variant": "C-on",
+    "block": 5,
+    "position": 1,
+    "qps": 96.20757686350318,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.0073900302,
+          "median": 15.792097,
+          "p95": 22.569311,
+          "p99": 26.300305,
+          "min": 8.857734,
+          "max": 59.097251
+        },
+        "complete_ms": {
+          "mean": 41.4956136403,
+          "median": 39.7105545,
+          "p95": 72.32234,
+          "p99": 80.678869,
+          "min": 12.715739,
+          "max": 109.78959
+        },
+        "after_first_ms": {
+          "p50": 24.439517000000002,
+          "p95": 53.512919,
+          "p99": 60.99946
+        }
+      }
+    },
+    "warmup_samples": 5785
+  },
+  {
+    "name": "block-5-CAB-pos-2-A",
+    "variant": "A-baseline",
+    "block": 5,
+    "position": 2,
+    "qps": 101.24949451413879,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.2781390068,
+          "median": 15.974032999999999,
+          "p95": 23.117933,
+          "p99": 27.006254,
+          "min": 8.74546,
+          "max": 99.421765
+        },
+        "complete_ms": {
+          "mean": 39.4018241638,
+          "median": 35.9925595,
+          "p95": 70.246779,
+          "p99": 79.477272,
+          "min": 12.355556,
+          "max": 146.946376
+        },
+        "after_first_ms": {
+          "p50": 20.1536,
+          "p95": 51.158539000000005,
+          "p99": 58.99451400000001
+        }
+      }
+    },
+    "warmup_samples": 5819
+  },
+  {
+    "name": "block-5-CAB-pos-3-B",
+    "variant": "B-off",
+    "block": 5,
+    "position": 3,
+    "qps": 96.59454913503657,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 15.999314212,
+          "median": 15.6455025,
+          "p95": 22.734118,
+          "p99": 26.519668,
+          "min": 8.58858,
+          "max": 83.560839
+        },
+        "complete_ms": {
+          "mean": 41.272945297,
+          "median": 38.7278315,
+          "p95": 73.755435,
+          "p99": 83.435387,
+          "min": 12.41356,
+          "max": 127.360839
+        },
+        "after_first_ms": {
+          "p50": 23.123354000000003,
+          "p95": 54.915589000000004,
+          "p99": 64.338939
+        }
+      }
+    },
+    "warmup_samples": 5819
+  },
+  {
+    "name": "block-6-CBA-pos-1-C",
+    "variant": "C-on",
+    "block": 6,
+    "position": 1,
+    "qps": 98.87007042682296,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 15.8220561657,
+          "median": 15.5463205,
+          "p95": 22.313413,
+          "p99": 25.701115,
+          "min": 8.721762,
+          "max": 43.188059
+        },
+        "complete_ms": {
+          "mean": 40.3958737322,
+          "median": 37.7038055,
+          "p95": 71.399994,
+          "p99": 80.265242,
+          "min": 12.223832,
+          "max": 109.668779
+        },
+        "after_first_ms": {
+          "p50": 22.669902999999998,
+          "p95": 53.023951,
+          "p99": 61.047748999999996
+        }
+      }
+    },
+    "warmup_samples": 5738
+  },
+  {
+    "name": "block-6-CBA-pos-2-B",
+    "variant": "B-off",
+    "block": 6,
+    "position": 2,
+    "qps": 96.92779655466909,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 15.9530415158,
+          "median": 15.722167500000001,
+          "p95": 22.459062,
+          "p99": 25.98652,
+          "min": 8.444027,
+          "max": 46.531699
+        },
+        "complete_ms": {
+          "mean": 41.1718312947,
+          "median": 39.0192455,
+          "p95": 72.699091,
+          "p99": 81.293658,
+          "min": 12.670007,
+          "max": 117.885068
+        },
+        "after_first_ms": {
+          "p50": 24.014565,
+          "p95": 53.717442000000005,
+          "p99": 61.04449700000001
+        }
+      }
+    },
+    "warmup_samples": 5808
+  },
+  {
+    "name": "block-6-CBA-pos-3-A",
+    "variant": "A-baseline",
+    "block": 6,
+    "position": 3,
+    "qps": 97.81160921468526,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.241252681,
+          "median": 16.0939665,
+          "p95": 22.899237,
+          "p99": 26.385403,
+          "min": 8.474369,
+          "max": 68.110083
+        },
+        "complete_ms": {
+          "mean": 40.7380489663,
+          "median": 38.027277999999995,
+          "p95": 72.196826,
+          "p99": 80.591643,
+          "min": 11.934275,
+          "max": 99.792139
+        },
+        "after_first_ms": {
+          "p50": 22.623843,
+          "p95": 53.227177000000005,
+          "p99": 60.414137999999994
+        }
+      }
+    },
+    "warmup_samples": 5866
+  },
+  {
+    "name": "aa-after-1",
+    "variant": "A-baseline",
+    "block": null,
+    "position": null,
+    "qps": 97.29183328738746,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 15.8879326472,
+          "median": 15.5921395,
+          "p95": 22.459397,
+          "p99": 26.014096,
+          "min": 8.621177,
+          "max": 48.042087
+        },
+        "complete_ms": {
+          "mean": 41.0149933801,
+          "median": 38.905966500000005,
+          "p95": 71.782426,
+          "p99": 81.698764,
+          "min": 12.242891,
+          "max": 109.368518
+        },
+        "after_first_ms": {
+          "p50": 23.887729,
+          "p95": 53.491404,
+          "p99": 61.73709600000001
+        }
+      }
+    },
+    "warmup_samples": 5829
+  },
+  {
+    "name": "aa-after-2",
+    "variant": "A-baseline",
+    "block": null,
+    "position": null,
+    "qps": 98.96047036546574,
+    "measured": {
+      "detail_page": {
+        "samples": 10000,
+        "warnings": 0,
+        "first_row_ms": {
+          "mean": 16.1416753478,
+          "median": 15.863918,
+          "p95": 22.829848,
+          "p99": 26.603084,
+          "min": 8.527079,
+          "max": 44.467649
+        },
+        "complete_ms": {
+          "mean": 40.3081212433,
+          "median": 37.085615000000004,
+          "p95": 71.59367,
+          "p99": 80.657467,
+          "min": 12.076228,
+          "max": 108.55186
+        },
+        "after_first_ms": {
+          "p50": 21.404576,
+          "p95": 53.00262300000001,
+          "p99": 61.364152999999995
+        }
+      }
+    },
+    "warmup_samples": 5664
+  }
+]

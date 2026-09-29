@@ -1,0 +1,162 @@
+commit 005fd4fc1cb03c8b888013775cf0d95645129774
+Author:     Patch Verification <patch-verification@localhost>
+AuthorDate: Sat Sep 19 14:11:25 2026 +0800
+Commit:     Patch Verification <patch-verification@localhost>
+CommitDate: Sat Sep 19 14:11:25 2026 +0800
+
+    docs(query-corruption): [QCT-000] record approved scope and isolated build plan
+    
+    Problem
+    Local OLAP corruption needs an explicitly bounded partial-result contract without sharing Tenant-TTL build state.
+    
+    Implementation
+    Record the approved requirements, architecture, six implementation rounds, and isolated worktree/container/volume. Allow all-unreadable queries with Warning; remove input health guards and completion barriers.
+    
+    Compatibility
+    No source or product configuration changes. Query Cache correctness remains deferred. Performance evaluation follows implementation, targeting minimal overhead.
+    
+    Tests
+    Checked worktree branch and clean tracked baseline, origin target, isolated container mounts, VM free space (178 GiB), and available memory. git diff --cached --check passed. No feature build, unit tests, fault injection, or performance tests ran: this is the documentation/preparation round.
+
+commit ac1b5533b772032acf6aefb408e6f6a6596f0d01
+Author:     Patch Verification <patch-verification@localhost>
+AuthorDate: Sat Sep 19 14:40:39 2026 +0800
+Commit:     Patch Verification <patch-verification@localhost>
+CommitDate: Sat Sep 19 14:40:39 2026 +0800
+
+    feat(query-corruption): [QCT-001] define opt-in policy and diagnostic wire fields
+    
+    Problem
+    Independent local OLAP corruption tolerance needs an explicit user-query boundary and backward-compatible diagnostic fields before enabling error suppression.
+    
+    Implementation
+    Add a startup FE option defaulting to false, a fail-closed query eligibility policy, optional Thrift/protobuf fields, and ten policy tests. Keep unsupported fast paths, remote runtime-filter plans, internal statements, writes, external sources and raw HTTP strict without rewriting plans.
+    
+    Compatibility
+    No user entry point is activated in this round and product configuration remains unchanged. New fields are optional and default false; same-version deployment is required when the feature is enabled later.
+    
+    Tests
+    Dedicated arm64 container: make -C gensrc -j2 passed; Maven reactor compile/checkstyle and QueryCorruptionPolicyTest passed (10 tests, 0 failures/errors/skips). git diff --cached --check passed. Initial working-directory and mock return-type failures are documented with their fixes. BE Release unit-test build is still running, not claimed passed. Fault injection, JDBC/HTTP integration and performance tests belong to later rounds and were not run.
+
+commit c2202c3f0a9eeedebc600891099e295c6b27a2fd
+Author:     Patch Verification <patch-verification@localhost>
+AuthorDate: Sat Sep 19 19:04:33 2026 +0800
+Commit:     Patch Verification <patch-verification@localhost>
+CommitDate: Sat Sep 19 19:04:33 2026 +0800
+
+    feat(query-corruption): [QCT-002] tolerate corruption in independent OLAP scans
+    
+    Problem
+    Physical corruption from an independent local reader aborts the entire query even when the user accepts partial results.
+    
+    Implementation
+    Convert only Reader prepare/open/get_next Corruption into task-local EOF when the query option is enabled. Discard the failed chunk, retain prior output, mark the BE query diagnostic and log query/tablet context. Preserve sibling tasks and existing reader, owner and buffer-token cleanup. Add an opt-in focused BE regression target.
+    
+    Compatibility
+    Default remains false and user entry points are not activated in this round. Shared preparation, non-Corruption errors and cancellation remain strict. No plan, cache, RPC or tablet-wide isolation changes.
+    
+    Tests
+    Dedicated arm64 GCC 12.3 Release BE_TEST build and incremental link succeeded. OlapScanOperatorTest: 5 passed, exit 0; covers partial chunk, shared errors, cancellation, repeated EOF, owner/token and rowset cleanup. Initial pre-test startup failed at the default 1024 file limit; rerun with process-local 65535 passed. Physical disk faults, full BE suite and sanitizers are not run in this round; see QCT-002 acceptance record.
+
+commit d59039631cb154ebf55268bb83bdb6404be95782
+Author:     Patch Verification <patch-verification@localhost>
+AuthorDate: Sat Sep 19 19:24:24 2026 +0800
+Commit:     Patch Verification <patch-verification@localhost>
+CommitDate: Sat Sep 19 19:24:24 2026 +0800
+
+    test(exchange): [COMMUNITY-FIX] make pass-through fixture self-contained
+    
+    Problem
+    The 4.0.11 exchange fixture omits the query pass-through buffer and operator local preparation, and assumes an RPC service exists. Isolated execution crashes or sends to an unavailable endpoint; unbounded filling can exhaust memory.
+    
+    Implementation
+    Pair buffer initialization/destruction, prepare local operator state, route metadata through a scoped local RPC stub and the real stream manager, restore the original endpoint pool, and bound buffer-filling loops with explicit assertions.
+    
+    Compatibility
+    Test-only community baseline fix. No production code, query-corruption option, diagnostic protocol or new QCT test cases are included in this commit.
+    
+    Tests
+    Dedicated GCC 12.3 arm64 Release BE_TEST: all three existing exchange cases passed in the combined QCT binary, as did nine propagation regressions. The focused fourteen-test suite passed twenty shuffled repetitions (280 executions), exit 0. Changed-line clang-format passed. No separate pristine-baseline UT build, full BE suite or sanitizer run; failures and test-process OOM history are retained in the acceptance record.
+
+commit b6f85504bba965be4616969bd35a6b37e0d0689e
+Author:     Patch Verification <patch-verification@localhost>
+AuthorDate: Sat Sep 19 19:26:51 2026 +0800
+Commit:     Patch Verification <patch-verification@localhost>
+CommitDate: Sat Sep 19 19:26:51 2026 +0800
+
+    feat(query-corruption): [QCT-003] carry sticky diagnostics through existing exchanges
+    
+    Problem
+    Sampled, consumable audit counters and late status reports cannot reliably identify partial results, especially with pure EOF and multiple exchange destinations.
+    
+    Implementation
+    Propagate the sticky query diagnostic in existing actual data/EOS packets, merge it before publishing receiver input, and include it in final result statistics. Capture a weak query context at receiver construction. Preserve sticky OR across statistics merges and clear stale fields when reusing a protobuf destination.
+    
+    Compatibility
+    No additional RPC, acknowledgement, wait, scheduling, LIMIT or cancellation changes. False remains omitted on the wire; strict receivers do not opt in. User protocol activation follows in QCT-004/005. Community fixture repairs are isolated in the preceding commit.
+    
+    Tests
+    Dedicated arm64 Release BE_TEST build succeeded. QueryStatisticsTest and ExchangePassThroughTest: 9 passed. Combined 14 tests passed 20 shuffled repetitions (280 executions), exit 0. Changed C++ syntax and changed-line formatting passed. Stub-driven exchange tests are not real multi-BE disk-fault tests; those and performance remain QCT-006. Full BE suite and sanitizers not run. See acceptance record and retained failure logs.
+
+commit af53d8fd95c160e2f56463fb3272e5c14d62d73a
+Author:     Patch Verification <patch-verification@localhost>
+AuthorDate: Sat Sep 19 19:29:10 2026 +0800
+Commit:     Patch Verification <patch-verification@localhost>
+CommitDate: Sat Sep 19 19:29:10 2026 +0800
+
+    feat(query-corruption): [QCT-004] expose partial results as MySQL warnings
+    
+    Problem
+    Successful partial query results need a visible protocol diagnostic without adding columns, result sets or a query-completion barrier.
+    
+    Implementation
+    Activate eligible user MySQL SELECTs, consume the root result diagnostic, write the final warning count, retain a bounded session warning for SHOW WARNINGS and JDBC, honor LIMIT/OFFSET, keep SHOW ERRORS separate, and forward the optional diagnostic through FE forwarding. Clear stale diagnostics on subsequent ordinary statements, reset and strict errors.
+    
+    Compatibility
+    Code default remains false; product configuration remains unopened pending QCT-006. HTTP is deliberately not activated until QCT-005. Existing result schemas, strict errors, plans and execution scheduling are unchanged. Connector/J is a test-only external jar, not a product dependency.
+    
+    Tests
+    Dedicated Java 17 Maven regression with HTTP eligibility false: 31 passed, zero failures/errors/skips, including real socket MariaDB 3.3.2 and Connector/J 8.4.0 text/server-prepared getWarnings tests. Prior combined FE regression: 45 passed and package succeeded. BE responses in JDBC tests are simulated; physical corruption and real two-FE forwarding were not tested here. Detailed evidence and limitations are in QCT-004 acceptance.
+
+commit 45cacacf0b02b747234d602dc9fb1d5c405efb51
+Author:     Patch Verification <patch-verification@localhost>
+AuthorDate: Sat Sep 19 19:31:49 2026 +0800
+Commit:     Patch Verification <patch-verification@localhost>
+CommitDate: Sat Sep 19 19:31:49 2026 +0800
+
+    feat(query-corruption): [QCT-005] annotate standard HTTP SQL completion
+    
+    Problem
+    Standard HTTP SQL clients also need explicit partial-result diagnostics while retaining streaming behavior and the existing error contract.
+    
+    Implementation
+    Activate supported standard NDJSON queries and add partial_result/warnings beside the existing final statistics record using the same bounded diagnostic as MySQL. Clear stale diagnostics on HTTP errors and test real HTTP sockets, keep-alive, strict truncation and client disconnection.
+    
+    Compatibility
+    No new result columns, result sets, getNext calls, RPCs or diagnostic waits. OFF/ineligible queries keep the old format; raw stays strict. Existing send-before/error-after-headers behavior is preserved. The inherited raw-mode context limitation is documented, not fixed in this feature round.
+    
+    Tests
+    Dedicated Java 17 Maven: current ten HTTP tests plus ten eligibility tests, 20 passed with zero failures/errors/skips. Real HTTP server/socket tests use simulated BE results; EmbeddedChannel tests cover disconnection without a successful tail. Prior combined 45 FE tests and package passed. Real physical BE-to-HTTP faults and performance remain QCT-006; no claim of full network-race coverage.
+
+commit 22a4478221d94b27e24d006a36f3b15bf962aac2
+Author:     Patch Verification <patch-verification@localhost>
+AuthorDate: Sun Sep 20 01:55:27 2026 +0800
+Commit:     Patch Verification <patch-verification@localhost>
+CommitDate: Sun Sep 20 01:55:27 2026 +0800
+
+    test(query-corruption): [QCT-006] validate faults and deliver product configuration
+    
+    Problem:
+    The first-stage tolerance path required real storage corruption, client protocol, plan stability and performance evidence before enabling the product template. Build and test assets must remain isolated from Tenant-TTL.
+    
+    Implementation:
+    Enable the product fe.conf template while keeping the Java default false. Add actual optimized-plan regression tests and dedicated cluster, reversible file-fault, MySQL/HTTP/JDBC, benchmark and evidence-audit tools. Document the completed environment, deployment contract, measured performance costs and retained assets.
+    
+    Compatibility:
+    No production Java/C++ changes beyond QCT-005; tested production artifacts retain that accurate revision. Preserve strict unsupported/shared paths and existing plans, LIMIT, cancellation and query-cache behavior. Mixed-version rollout remains false until all nodes are upgraded. Partial cache pollution and unmarked later hits remain an explicitly accepted phase-one limitation.
+    
+    Tests:
+    FE combined 45 tests and package passed. Recorded BE focused 14 tests passed in 20 randomized repetitions; full BE UT and sanitizers were not run. Both original and feature production Release builds passed in the dedicated arm64 environment. Final verification-tool/configuration suite: 46 passed; JdbcProbe compiled with Java 17 -Xlint:all.
+    Real 1-FE/3-BE tests passed for page/magic/footer damage, partial-chunk discard, sibling scan independence, all-unreadable results, fixed broadcast/shuffle join build sides, same-BE reused CTE, strict exclusions, two JDBC drivers with actual parameters, MySQL and HTTP completion/reuse, and hash-verified restoration.
+    Audited 343512 healthy A/B/C measurement samples with zero warnings and identical plans/tablet placement. Longer warmup and reverse repeats plus FE JFR were evaluated. Nonzero latency and some throughput/P99 regressions are documented, not claimed away. Instrumented JFR timings were excluded from comparisons.
+    Real two-FE forwarding, all table models, production hardware/SLOs and long-duration pressure were not tested; existing FE forwarding tests are mocked. All test nodes stopped, all injected files restored, no Tenant-TTL assets modified or cleaned.

@@ -1,0 +1,9 @@
+test_after_first_uses_each_query_difference (__main__.AnalysisTests) ... ok
+test_comparison_is_geometric_and_keeps_negative_runs (__main__.AnalysisTests) ... ok
+test_constant_ratio_interval (__main__.AnalysisTests) ... ok
+test_split_controls_and_abc_are_distinct_phases (__main__.AnalysisTests) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.156s
+
+OK

@@ -1,0 +1,2730 @@
+From ef28cf6b99d99ebf4efe51cd05ed7fbd4a50fe8b Mon Sep 17 00:00:00 2001
+From: Patch Verification <patch-verification@localhost>
+Date: Sun, 20 Sep 2026 21:19:26 +0800
+Subject: feat(query-corruption): add local OLAP scan tolerance
+
+Problem:
+Independent local OLAP scans currently fail user SELECTs when storage reports file corruption, even when partial or empty results are explicitly acceptable to the product.
+
+Implementation:
+Consolidate the user-approved production and FE/BE test changes from 9559176fab6e2cb885779f1e7b680133d58d6972 through 22a4478221d94b27e24d006a36f3b15bf962aac2 into one migration commit. Include QCT-001 through QCT-006 and the separately authored test-only COMMUNITY-FIX for the Exchange fixture. Preserve all original commit metadata in the accompanying ORIGIN_COMMITS.txt; this is a newly synthesized migration commit, not an original implementation commit.
+
+Add query eligibility and optional wire fields, task-local Corruption-to-EOF handling, sticky diagnostics on existing Exchange/result messages, MySQL/JDBC warnings and standard HTTP SQL completion markers. Include 45 production/protocol/configuration/test files, including both protocol integration tests and their existing FE test-framework integration. Exclude documentation and standalone performance/fault-injection tools.
+
+Compatibility:
+Java startup configuration defaults to false; product conf/fe.conf sets enable_query_corruption_tolerance=true. Keep it false throughout mixed-version upgrades and restart FEs after changing the actual startup configuration. Only eligible user-facing local OLAP SELECTs opt in. Shared preparation, unsupported paths and other errors remain strict. Entirely unreadable inputs may produce empty or operator-generated results plus Warning. No new diagnostic RPC, completion wait, plan rewrite, tablet-wide stop, replica repair or Query Cache integrity protection is added.
+
+Tests:
+The source branch previously passed 45 FE tests and package, 14 focused BE tests in 20 randomized repetitions, and real file-corruption/client validation. A/B/C healthy-query performance evaluation observed nonzero overhead and some throughput/tail-latency regressions; no zero-regression claim is made.
+This packaging operation runs patch-application and complete-tree/content checks only, not a fresh compilation or test-suite run. The generated patch must be independently validated and tested on the internal target branch. MySQL Connector/J test requires an external test-only jar; without qct.mysql.driver.jar that test is skipped.
+---
+ be/src/exec/pipeline/exchange/sink_buffer.cpp |   8 +
+ be/src/exec/pipeline/exchange/sink_buffer.h   |   1 +
+ be/src/exec/pipeline/query_context.cpp        |   1 +
+ be/src/exec/pipeline/query_context.h          |   5 +
+ .../exec/pipeline/scan/olap_chunk_source.cpp  |  37 +++-
+ be/src/exec/pipeline/scan/olap_chunk_source.h |   3 +
+ be/src/runtime/data_stream_mgr.cpp            |   5 +
+ be/src/runtime/data_stream_recvr.cpp          |  10 +
+ be/src/runtime/data_stream_recvr.h            |   3 +
+ be/src/runtime/query_statistics.cpp           |   9 +
+ be/src/runtime/query_statistics.h             |   7 +
+ be/test/CMakeLists.txt                        |  11 +
+ .../pipeline/exchange_pass_through_test.cpp   | 189 ++++++++++++++++-
+ .../exec/pipeline/olap_scan_operator_test.cpp | 189 ++++++++++++++++-
+ be/test/runtime/query_statistics_test.cpp     |  39 ++++
+ conf/fe.conf                                  |   5 +
+ .../java/com/starrocks/common/Config.java     |   4 +
+ .../com/starrocks/http/HttpResultSender.java  |   5 +-
+ .../com/starrocks/http/JsonSerializer.java    |  17 ++
+ .../starrocks/http/rest/ExecuteSqlAction.java |   2 +
+ .../com/starrocks/mysql/MysqlEofPacket.java   |   5 +-
+ .../java/com/starrocks/qe/ConnectContext.java |  19 ++
+ .../com/starrocks/qe/ConnectProcessor.java    |   9 +
+ .../com/starrocks/qe/LeaderOpExecutor.java    |   4 +-
+ .../starrocks/qe/QueryCorruptionPolicy.java   |  84 ++++++++
+ .../starrocks/qe/QueryCorruptionWarning.java  |  54 +++++
+ .../java/com/starrocks/qe/QueryState.java     |  14 ++
+ .../java/com/starrocks/qe/ShowExecutor.java   |   8 +
+ .../java/com/starrocks/qe/StmtExecutor.java   |   8 +
+ .../starrocks/sql/ast/ShowWarningStmt.java    |  15 +-
+ .../com/starrocks/sql/parser/AstBuilder.java  |   4 +-
+ .../http/QueryCorruptionHttpSenderTest.java   | 189 +++++++++++++++++
+ .../http/QueryCorruptionJsonTest.java         |  74 +++++++
+ .../starrocks/mysql/MysqlEofPacketTest.java   |  14 +-
+ .../QueryCorruptionHttpTest.java              | 199 ++++++++++++++++++
+ .../QueryCorruptionJdbcTest.java              | 167 +++++++++++++++
+ .../starrocks/qe/ConnectProcessorTest.java    |   2 +
+ .../qe/LeaderOpExecutorMockTest.java          |  32 +++
+ .../qe/QueryCorruptionPolicyTest.java         | 164 +++++++++++++++
+ .../qe/QueryCorruptionWarningTest.java        | 143 +++++++++++++
+ .../sql/plan/QueryCorruptionPlanTest.java     | 114 ++++++++++
+ gensrc/proto/data.proto                       |   2 +
+ gensrc/proto/internal_service.proto           |   2 +
+ gensrc/thrift/FrontendService.thrift          |   2 +
+ gensrc/thrift/InternalService.thrift          |   3 +
+ 45 files changed, 1859 insertions(+), 22 deletions(-)
+ create mode 100644 fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java
+ create mode 100644 fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionWarning.java
+ create mode 100644 fe/fe-core/src/test/java/com/starrocks/http/QueryCorruptionHttpSenderTest.java
+ create mode 100644 fe/fe-core/src/test/java/com/starrocks/http/QueryCorruptionJsonTest.java
+ create mode 100644 fe/fe-core/src/test/java/com/starrocks/pseudocluster/QueryCorruptionHttpTest.java
+ create mode 100644 fe/fe-core/src/test/java/com/starrocks/pseudocluster/QueryCorruptionJdbcTest.java
+ create mode 100644 fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionPolicyTest.java
+ create mode 100644 fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionWarningTest.java
+ create mode 100644 fe/fe-core/src/test/java/com/starrocks/sql/plan/QueryCorruptionPlanTest.java
+
+diff --git a/be/src/exec/pipeline/exchange/sink_buffer.cpp b/be/src/exec/pipeline/exchange/sink_buffer.cpp
+index 50d0566970aa95825f7060150feaa2de04a1a86b..d653e5ed2c1fb666e9e248f533a8f1f964e79792 100644
+--- a/be/src/exec/pipeline/exchange/sink_buffer.cpp
++++ b/be/src/exec/pipeline/exchange/sink_buffer.cpp
+@@ -34,6 +34,8 @@ SinkBuffer::SinkBuffer(FragmentContext* fragment_ctx, const std::vector<TPlanFra
+           _mem_tracker(fragment_ctx->runtime_state()->instance_mem_tracker()),
+           _brpc_timeout_ms(fragment_ctx->runtime_state()->query_options().query_timeout * 1000),
+           _is_dest_merge(is_dest_merge),
++          _enable_query_corruption_tolerance(
++                  fragment_ctx->runtime_state()->query_options().enable_query_corruption_tolerance),
+           _rpc_http_min_size(fragment_ctx->runtime_state()->get_rpc_http_min_size()),
+           _sent_audit_stats_frequency_upper_limit(
+                   std::max((int64_t)64, BitUtil::RoundUpToPowerOfTwo(fragment_ctx->total_dop() * 4))) {
+@@ -354,6 +356,12 @@ Status SinkBuffer::_try_to_send_rpc(const TUniqueId& instance_id, const std::fun
+             }
+         }
+ 
++        // Every actual destination/data/EOS packet must carry the sticky flag after corruption.
++        // Audit statistics are sampled and consumed, so they are not a reliable transport here.
++        if (_enable_query_corruption_tolerance &&
++            _fragment_ctx->runtime_state()->query_ctx()->query_corruption_detected()) {
++            request.params->set_query_corruption_detected(true);
++        }
+         *request.params->mutable_finst_id() = context.finst_id;
+         request.params->set_sequence(++context.request_seq);
+ 
+diff --git a/be/src/exec/pipeline/exchange/sink_buffer.h b/be/src/exec/pipeline/exchange/sink_buffer.h
+index 4bf3f703373b61c2efe2171c0b38ceef93a7455f..19bb141b88e0daea4265b224dec443cd062e27f5 100644
+--- a/be/src/exec/pipeline/exchange/sink_buffer.h
++++ b/be/src/exec/pipeline/exchange/sink_buffer.h
+@@ -148,6 +148,7 @@ private:
+     MemTracker* const _mem_tracker;
+     const int32_t _brpc_timeout_ms;
+     const bool _is_dest_merge;
++    const bool _enable_query_corruption_tolerance;
+ 
+     /// Taking into account of efficiency, all the following maps
+     /// use int64_t as key, which is the field type of TUniqueId::lo
+diff --git a/be/src/exec/pipeline/query_context.cpp b/be/src/exec/pipeline/query_context.cpp
+index da0e2612101d1dde31c306ec32e3d2def28f88d9..dbf42e3689369eeed21a5d3fce4ada426e1630b7 100644
+--- a/be/src/exec/pipeline/query_context.cpp
++++ b/be/src/exec/pipeline/query_context.cpp
+@@ -292,6 +292,7 @@ std::shared_ptr<QueryStatistics> QueryContext::final_query_statistic() {
+     }
+ 
+     _sub_plan_query_statistics_recvr->aggregate(res.get());
++    res->set_query_corruption_detected(query_corruption_detected());
+     return res;
+ }
+ 
+diff --git a/be/src/exec/pipeline/query_context.h b/be/src/exec/pipeline/query_context.h
+index c4fe358d4f9fb6362c7893cbf606c9dac73608fd..021bbbe36b6862c755f3b1764f5baeb858c8a058 100644
+--- a/be/src/exec/pipeline/query_context.h
++++ b/be/src/exec/pipeline/query_context.h
+@@ -285,6 +285,10 @@ public:
+     bool is_final_sink() const { return _is_final_sink; }
+     void set_final_sink() { _is_final_sink = true; }
+ 
++    // Diagnostic only: does not cancel, isolate, or reschedule any other scan task.
++    void mark_query_corruption_detected() { _query_corruption_detected.store(true, std::memory_order_release); }
++    bool query_corruption_detected() const { return _query_corruption_detected.load(std::memory_order_acquire); }
++
+     QueryContextPtr get_shared_ptr() { return shared_from_this(); }
+ 
+     // STREAM MV
+@@ -374,6 +378,7 @@ private:
+     std::unordered_map<int32_t, std::shared_ptr<NodeExecStats>> _node_exec_stats;
+ 
+     bool _is_final_sink = false;
++    std::atomic<bool> _query_corruption_detected{false};
+     std::shared_ptr<QueryStatisticsRecvr> _sub_plan_query_statistics_recvr; // For receive
+ 
+     int64_t _scan_limit = 0;
+diff --git a/be/src/exec/pipeline/scan/olap_chunk_source.cpp b/be/src/exec/pipeline/scan/olap_chunk_source.cpp
+index 98a0a3f4bb84837c38381c9c0aebaf1ad087b440..8617bb388398aa7f37614c4d3a9c10245e10bf9b 100644
+--- a/be/src/exec/pipeline/scan/olap_chunk_source.cpp
++++ b/be/src/exec/pipeline/scan/olap_chunk_source.cpp
+@@ -48,6 +48,7 @@
+ #include "types/logical_type.h"
+ #include "util/runtime_profile.h"
+ #include "util/table_metrics.h"
++#include "util/uid_util.h"
+ 
+ namespace starrocks::pipeline {
+ 
+@@ -615,13 +616,23 @@ Status OlapChunkSource::_init_olap_reader(RuntimeState* runtime_state) {
+     RETURN_IF_ERROR(_prj_iter->init_output_schema(*_params.unused_output_column_ids));
+     _reader->set_is_asc_hint(_scan_op->is_asc());
+ 
+-    RETURN_IF_ERROR(_reader->prepare());
+-    RETURN_IF_ERROR(_reader->open(_params));
++    auto status = _reader->prepare();
++    if (!status.ok()) {
++        return _tolerate_storage_corruption(status) ? Status::OK() : status;
++    }
++    status = _reader->open(_params);
++    if (!status.ok()) {
++        return _tolerate_storage_corruption(status) ? Status::OK() : status;
++    }
+ 
+     return Status::OK();
+ }
+ 
+ Status OlapChunkSource::_read_chunk(RuntimeState* state, ChunkPtr* chunk) {
++    if (UNLIKELY(_corruption_tolerated)) {
++        chunk->reset();
++        return Status::EndOfFile("independent scan stopped after file corruption");
++    }
+     ASSIGN_OR_RETURN(auto chunk_ptr,
+                      ChunkHelper::new_chunk_pooled_checked(_prj_iter->output_schema(), _runtime_state->chunk_size()));
+     chunk->reset(chunk_ptr);
+@@ -668,6 +679,10 @@ Status OlapChunkSource::_read_chunk_from_storage(RuntimeState* state, Chunk* chu
+         Status status = _prj_iter->get_next(chunk);
+         // update counter when eof or error
+         if (UNLIKELY(!status.ok())) {
++            if (_tolerate_storage_corruption(status, chunk)) {
++                _update_realtime_counter(chunk);
++                return Status::EndOfFile("independent scan stopped after file corruption");
++            }
+             _update_realtime_counter(chunk);
+             return status;
+         }
+@@ -707,6 +722,24 @@ Status OlapChunkSource::_read_chunk_from_storage(RuntimeState* state, Chunk* chu
+     return Status::OK();
+ }
+ 
++bool OlapChunkSource::_tolerate_storage_corruption(const Status& status, Chunk* failed_chunk) {
++    // Call only at the independent storage prepare/open/get_next boundary, never around
++    // shared morsel preparation, expression evaluation, or generic scan error handling.
++    if (!status.is_corruption() || !_runtime_state->query_options().enable_query_corruption_tolerance ||
++        _runtime_state->is_cancelled() || _runtime_state->query_ctx() == nullptr) {
++        return false;
++    }
++    if (failed_chunk != nullptr) {
++        failed_chunk->reset();
++    }
++    _runtime_state->query_ctx()->mark_query_corruption_detected();
++    _corruption_tolerated = true;
++    LOG(WARNING) << "independent scan stopped after tolerated file corruption: query_id="
++                 << print_id(_runtime_state->query_id()) << ", tablet_id=" << _scan_range->tablet_id
++                 << ", status=" << status;
++    return true;
++}
++
+ void OlapChunkSource::_update_realtime_counter(Chunk* chunk) {
+     auto& stats = _reader->stats();
+     size_t num_rows = chunk->num_rows();
+diff --git a/be/src/exec/pipeline/scan/olap_chunk_source.h b/be/src/exec/pipeline/scan/olap_chunk_source.h
+index edc53a85ee8f9e430cd566de444a3fcf250d9ca0..8c0a43681b9794e82ca7fd92a3622ab4d285418f 100644
+--- a/be/src/exec/pipeline/scan/olap_chunk_source.h
++++ b/be/src/exec/pipeline/scan/olap_chunk_source.h
+@@ -60,6 +60,7 @@ private:
+     Status _init_scanner_columns(std::vector<uint32_t>& scanner_columns, std::vector<uint32_t>& reader_columns);
+     Status _init_unused_output_columns(const std::vector<std::string>& unused_output_columns);
+     Status _init_olap_reader(RuntimeState* state);
++    bool _tolerate_storage_corruption(const Status& status, Chunk* failed_chunk = nullptr);
+     TCounterMinMaxType::type _get_counter_min_max_type(const std::string& metric_name);
+     void _init_counter(RuntimeState* state);
+     Status _init_global_dicts(TabletReaderParams* params);
+@@ -88,6 +89,8 @@ private:
+     int64_t _version = 0;
+ 
+     RuntimeState* _runtime_state = nullptr;
++    // Task-local EOF, never a tablet-wide stop flag. Also protects an incompletely opened Reader.
++    bool _corruption_tolerated = false;
+     const std::vector<SlotDescriptor*>* _slots = nullptr;
+ 
+     // For release memory.
+diff --git a/be/src/runtime/data_stream_mgr.cpp b/be/src/runtime/data_stream_mgr.cpp
+index 659b897b3d1db4eed0554a989584cff8c7d72b03..8bb630ef9cd580331c46c96ca4e2f56ea778e770 100644
+--- a/be/src/runtime/data_stream_mgr.cpp
++++ b/be/src/runtime/data_stream_mgr.cpp
+@@ -154,6 +154,11 @@ Status DataStreamMgr::transmit_chunk(const PTransmitChunkParams& request, ::goog
+     // request can only be used before calling recvr's add_batch or when request
+     // is the last for the sender, because request maybe released after it's batch
+     // is consumed by ExchangeNode.
++    // Publish the diagnostic before making this packet's data or EOS visible to consumers.
++    // This also covers pure EOS (e.g. an entirely unreadable JOIN build input).
++    if (request.query_corruption_detected()) {
++        recvr->mark_query_corruption_detected();
++    }
+     if (request.has_query_statistics()) {
+         recvr->add_sub_plan_statistics(request.query_statistics(), request.sender_id());
+     }
+diff --git a/be/src/runtime/data_stream_recvr.cpp b/be/src/runtime/data_stream_recvr.cpp
+index b642d9eca55248fd99795796a613020046e8e3dd..82503e3e5233af0f49c340f1ea2f66d4aae42f49 100644
+--- a/be/src/runtime/data_stream_recvr.cpp
++++ b/be/src/runtime/data_stream_recvr.cpp
+@@ -164,6 +164,10 @@ DataStreamRecvr::DataStreamRecvr(DataStreamMgr* stream_mgr, RuntimeState* runtim
+           _instance_profile(runtime_state->runtime_profile_ptr()),
+           _query_mem_tracker(runtime_state->query_mem_tracker_ptr()),
+           _instance_mem_tracker(runtime_state->instance_mem_tracker_ptr()),
++          _corruption_query_ctx(runtime_state->query_options().enable_query_corruption_tolerance &&
++                                                runtime_state->query_ctx() != nullptr
++                                        ? runtime_state->query_ctx()->weak_from_this()
++                                        : std::weak_ptr<pipeline::QueryContext>()),
+           _sub_plan_query_statistics_recvr(std::move(sub_plan_query_statistics_recvr)),
+           _is_pipeline(is_pipeline),
+           _keep_order(keep_order),
+@@ -219,6 +223,12 @@ void DataStreamRecvr::attach_query_ctx(pipeline::QueryContext* query_ctx) {
+     }
+ }
+ 
++void DataStreamRecvr::mark_query_corruption_detected() {
++    if (auto ctx = _corruption_query_ctx.lock()) {
++        ctx->mark_query_corruption_detected();
++    }
++}
++
+ Status DataStreamRecvr::get_next(ChunkPtr* chunk, bool* eos) {
+     DCHECK(_chunks_merger.get() != nullptr);
+     return _chunks_merger->get_next(chunk, eos);
+diff --git a/be/src/runtime/data_stream_recvr.h b/be/src/runtime/data_stream_recvr.h
+index c835bf85cac90742e0560b7ae92ef6d80caf697a..c796de9a671f199568d77a0ebbe339109315f690 100644
+--- a/be/src/runtime/data_stream_recvr.h
++++ b/be/src/runtime/data_stream_recvr.h
+@@ -136,6 +136,7 @@ public:
+     bool get_encode_level() const { return _encode_level; }
+ 
+     void attach_query_ctx(pipeline::QueryContext* query_ctx);
++    void mark_query_corruption_detected();
+     void attach_observer(RuntimeState* state, pipeline::PipelineObserver* observer) {
+         _observable.add_observer(state, observer);
+     }
+@@ -255,6 +256,8 @@ private:
+     // used in event scheduler
+     // Capture shared_ptr to avoid use-after-free.
+     std::weak_ptr<pipeline::QueryContext> _query_ctx;
++    // Immutable, initialized before registration: packets may arrive before operator prepare.
++    const std::weak_ptr<pipeline::QueryContext> _corruption_query_ctx;
+     pipeline::Observable _observable;
+ 
+     std::atomic<size_t> _rpc_round_roubin_index = 0;
+diff --git a/be/src/runtime/query_statistics.cpp b/be/src/runtime/query_statistics.cpp
+index 30c8121b20a892ef52d6c4f961301b1fc3926e0a..6b581b443be78a1d0f25f2e4627efe14558a9869 100644
+--- a/be/src/runtime/query_statistics.cpp
++++ b/be/src/runtime/query_statistics.cpp
+@@ -47,6 +47,11 @@ void QueryStatistics::to_pb(PQueryStatistics* statistics) {
+     statistics->set_read_local_cnt(read_local_cnt);
+     statistics->set_read_remote_cnt(read_remote_cnt);
+     statistics->set_transmitted_bytes(transmitted_bytes);
++    if (query_corruption_detected()) {
++        statistics->set_query_corruption_detected(true);
++    } else {
++        statistics->clear_query_corruption_detected();
++    }
+     {
+         std::lock_guard l(_lock);
+         for (const auto& [table_id, stats_item] : _stats_items) {
+@@ -100,6 +105,7 @@ void QueryStatistics::clear() {
+     read_local_cnt = 0;
+     read_remote_cnt = 0;
+     transmitted_bytes = 0;
++    _query_corruption_detected = false;
+     _stats_items.clear();
+     _exec_stats_items.clear();
+ }
+@@ -151,6 +157,8 @@ void QueryStatistics::add_scan_stats(int64_t scan_rows, int64_t scan_bytes) {
+ }
+ 
+ void QueryStatistics::merge(int sender_id, QueryStatistics& other) {
++    // Diagnostics are sticky, unlike consumable delta audit counters.
++    set_query_corruption_detected(other.query_corruption_detected());
+     // Make the exchange action atomic
+     int64_t scan_rows = other.scan_rows.load();
+     if (other.scan_rows.compare_exchange_strong(scan_rows, 0)) {
+@@ -212,6 +220,7 @@ void QueryStatistics::merge(int sender_id, QueryStatistics& other) {
+ }
+ 
+ void QueryStatistics::merge_pb(const PQueryStatistics& statistics) {
++    set_query_corruption_detected(statistics.query_corruption_detected());
+     if (statistics.has_scan_rows()) {
+         scan_rows += statistics.scan_rows();
+     }
+diff --git a/be/src/runtime/query_statistics.h b/be/src/runtime/query_statistics.h
+index 14a4ff229ac7dba657654d02a26dbee9945e0c11..078b8b0b9f572df000eb28e8bbcda7202cde5e14 100644
+--- a/be/src/runtime/query_statistics.h
++++ b/be/src/runtime/query_statistics.h
+@@ -52,6 +52,12 @@ public:
+     QueryStatistics() = default;
+ 
+     void set_returned_rows(int64_t num_rows) { this->returned_rows = num_rows; }
++    void set_query_corruption_detected(bool detected) {
++        if (detected) {
++            _query_corruption_detected.store(true, std::memory_order_relaxed);
++        }
++    }
++    bool query_corruption_detected() const { return _query_corruption_detected.load(std::memory_order_relaxed); }
+ 
+     void add_stats_item(QueryStatisticsItemPB& stats_item);
+     void add_exec_stats_item(uint32_t node_id, int64_t push, int64_t pull, int64_t pred_filter, int64_t index_filter,
+@@ -99,6 +105,7 @@ private:
+     // number rows returned by query.
+     // only set once by result sink when closing.
+     int64_t returned_rows{0};
++    std::atomic<bool> _query_corruption_detected{false};
+     struct ScanStats {
+         ScanStats(int64_t rows, int64_t bytes) : scan_rows(rows), scan_bytes(bytes) {}
+         int64_t scan_rows = 0;
+diff --git a/be/test/CMakeLists.txt b/be/test/CMakeLists.txt
+index 7f80af090f3d308255f455689eca8897d7b6b557..31470b56a8479096ac09b6f236ff67ffdb318e48 100644
+--- a/be/test/CMakeLists.txt
++++ b/be/test/CMakeLists.txt
+@@ -630,6 +630,17 @@ add_executable(starrocks_test test_main.cpp $<TARGET_OBJECTS:starrocks_test_objs
+ 
+ TARGET_LINK_LIBRARIES(starrocks_test ${TEST_LINK_LIBS})
+ 
++# Focused regression executable for query corruption tolerance. Reuses the normal
++# BE_TEST libraries and initialization, without requiring every unrelated UT object.
++# The same tests remain part of starrocks_test; this target is opt-in only.
++add_executable(query_corruption_test EXCLUDE_FROM_ALL
++        test_main.cpp
++        exec/pipeline/olap_scan_operator_test.cpp
++        exec/pipeline/exchange_pass_through_test.cpp
++        runtime/query_statistics_test.cpp)
++target_compile_options(query_corruption_test PRIVATE -fno-access-control)
++target_link_libraries(query_corruption_test ${TEST_LINK_LIBS})
++
+ # =================================================
+ # test cases must be compiled as a standalone binary
+ ADD_BE_TEST(storage/task/engine_storage_migration_task_test)
+diff --git a/be/test/exec/pipeline/exchange_pass_through_test.cpp b/be/test/exec/pipeline/exchange_pass_through_test.cpp
+index 76254aee8d5c51c0639843278a164a94ba16c8d4..854813f96c04b51676b219cd50ab51233ca9e917 100644
+--- a/be/test/exec/pipeline/exchange_pass_through_test.cpp
++++ b/be/test/exec/pipeline/exchange_pass_through_test.cpp
+@@ -14,6 +14,8 @@
+ 
+ #include <gtest/gtest.h>
+ 
++#include <deque>
++
+ #include "exec/pipeline/exchange/exchange_sink_operator.h"
+ #include "exec/pipeline/fragment_context.h"
+ #include "gen_cpp/DataSinks_types.h"
+@@ -46,6 +48,33 @@ public:
+ 
+ class ExchangePassThroughTest : public ::testing::Test {
+ public:
++    // Pass-through still sends RPC metadata. This fixture has no listening BE;
++    // route that metadata through the real manager and complete callbacks only
++    // after SinkBuffer releases its send lock, matching asynchronous RPC completion.
++    class LocalStub final : public PInternalService_RecoverableStub {
++    public:
++        LocalStub() : PInternalService_RecoverableStub(butil::EndPoint{}) {}
++        void transmit_chunk(google::protobuf::RpcController*, const PTransmitChunkParams* request,
++                            PTransmitChunkResult* response, google::protobuf::Closure* done) override {
++            Status::OK().to_protobuf(response->mutable_status());
++            auto status = ExecEnv::GetInstance()->stream_mgr()->transmit_chunk(*request, &done);
++            if (!status.ok()) {
++                status.to_protobuf(response->mutable_status());
++            }
++            if (done != nullptr) {
++                pending.push_back(done);
++            }
++        }
++        void finish_rpcs() {
++            while (!pending.empty()) {
++                auto* done = pending.front();
++                pending.pop_front();
++                done->Run();
++            }
++        }
++        std::deque<google::protobuf::Closure*> pending;
++    };
++
+     void SetUp() override {
+         BackendOptions::set_localhost("0.0.0.0");
+ 
+@@ -56,6 +85,7 @@ public:
+         _query_context->init_mem_tracker(-1, GlobalEnv::GetInstance()->process_mem_tracker());
+ 
+         TQueryOptions query_options;
++        query_options.__set_enable_query_corruption_tolerance(true);
+         TQueryGlobals query_globals;
+         _runtime_state = std::make_shared<RuntimeState>(_fragment_id, query_options, query_globals, _exec_env);
+         _runtime_state->set_query_ctx(_query_context.get());
+@@ -65,10 +95,22 @@ public:
+         _fragment_context->set_fragment_instance_id(_fragment_id);
+         _fragment_context->set_runtime_state(std::shared_ptr<RuntimeState>{_runtime_state});
+         _runtime_state->set_fragment_ctx(_fragment_context.get());
++        _fragment_context->prepare_pass_through_chunk_buffer();
+ 
+         TNetworkAddress address;
+         address.__set_hostname(BackendOptions::get_local_ip());
+         address.__set_port(config::brpc_port);
++        // Save and restore only this endpoint's pool; do not depend on another UT
++        // having started a service or registered a query-level buffer.
++        ASSERT_NE(nullptr, _exec_env->brpc_stub_cache()->get_stub(address));
++        butil::EndPoint endpoint;
++        ASSERT_EQ(0, butil::str2endpoint(address.hostname.c_str(), address.port, &endpoint));
++        _stub_pool = *_exec_env->brpc_stub_cache()->_stub_map.seek(endpoint);
++        _saved_stubs = std::move(_stub_pool->_stubs);
++        _saved_stub_index = _stub_pool->_idx;
++        _local_stub = std::make_shared<LocalStub>();
++        _stub_pool->_stubs = {_local_stub};
++        _stub_pool->_idx = 0;
+         TPlanFragmentDestination destination;
+         destination.__set_fragment_instance_id(_fragment_id);
+         destination.__set_brpc_server(address);
+@@ -99,10 +141,24 @@ public:
+     void TearDown() override {
+         _recvr->close();
+         _exec_env->stream_mgr()->close();
++        _local_stub->finish_rpcs();
++        _stub_pool->_stubs = std::move(_saved_stubs);
++        _stub_pool->_idx = _saved_stub_index;
++        _fragment_context->destroy_pass_through_chunk_buffer();
+         _query_context->set_exec_env(nullptr);
+     }
+ 
+ protected:
++    Status send(const OperatorPtr& sink) {
++        auto status = sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next());
++        _local_stub->finish_rpcs();
++        return status;
++    }
++
++    std::shared_ptr<LocalStub> _local_stub;
++    std::shared_ptr<BrpcStubCache::StubPool> _stub_pool;
++    std::vector<std::shared_ptr<PInternalService_RecoverableStub>> _saved_stubs;
++    int64_t _saved_stub_index = 0;
+     TUniqueId _fragment_id;
+     ExecEnv* _exec_env;
+     std::shared_ptr<QueryContext> _query_context;
+@@ -125,29 +181,31 @@ protected:
+ TEST_F(ExchangePassThroughTest, test_exchange_pass_through) {
+     int32_t driver_sequence = 0;
+     auto exchange_sink = _exchange_sink_factory->create(_degree_of_parallelism, driver_sequence);
+-    exchange_sink->prepare(_runtime_state.get());
++    ASSERT_OK(exchange_sink->prepare(_runtime_state.get()));
++    ASSERT_OK(exchange_sink->prepare_local_state(_runtime_state.get()));
+ 
+     size_t sent_bytes = 0;
+     size_t chunk_bytes = _chunk_builder._chunk_size * 8;
+     // data is batched up to max_transmit_batched_bytes. Until then no data is actually sent.
+     while (sent_bytes + chunk_bytes < config::max_transmit_batched_bytes) {
+         sent_bytes += chunk_bytes;
+-        exchange_sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next());
++        ASSERT_OK(send(exchange_sink));
+         std::unique_ptr<Chunk> received_chunk = nullptr;
+         std::ignore = _recvr->get_chunk_for_pipeline(&received_chunk, driver_sequence);
+         EXPECT_TRUE(received_chunk == nullptr);
+     }
+ 
+     // once the sent bytes exceeds max_transmit_batched_bytes, the data is sent.
+-    exchange_sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next());
++    ASSERT_OK(send(exchange_sink));
+     std::unique_ptr<Chunk> received_chunk = nullptr;
+     std::ignore = _recvr->get_chunk_for_pipeline(&received_chunk, driver_sequence);
+-    EXPECT_TRUE(received_chunk != nullptr);
++    ASSERT_TRUE(received_chunk != nullptr);
+ 
+     // sending chunks without consuming leads to a full sink buffer.
+-    while (!_sink_buffer->is_full()) {
+-        exchange_sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next());
++    for (int i = 0; !_sink_buffer->is_full() && i < 4096; ++i) {
++        ASSERT_OK(send(exchange_sink));
+     }
++    ASSERT_TRUE(_sink_buffer->is_full());
+ 
+     // receiver ready to consume the data.
+     EXPECT_TRUE(_recvr->has_output_for_pipeline(driver_sequence));
+@@ -155,6 +213,7 @@ TEST_F(ExchangePassThroughTest, test_exchange_pass_through) {
+     // consuming chunks on the reciever side automatically relieves pressure on the sink side.
+     do {
+         std::ignore = _recvr->get_chunk_for_pipeline(&received_chunk, driver_sequence);
++        _local_stub->finish_rpcs();
+     } while (received_chunk != nullptr);
+     EXPECT_FALSE(_sink_buffer->is_full());
+ 
+@@ -165,15 +224,18 @@ TEST_F(ExchangePassThroughTest, recv_closed_1) {
+     int32_t driver_sequence = 0;
+     auto exchange_sink = _exchange_sink_factory->create(_degree_of_parallelism, driver_sequence);
+     ASSERT_OK(exchange_sink->prepare(_runtime_state.get()));
++    ASSERT_OK(exchange_sink->prepare_local_state(_runtime_state.get()));
+ 
+-    while (!_sink_buffer->is_full()) {
+-        ASSERT_OK(exchange_sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next()));
++    for (int i = 0; !_sink_buffer->is_full() && i < 4096; ++i) {
++        ASSERT_OK(send(exchange_sink));
+     }
++    ASSERT_TRUE(_sink_buffer->is_full());
+ 
+     ASSERT_OK(exchange_sink->set_finishing(_runtime_state.get()));
+ 
+     std::thread thr([recvr = _recvr]() { recvr->close(); });
+     thr.join();
++    _local_stub->finish_rpcs();
+     exchange_sink->close(_runtime_state.get());
+ }
+ 
+@@ -181,16 +243,121 @@ TEST_F(ExchangePassThroughTest, recv_closed_2) {
+     int32_t driver_sequence = 0;
+     auto exchange_sink = _exchange_sink_factory->create(_degree_of_parallelism, driver_sequence);
+     ASSERT_OK(exchange_sink->prepare(_runtime_state.get()));
++    ASSERT_OK(exchange_sink->prepare_local_state(_runtime_state.get()));
+ 
+-    while (!_sink_buffer->is_full()) {
+-        ASSERT_OK(exchange_sink->push_chunk(_runtime_state.get(), _chunk_builder.get_next()));
++    for (int i = 0; !_sink_buffer->is_full() && i < 4096; ++i) {
++        ASSERT_OK(send(exchange_sink));
+     }
++    ASSERT_TRUE(_sink_buffer->is_full());
+ 
+     std::thread thr([recvr = _recvr]() { recvr->close(); });
+     thr.join();
++    _local_stub->finish_rpcs();
+ 
+     ASSERT_OK(exchange_sink->set_finishing(_runtime_state.get()));
++    _local_stub->finish_rpcs();
+     exchange_sink->close(_runtime_state.get());
+ }
+ 
+-} // namespace starrocks::pipeline
+\ No newline at end of file
++TEST_F(ExchangePassThroughTest, corruption_is_visible_before_pure_eos_without_attach) {
++    ASSERT_FALSE(_query_context->query_corruption_detected());
++    PTransmitChunkParams request;
++    request.mutable_finst_id()->set_hi(_fragment_id.hi);
++    request.mutable_finst_id()->set_lo(_fragment_id.lo);
++    request.set_node_id(_dest_node_id);
++    request.set_sender_id(0);
++    request.set_be_number(0);
++    request.set_sequence(0);
++    request.set_eos(true);
++    request.set_query_corruption_detected(true);
++    google::protobuf::Closure* done = nullptr;
++    ASSERT_OK(_exec_env->stream_mgr()->transmit_chunk(request, &done));
++    ASSERT_TRUE(_query_context->query_corruption_detected());
++    ASSERT_TRUE(_recvr->is_finished());
++    // No attach_query_ctx or additional health/status request was needed.
++    _recvr->mark_query_corruption_detected();
++    _query_context->set_final_sink();
++    PQueryStatistics result;
++    _query_context->final_query_statistic()->to_pb(&result);
++    ASSERT_TRUE(result.query_corruption_detected());
++}
++
++TEST_F(ExchangePassThroughTest, strict_receiver_does_not_accept_partial_diagnostic) {
++    _runtime_state->_query_options.__set_enable_query_corruption_tolerance(false);
++    TUniqueId other_id;
++    other_id.hi = _fragment_id.hi;
++    other_id.lo = _fragment_id.lo + 1;
++    RowDescriptor row_desc;
++    auto strict = _exec_env->stream_mgr()->create_recvr(_runtime_state.get(), row_desc, other_id, 1, 1,
++                                                        config::exchg_node_buffer_size_bytes, false,
++                                                        std::make_shared<QueryStatisticsRecvr>(), true, 1, false);
++    strict->mark_query_corruption_detected();
++    ASSERT_FALSE(_query_context->query_corruption_detected());
++    strict->close();
++}
++
++TEST_F(ExchangePassThroughTest, every_destination_and_pure_eos_carry_sticky_diagnostic) {
++    class CapturingStub final : public PInternalService_RecoverableStub {
++    public:
++        CapturingStub() : PInternalService_RecoverableStub(butil::EndPoint{}) {}
++        void transmit_chunk(google::protobuf::RpcController*, const PTransmitChunkParams* request,
++                            PTransmitChunkResult* response, google::protobuf::Closure* done) override {
++            packets.emplace_back(*request);
++            Status::OK().to_protobuf(response->mutable_status());
++            pending = done;
++        }
++        void acknowledge() {
++            auto* done = std::exchange(pending, nullptr);
++            if (done != nullptr) {
++                done->Run();
++            }
++        }
++        std::vector<PTransmitChunkParams> packets;
++        google::protobuf::Closure* pending = nullptr;
++    };
++    auto destinations = _destinations;
++    auto second = destinations.front();
++    second.fragment_instance_id.lo++;
++    destinations.push_back(second);
++    auto buffer = std::make_shared<SinkBuffer>(_fragment_context.get(), destinations, false);
++    buffer->incr_sinker(_runtime_state.get());
++    auto stub = std::make_shared<CapturingStub>();
++    // Disables intermediate audit statistics; the independent diagnostic must still arrive.
++    _query_context->set_final_sink();
++    auto send = [&](size_t destination, bool eos) {
++        auto params = std::make_shared<PTransmitChunkParams>();
++        params->set_node_id(0);
++        params->set_sender_id(0);
++        params->set_be_number(0);
++        params->set_eos(eos);
++        TransmitChunkInfo request{destinations[destination].fragment_instance_id, stub, params, {}, 0,
++                                  destinations[destination].brpc_server};
++        ASSERT_OK(buffer->add_request(request));
++        stub->acknowledge(); // Normal RPC completion, not a diagnostic acknowledgement.
++    };
++    send(0, false);
++    ASSERT_FALSE(stub->packets.back().has_query_corruption_detected());
++    _query_context->mark_query_corruption_detected();
++    send(0, false);
++    send(1, false);
++    send(0, true);
++    send(1, true);
++    ASSERT_EQ(5, stub->packets.size());
++    for (size_t i = 1; i < stub->packets.size(); ++i) {
++        ASSERT_TRUE(stub->packets[i].query_corruption_detected());
++        ASSERT_FALSE(stub->packets[i].has_query_statistics());
++    }
++    ASSERT_TRUE(buffer->is_finished());
++    // Existing cancellation/early LIMIT finish must not create a late diagnostic RPC.
++    auto cancelled = std::make_shared<SinkBuffer>(_fragment_context.get(), destinations, false);
++    cancelled->incr_sinker(_runtime_state.get());
++    cancelled->cancel_one_sinker(_runtime_state.get());
++    TransmitChunkInfo ignored{
++            destinations[0].fragment_instance_id, stub, std::make_shared<PTransmitChunkParams>(), {}, 0,
++            destinations[0].brpc_server};
++    ASSERT_OK(cancelled->add_request(ignored));
++    ASSERT_EQ(5, stub->packets.size());
++    ASSERT_TRUE(cancelled->is_finished());
++}
++
++} // namespace starrocks::pipeline
+diff --git a/be/test/exec/pipeline/olap_scan_operator_test.cpp b/be/test/exec/pipeline/olap_scan_operator_test.cpp
+index eaf5889c8a918f652d2a1804be5ec3b41f33244b..07ef31027290a0a2efe0a2389bfd6f62b5f552c0 100644
+--- a/be/test/exec/pipeline/olap_scan_operator_test.cpp
++++ b/be/test/exec/pipeline/olap_scan_operator_test.cpp
+@@ -14,16 +14,26 @@
+ 
+ #include "exec/pipeline/scan/olap_scan_operator.h"
+ 
++#include "column/fixed_length_column.h"
+ #include "exec/olap_scan_node.h"
++#include "exec/pipeline/fragment_context.h"
++#include "exec/pipeline/scan/olap_chunk_source.h"
+ #include "exec/pipeline/scan/olap_scan_prepare_operator.h"
+ #include "gtest/gtest.h"
+ #include "runtime/descriptors.h"
++#include "storage/rowset/rowset.h"
++#include "util/starrocks_metrics.h"
++#include "util/table_metrics.h"
+ 
+ namespace starrocks::pipeline {
+ 
+ class OlapScanOperatorTest : public ::testing::Test {
+ public:
+     void SetUp() override;
++    void TearDown() override {
++        SyncPoint::GetInstance()->DisableProcessing();
++        SyncPoint::GetInstance()->ClearAllCallBacks();
++    }
+ 
+ protected:
+     ObjectPool _object_pool;
+@@ -57,6 +67,7 @@ void OlapScanOperatorTest::SetUp() {
+ 
+     _query_ctx.init_mem_tracker(-1, GlobalEnv::GetInstance()->process_mem_tracker());
+     _runtime_state.set_query_ctx(&_query_ctx);
++    _runtime_state.init_instance_mem_tracker();
+ }
+ 
+ TEST_F(OlapScanOperatorTest, test_finish_sequence) {
+@@ -112,4 +123,180 @@ TEST_F(OlapScanOperatorTest, test_finish_sequence) {
+     SyncPoint::GetInstance()->DisableProcessing();
+ }
+ 
+-} // namespace starrocks::pipeline
+\ No newline at end of file
++TEST_F(OlapScanOperatorTest, corruption_is_task_local_and_discards_failed_chunk) {
++    OlapScanNode scan_node(&_object_pool, _tnode, *_tbl);
++    auto factory =
++            std::make_shared<OlapScanContextFactory>(&scan_node, 1, false, false, std::move(_chunk_buffer_limiter));
++    OlapScanOperatorFactory op_factory(1, &scan_node, factory);
++    auto op = op_factory.create(1, 0);
++    auto* scan_op = down_cast<ScanOperator*>(op.get());
++    auto ctx = factory->get_or_create(0);
++    RuntimeProfile profile("corruption-test");
++    TScanRange range;
++    range.__set_internal_scan_range(TInternalScanRange());
++    OlapChunkSource broken(scan_op, &profile, std::make_unique<ScanMorsel>(1, range), &scan_node, ctx.get());
++    OlapChunkSource sibling(scan_op, &profile, std::make_unique<ScanMorsel>(1, range), &scan_node, ctx.get());
++    broken._runtime_state = &_runtime_state;
++    sibling._runtime_state = &_runtime_state;
++
++    auto col = Int32Column::create();
++    col->append(42);
++    auto failed = std::make_shared<Chunk>();
++    failed->append_column(col, 1);
++    const auto corruption = Status::Corruption("bad page checksum");
++    ASSERT_FALSE(broken._tolerate_storage_corruption(corruption, failed.get()));
++    ASSERT_EQ(1, failed->num_rows());
++    ASSERT_FALSE(_query_ctx.query_corruption_detected());
++
++    _runtime_state._query_options.__set_enable_query_corruption_tolerance(true);
++    ASSERT_TRUE(broken._tolerate_storage_corruption(corruption, failed.get()));
++    ASSERT_EQ(0, failed->num_rows());
++    ASSERT_TRUE(_query_ctx.query_corruption_detected());
++    ASSERT_TRUE(broken._corruption_tolerated);
++    ASSERT_FALSE(sibling._corruption_tolerated);
++    // prepare/open failure must terminate without touching a missing/unopened Reader.
++    ASSERT_TRUE(broken._read_chunk(&_runtime_state, &failed).is_end_of_file());
++    ASSERT_EQ(nullptr, failed);
++
++    // Use the real ChunkSource EOF path: an empty final-owner chunk must reach the
++    // cache lane and release its buffer token, even when Reader::open never completed.
++    ASSERT_TRUE(broken.buffer_next_batch_chunks_blocking(&_runtime_state, 8, nullptr).is_end_of_file());
++    auto& buffer = ctx->get_chunk_buffer();
++    ASSERT_EQ(1, buffer.size(0));
++    ASSERT_EQ(1, buffer.limiter()->size());
++    ASSERT_TRUE(buffer.try_get(0, &failed));
++    ASSERT_TRUE(failed->is_empty());
++    ASSERT_TRUE(failed->owner_info().is_last_chunk());
++    ASSERT_EQ(0, buffer.limiter()->size());
++    ASSERT_TRUE(broken.buffer_next_batch_chunks_blocking(&_runtime_state, 8, nullptr).is_end_of_file());
++    ASSERT_TRUE(buffer.all_empty());
++    ASSERT_TRUE(broken._read_chunk(&_runtime_state, &failed).is_end_of_file());
++    ASSERT_EQ(nullptr, failed);
++
++    ASSERT_FALSE(sibling._tolerate_storage_corruption(Status::IOError("disk unavailable")));
++    ASSERT_FALSE(sibling._tolerate_storage_corruption(Status::NotFound("missing version")));
++    ASSERT_FALSE(sibling._tolerate_storage_corruption(Status::InternalError("expression")));
++    ASSERT_FALSE(sibling._tolerate_storage_corruption(Status::EndOfFile("natural EOF")));
++    ASSERT_FALSE(sibling._corruption_tolerated);
++    _runtime_state.set_is_cancelled(true);
++    ASSERT_FALSE(sibling._tolerate_storage_corruption(corruption));
++    _runtime_state.set_is_cancelled(false);
++    ASSERT_TRUE(sibling._tolerate_storage_corruption(corruption));
++    ASSERT_TRUE(sibling._corruption_tolerated);
++    scan_node.close(&_runtime_state);
++}
++
++TEST_F(OlapScanOperatorTest, shared_prepare_corruption_remains_strict) {
++    _runtime_state._query_options.__set_enable_query_corruption_tolerance(true);
++    SyncPoint::GetInstance()->EnableProcessing();
++    TEST_ENABLE_ERROR_POINT("OlapScanContext::parse_conjuncts", Status::Corruption("shared preparation"));
++    OlapScanNode scan_node(&_object_pool, _tnode, *_tbl);
++    auto factory =
++            std::make_shared<OlapScanContextFactory>(&scan_node, 1, false, false, std::move(_chunk_buffer_limiter));
++    OlapScanPrepareOperatorFactory prepare_factory(1, 1, &scan_node, factory);
++    auto op = prepare_factory.create(1, 0);
++    FixedMorselQueue queue(Morsels{});
++    down_cast<OlapScanPrepareOperator*>(op.get())->add_morsel_queue(&queue);
++    ASSERT_TRUE(op->pull_chunk(&_runtime_state).status().is_corruption());
++    ASSERT_FALSE(_query_ctx.query_corruption_detected());
++    ASSERT_TRUE(factory->get_or_create(0)->is_prepare_finished());
++    scan_node.close(&_runtime_state);
++}
++
++TEST_F(OlapScanOperatorTest, storage_read_failure_discards_only_the_failed_chunk) {
++    class PartialIterator final : public ChunkIterator {
++    public:
++        PartialIterator() : ChunkIterator(Schema{}) {}
++        void close() override { closed = true; }
++        Status do_get_next(Chunk* chunk) override {
++            down_cast<Int32Column*>(chunk->get_column_by_index(0).get())->append(++calls);
++            return calls == 1 ? Status::OK() : Status::Corruption("failure after filling a row");
++        }
++        int calls = 0;
++        bool closed = false;
++    };
++    OlapScanNode scan_node(&_object_pool, _tnode, *_tbl);
++    auto factory =
++            std::make_shared<OlapScanContextFactory>(&scan_node, 1, false, false, std::move(_chunk_buffer_limiter));
++    OlapScanOperatorFactory op_factory(1, &scan_node, factory);
++    auto op = op_factory.create(1, 0);
++    auto ctx = factory->get_or_create(0);
++    RuntimeProfile profile("storage-read-corruption");
++    TScanRange range;
++    range.__set_internal_scan_range(TInternalScanRange());
++    OlapChunkSource source(down_cast<ScanOperator*>(op.get()), &profile, std::make_unique<ScanMorsel>(1, range),
++                           &scan_node, ctx.get());
++    source._runtime_state = &_runtime_state;
++    source._limit = -1;
++    source._reader = std::make_shared<TabletReader>(nullptr, Version{0, 1}, TabletSchemaCSPtr{}, Schema{});
++    auto reader = std::make_shared<PartialIterator>();
++    source._prj_iter = reader;
++    auto first = std::make_shared<Chunk>();
++    first->append_column(Int32Column::create(), 1);
++    ASSERT_TRUE(source._read_chunk_from_storage(&_runtime_state, first.get()).ok());
++    ASSERT_EQ(1, first->num_rows());
++    ChunkPtr failed = first->clone_empty();
++    _runtime_state._query_options.__set_enable_query_corruption_tolerance(true);
++    ASSERT_TRUE(source._read_chunk_from_storage(&_runtime_state, failed.get()).is_end_of_file());
++    ASSERT_EQ(0, failed->num_rows());
++    ASSERT_EQ(1, first->num_rows());
++    ASSERT_EQ(1, source._num_rows_read);
++    ASSERT_TRUE(_query_ctx.query_corruption_detected());
++    ASSERT_TRUE(source._read_chunk(&_runtime_state, &failed).is_end_of_file());
++    ASSERT_EQ(2, reader->calls);
++    // Counter initialization belongs to prepare(), which this focused iterator test bypasses.
++    source._reader.reset();
++    source.close(&_runtime_state);
++    ASSERT_TRUE(reader->closed);
++    scan_node.close(&_runtime_state);
++}
++
++TEST_F(OlapScanOperatorTest, failed_reader_prepare_releases_captured_rowsets_on_close) {
++    class CorruptRowset final : public Rowset {
++    public:
++        CorruptRowset(const TabletSchemaCSPtr& schema, RowsetMetaSharedPtr meta)
++                : Rowset(schema, "", std::move(meta)) {}
++        Status load() override { return Status::Corruption("invalid segment footer during Reader::prepare"); }
++    };
++    TabletSchemaPB schema_pb;
++    schema_pb.set_keys_type(DUP_KEYS);
++    TabletSchemaCSPtr schema = std::make_shared<TabletSchema>(schema_pb);
++    RowsetMetaPB meta;
++    meta.set_deprecated_rowset_id(1);
++    auto rowset = std::make_shared<CorruptRowset>(schema, std::make_shared<RowsetMeta>(meta));
++
++    OlapScanNode scan_node(&_object_pool, _tnode, *_tbl);
++    auto factory =
++            std::make_shared<OlapScanContextFactory>(&scan_node, 1, false, false, std::move(_chunk_buffer_limiter));
++    OlapScanOperatorFactory op_factory(1, &scan_node, factory);
++    auto op = op_factory.create(1, 0);
++    auto ctx = factory->get_or_create(0);
++    RuntimeProfile profile("reader-prepare-corruption");
++    TScanRange range;
++    range.__set_internal_scan_range(TInternalScanRange());
++    OlapChunkSource source(down_cast<ScanOperator*>(op.get()), &profile, std::make_unique<ScanMorsel>(1, range),
++                           &scan_node, ctx.get());
++    FragmentContext fragment;
++    _runtime_state.set_fragment_ctx(&fragment);
++    _runtime_state._query_options.__set_enable_query_corruption_tolerance(true);
++    source._runtime_state = &_runtime_state;
++    ASSERT_TRUE(source.ChunkSource::prepare(&_runtime_state).ok());
++    source._init_counter(&_runtime_state);
++    source._table_metrics = StarRocksMetrics::instance()->table_metrics_mgr()->get_table_metrics(1);
++    source._reader = std::make_shared<TabletReader>(nullptr, Version{0, 1}, Schema{},
++                                                    std::vector<RowsetSharedPtr>{rowset}, &schema);
++    source._prj_iter = source._reader;
++    auto status = source._reader->prepare();
++    ASSERT_TRUE(status.is_corruption());
++    ASSERT_EQ(1, rowset->refs_by_reader());
++    ASSERT_TRUE(source._tolerate_storage_corruption(status));
++    ChunkPtr output;
++    ASSERT_TRUE(source._read_chunk(&_runtime_state, &output).is_end_of_file());
++    ASSERT_EQ(nullptr, output);
++    source.close(&_runtime_state);
++    ASSERT_EQ(0, rowset->refs_by_reader());
++    _runtime_state.set_fragment_ctx(nullptr);
++    scan_node.close(&_runtime_state);
++}
++
++} // namespace starrocks::pipeline
+diff --git a/be/test/runtime/query_statistics_test.cpp b/be/test/runtime/query_statistics_test.cpp
+index fb6d1e5965cd989e339a8fe4ea95f7defd89e1a5..84b43ff2a249b7be7b062333f43b919d9f70a962 100644
+--- a/be/test/runtime/query_statistics_test.cpp
++++ b/be/test/runtime/query_statistics_test.cpp
+@@ -81,4 +81,43 @@ TEST_F(QueryStatisticsTest, basic) {
+     ASSERT_EQ(s2.get_read_remote_cnt(), 0);
+ }
+ 
++TEST_F(QueryStatisticsTest, corruption_is_optional_and_sticky_not_a_consumed_delta) {
++    QueryStatistics healthy;
++    PQueryStatistics empty;
++    healthy.to_pb(&empty);
++    ASSERT_FALSE(empty.has_query_corruption_detected());
++
++    QueryStatistics damaged;
++    damaged.set_query_corruption_detected(true);
++    damaged.set_query_corruption_detected(false);
++    PQueryStatistics wire;
++    damaged.to_pb(&wire);
++    ASSERT_TRUE(wire.query_corruption_detected());
++
++    QueryStatistics first;
++    QueryStatistics second;
++    first.merge(0, damaged);
++    second.merge(0, damaged);
++    ASSERT_TRUE(first.query_corruption_detected());
++    ASSERT_TRUE(second.query_corruption_detected());
++    first.merge_pb(empty);
++    ASSERT_TRUE(first.query_corruption_detected());
++
++    QueryStatisticsRecvr receiver;
++    receiver.insert(wire, 0);
++    receiver.insert(empty, 0);
++    QueryStatistics aggregate1;
++    QueryStatistics aggregate2;
++    receiver.aggregate(&aggregate1);
++    receiver.aggregate(&aggregate2);
++    ASSERT_TRUE(aggregate1.query_corruption_detected());
++    ASSERT_TRUE(aggregate2.query_corruption_detected());
++    first.clear();
++    ASSERT_FALSE(first.query_corruption_detected());
++    // Reusing a protobuf destination must not leak a previous query's diagnostic.
++    first.to_pb(&wire);
++    ASSERT_FALSE(wire.has_query_corruption_detected());
++    ASSERT_FALSE(wire.query_corruption_detected());
++}
++
+ } // namespace starrocks
+diff --git a/conf/fe.conf b/conf/fe.conf
+index 14b77741f82cfd0e4e5054e0319c862c7e40bc2d..ac6d9608043c376e8f730e05c56e5a09dc272dd3 100644
+--- a/conf/fe.conf
++++ b/conf/fe.conf
+@@ -43,6 +43,11 @@ query_port = 9030
+ edit_log_port = 9010
+ mysql_service_nio_enabled = true
+ 
++# Product default; the Java configuration default remains false.
++# Supported local OLAP SELECTs may return incomplete/inaccurate results with warnings.
++# Keep false during mixed-version upgrades. Query Cache integrity is unchanged.
++enable_query_corruption_tolerance = true
++
+ # Enable jaeger tracing by setting jaeger_grpc_endpoint
+ # jaeger_grpc_endpoint = http://localhost:14250
+ 
+diff --git a/fe/fe-core/src/main/java/com/starrocks/common/Config.java b/fe/fe-core/src/main/java/com/starrocks/common/Config.java
+index 306525c893239e86577c9dfd01a2e37f3c142e09..80fabde41bf96570043c9eaee1be600a07d9e9b7 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/common/Config.java
++++ b/fe/fe-core/src/main/java/com/starrocks/common/Config.java
+@@ -46,6 +46,10 @@ import static java.lang.Runtime.getRuntime;
+ 
+ public class Config extends ConfigBase {
+ 
++    // Startup-only; snapshotted for supported user-facing local OLAP SELECT queries.
++    @ConfField
++    public static boolean enable_query_corruption_tolerance = false;
++
+     /**
+      * The max size of one sys log and audit log
+      */
+diff --git a/fe/fe-core/src/main/java/com/starrocks/http/HttpResultSender.java b/fe/fe-core/src/main/java/com/starrocks/http/HttpResultSender.java
+index 3118fb8fd04873625c358be88288d62c015fda0b..fd590ff923f527cb045014295e3871610597aefd 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/http/HttpResultSender.java
++++ b/fe/fe-core/src/main/java/com/starrocks/http/HttpResultSender.java
+@@ -89,7 +89,10 @@ public class HttpResultSender {
+             }
+             if (batch.isEos()) {
+                 if (!context.isOnlyOutputResultRaw()) {
+-                    ByteBuf statisticData = JsonSerializer.getStatistic(batch.getQueryStatistics());
++                    com.starrocks.qe.QueryCorruptionWarning.record(context, batch.getQueryStatistics());
++                    ByteBuf statisticData = JsonSerializer.getStatistic(batch.getQueryStatistics(),
++                            context.getState().isQueryCorruptionToleranceEnabled(),
++                            context.getQueryCorruptionWarning());
+                     nettyChannel.writeAndFlush(statisticData);
+                 }
+                 sendEmptyLastContent();
+diff --git a/fe/fe-core/src/main/java/com/starrocks/http/JsonSerializer.java b/fe/fe-core/src/main/java/com/starrocks/http/JsonSerializer.java
+index 793aee118d6f24b12a78b27390c6e2fdee35bcbb..38652eafc1929a41c6940765b18fd74eda3594e6 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/http/JsonSerializer.java
++++ b/fe/fe-core/src/main/java/com/starrocks/http/JsonSerializer.java
+@@ -20,6 +20,7 @@ import com.starrocks.analysis.Expr;
+ import com.starrocks.catalog.Column;
+ import com.starrocks.proto.PQueryStatistics;
+ import com.starrocks.proto.QueryStatisticsItemPB;
++import com.starrocks.qe.QueryCorruptionWarning;
+ import com.starrocks.qe.ShowResultSet;
+ import com.starrocks.qe.ShowResultSetMetaData;
+ import io.netty.buffer.ByteBuf;
+@@ -118,6 +119,11 @@ public class JsonSerializer {
+     }
+ 
+     public static ByteBuf getStatistic(PQueryStatistics queryStatistics) throws IOException {
++        return getStatistic(queryStatistics, false, null);
++    }
++
++    public static ByteBuf getStatistic(PQueryStatistics queryStatistics, boolean toleranceEnabled, String warning)
++            throws IOException {
+         ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
+         OutputStreamWriter outputStreamWriter = new OutputStreamWriter(resultStream);
+         JsonWriter jsonWriter = new JsonWriter(outputStreamWriter);
+@@ -139,6 +145,17 @@ public class JsonSerializer {
+         jsonWriter.name(STATISTICS_SCAN_BYTES).value(scanBytes);
+         jsonWriter.name(STATISTICS_RETURN_ROWS).value(returnRows);
+         jsonWriter.endObject();
++        if (toleranceEnabled) {
++            jsonWriter.name("partial_result").value(warning != null);
++            jsonWriter.name("warnings").beginArray();
++            if (warning != null) {
++                jsonWriter.beginObject();
++                jsonWriter.name("code").value(QueryCorruptionWarning.NAME);
++                jsonWriter.name("message").value(warning);
++                jsonWriter.endObject();
++            }
++            jsonWriter.endArray();
++        }
+         jsonWriter.endObject();
+ 
+         outputStreamWriter.write("\n");
+diff --git a/fe/fe-core/src/main/java/com/starrocks/http/rest/ExecuteSqlAction.java b/fe/fe-core/src/main/java/com/starrocks/http/rest/ExecuteSqlAction.java
+index ec14b831c88158c24182ab5a7fe88d976fbaabdd..e75d8de4c4cbac4a0c9873ed9af4b84c138a377f 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/http/rest/ExecuteSqlAction.java
++++ b/fe/fe-core/src/main/java/com/starrocks/http/rest/ExecuteSqlAction.java
+@@ -156,6 +156,7 @@ public class ExecuteSqlAction extends RestBaseAction {
+                 context.getNettyChannel().close();
+             }
+         } catch (StarRocksHttpException e) {
++            context.clearQueryCorruptionWarning();
+             LOG.warn("fail to process url: {}", request.getRequest().uri(), e);
+             RestBaseResult failResult = new RestBaseResult(e.getMessage());
+             response.getContent().append(failResult.toJson());
+@@ -295,6 +296,7 @@ public class ExecuteSqlAction extends RestBaseAction {
+ 
+         // exception was caught in StmtExecutor and set Error info in QueryState, so just send status 500 with exception info
+         if (context.getState().getStateType() == QueryState.MysqlStateType.ERR) {
++            context.clearQueryCorruptionWarning();
+             // for queryStatement, if some data already sent, we just close the channel
+             if (parsedStmt instanceof QueryStatement && context.getSendDate()) {
+                 context.getNettyChannel().close();
+diff --git a/fe/fe-core/src/main/java/com/starrocks/mysql/MysqlEofPacket.java b/fe/fe-core/src/main/java/com/starrocks/mysql/MysqlEofPacket.java
+index 254a246ffc9a7aefd17941cadb67043f34396eeb..59d8512fee6a137edec32b1bcb10b62aef1cc8ea 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/mysql/MysqlEofPacket.java
++++ b/fe/fe-core/src/main/java/com/starrocks/mysql/MysqlEofPacket.java
+@@ -22,13 +22,14 @@ import com.starrocks.qe.QueryState;
+ // MySQL protocol EOF packet
+ public class MysqlEofPacket extends MysqlPacket {
+     private static final int EOF_INDICATOR = 0XFE;
+-    private static final int WARNINGS = 0;
++    private final int warnings;
+     // private static final int STATUS_FLAGS = 0;
+ 
+     private int serverStatus = 0;
+ 
+     public MysqlEofPacket(QueryState state) {
+         this.serverStatus = state.serverStatus;
++        this.warnings = state.getWarningRows();
+     }
+ 
+     @Override
+@@ -37,7 +38,7 @@ public class MysqlEofPacket extends MysqlPacket {
+ 
+         serializer.writeInt1(EOF_INDICATOR);
+         if (capability.isProtocol41()) {
+-            serializer.writeInt2(WARNINGS);
++            serializer.writeInt2(warnings);
+             serializer.writeInt2(serverStatus);
+         }
+     }
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/ConnectContext.java b/fe/fe-core/src/main/java/com/starrocks/qe/ConnectContext.java
+index 85bf0fd4fe043b41f6fa86d5a54aea20dca1506e..207feb3540d2328c5f1853ea631fb564fc1b2989 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/qe/ConnectContext.java
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/ConnectContext.java
+@@ -156,6 +156,25 @@ public class ConnectContext {
+ 
+     // state
+     protected QueryState state;
++    // Survives QueryState.reset() so a subsequent SHOW WARNINGS can inspect the last statement.
++    private String queryCorruptionWarning;
++
++    public String getQueryCorruptionWarning() {
++        return queryCorruptionWarning;
++    }
++
++    public void setQueryCorruptionWarning(String warning) {
++        if (warning == null) {
++            return;
++        }
++        queryCorruptionWarning = warning.length() > 1024 ? warning.substring(0, 1024) : warning;
++        state.setWarningRows(Math.max(1, state.getWarningRows()));
++    }
++
++    public void clearQueryCorruptionWarning() {
++        queryCorruptionWarning = null;
++    }
++
+     protected long returnRows;
+ 
+     // error code
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/ConnectProcessor.java b/fe/fe-core/src/main/java/com/starrocks/qe/ConnectProcessor.java
+index a053f6626c485f5245eba1c702ef745c59800c59..5989a32770fea19d140ec786435d3894d233e0b2 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/qe/ConnectProcessor.java
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/ConnectProcessor.java
+@@ -181,6 +181,7 @@ public class ConnectProcessor {
+ 
+     // COM_RESET_CONNECTION: reset current connection session variables
+     private void handleResetConnection() throws IOException {
++        ctx.clearQueryCorruptionWarning();
+         resetConnectionSession();
+         ctx.getState().setOk();
+     }
+@@ -480,6 +481,7 @@ public class ConnectProcessor {
+         try (Timer ignored = Tracers.watchScope(Tracers.Module.PARSER, "Parser")) {
+             stmts = com.starrocks.sql.parser.SqlParser.parse(originStmt, ctx.getSessionVariable());
+         } catch (ParsingException parsingException) {
++            ctx.clearQueryCorruptionWarning();
+             throw new AnalysisException(parsingException.getMessage());
+         }
+ 
+@@ -644,6 +646,7 @@ public class ConnectProcessor {
+     // binary<var>      parameter_values  value of each parameter
+     // detail https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_execute.html
+     private void handleExecute() {
++        ctx.clearQueryCorruptionWarning();
+         packetBuf = packetBuf.order(ByteOrder.LITTLE_ENDIAN);
+         // stmt_id
+         int stmtId = packetBuf.getInt();
+@@ -826,6 +829,9 @@ public class ConnectProcessor {
+ 
+     // use to return result packet to user
+     private void finalizeCommand() throws IOException {
++        if (ctx.getState().isError()) {
++            ctx.clearQueryCorruptionWarning();
++        }
+         ByteBuffer packet = null;
+         if (executor != null && executor.isForwardToLeader()) {
+             // for ERR State, set packet to remote packet(executor.getOutputPacket())
+@@ -1095,6 +1101,9 @@ public class ConnectProcessor {
+         result.setState(ctx.getState().getStateType().toString());
+         result.setErrorMsg(ctx.getState().getErrorMessage());
+         //Put the txnId in connectContext into result and pass it back to the follower node
++        if (!ctx.getState().isError() && ctx.getQueryCorruptionWarning() != null) {
++            result.setQuery_corruption_warning(ctx.getQueryCorruptionWarning());
++        }
+         result.setTxn_id(ctx.getTxnId());
+ 
+         if (executor != null) {
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/LeaderOpExecutor.java b/fe/fe-core/src/main/java/com/starrocks/qe/LeaderOpExecutor.java
+index 1b81869de605b3e7632b5bce5fd3581580788d82..e0f56f52518a2d8eb37eaf6f7dfd303767eac0db 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/qe/LeaderOpExecutor.java
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/LeaderOpExecutor.java
+@@ -161,6 +161,9 @@ public class LeaderOpExecutor {
+                         ctx.getState().setMsg(result.getErrorMsg());
+                     }
+                     if (state == MysqlStateType.EOF || state == MysqlStateType.OK) {
++                        if (result.isSetQuery_corruption_warning()) {
++                            ctx.setQueryCorruptionWarning(result.getQuery_corruption_warning());
++                        }
+                         afterForward();
+                     }
+                 }
+@@ -372,4 +375,3 @@ public class LeaderOpExecutor {
+         return params;
+     }
+ }
+-
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java b/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..5cf87b2c457b46b493f9f868427714b49e397ac5
+--- /dev/null
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionPolicy.java
+@@ -0,0 +1,84 @@
++// Copyright 2021-present StarRocks, Inc. All rights reserved.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     https://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.starrocks.qe;
++
++import com.starrocks.http.HttpConnectContext;
++import com.starrocks.planner.ExchangeNode;
++import com.starrocks.planner.OlapScanNode;
++import com.starrocks.planner.PlanFragment;
++import com.starrocks.planner.PlanNode;
++import com.starrocks.planner.ResultSink;
++import com.starrocks.planner.RuntimeFilterBuildNode;
++import com.starrocks.planner.RuntimeFilterDescription;
++import com.starrocks.planner.ScanNode;
++import com.starrocks.sql.ast.QueryStatement;
++import com.starrocks.sql.ast.StatementBase;
++import com.starrocks.sql.plan.ExecPlan;
++
++/** Eligibility only: never rewrites the plan or disables an optimization to enable tolerance. */
++public final class QueryCorruptionPolicy {
++    private QueryCorruptionPolicy() {
++    }
++
++    // Invoked only by the user-query execution entry point. Internal coordinators must not opt in.
++    public static boolean isEligible(boolean configured, boolean internal, ConnectContext context,
++                                     StatementBase statement, ExecPlan plan, boolean httpSupported) {
++        if (!configured || internal || !(statement instanceof QueryStatement) || statement.isExplain()
++                || ((QueryStatement) statement).hasOutFileClause() || plan == null || plan.isShortCircuit()
++                || context.isArrowFlightSql() || !context.getSessionVariable().isEnablePipelineEngine()) {
++            return false;
++        }
++        if (context instanceof HttpConnectContext
++                && (!httpSupported || ((HttpConnectContext) context).isOnlyOutputResultRaw())) {
++            return false;
++        }
++        if (plan.getScanNodes().isEmpty() || plan.getFragments().isEmpty()
++                || !(plan.getFragments().get(0).getSink() instanceof ResultSink)) {
++            return false;
++        }
++        for (ScanNode scan : plan.getScanNodes()) {
++            if (!(scan instanceof OlapScanNode) || scan.isRunningAsConnectorOperator()
++                    || ((OlapScanNode) scan).getOlapTable().isCloudNativeTableOrMaterializedView()) {
++                return false;
++            }
++        }
++        for (PlanFragment fragment : plan.getFragments()) {
++            if (!fragment.canUsePipeline() || hasRemoteRuntimeFilter(fragment.getPlanRoot())) {
++                return false;
++            }
++        }
++        return true;
++    }
++
++    // Remote filters can affect another input before its data/EOS carries the diagnostic.
++    // Keep these plans strict until their control channel is supported; never turn filters off.
++    private static boolean hasRemoteRuntimeFilter(PlanNode node) {
++        if (node instanceof RuntimeFilterBuildNode) {
++            for (RuntimeFilterDescription filter : ((RuntimeFilterBuildNode) node).getBuildRuntimeFilters()) {
++                if (filter.isHasRemoteTargets()) {
++                    return true;
++                }
++            }
++        }
++        if (!(node instanceof ExchangeNode)) {
++            for (PlanNode child : node.getChildren()) {
++                if (hasRemoteRuntimeFilter(child)) {
++                    return true;
++                }
++            }
++        }
++        return false;
++    }
++}
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionWarning.java b/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionWarning.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..54a3f3d62b33536ab5d9ab7fd2281ccf8cb7d0a1
+--- /dev/null
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/QueryCorruptionWarning.java
+@@ -0,0 +1,54 @@
++// Copyright 2021-present StarRocks, Inc. All rights reserved.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     https://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.starrocks.qe;
++
++import com.starrocks.proto.PQueryStatistics;
++import com.starrocks.sql.ast.ShowWarningStmt;
++import com.starrocks.sql.ast.StatementBase;
++
++import java.util.List;
++
++/** One bounded, session-local diagnostic. It never changes result columns or execution scheduling. */
++public final class QueryCorruptionWarning {
++    // Product warning code; unused in the 4.0.11 ErrorCode registry.
++    public static final int CODE = 9000;
++    public static final String NAME = "SR_QUERY_PARTIAL_RESULT";
++
++    private QueryCorruptionWarning() {
++    }
++
++    public static void beginStatement(ConnectContext context, StatementBase statement, boolean internal) {
++        if (!internal && !(statement instanceof ShowWarningStmt)) {
++            context.clearQueryCorruptionWarning();
++        }
++    }
++
++    public static void record(ConnectContext context, PQueryStatistics statistics) {
++        if (context.getState().isQueryCorruptionToleranceEnabled() && !context.getState().isError()
++                && statistics != null && Boolean.TRUE.equals(statistics.queryCorruptionDetected)) {
++            context.setQueryCorruptionWarning(NAME
++                    + ": result may be incomplete or inaccurate because independent local OLAP scans"
++                    + " encountered file corruption; query_id=" + context.getQueryId());
++        }
++    }
++
++    public static List<List<String>> rows(ConnectContext context, long offset, long limit) {
++        String message = context.getQueryCorruptionWarning();
++        if (message == null || offset > 0 || limit == 0) {
++            return List.of();
++        }
++        return List.of(List.of("Warning", Integer.toString(CODE), message));
++    }
++}
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/QueryState.java b/fe/fe-core/src/main/java/com/starrocks/qe/QueryState.java
+index 53f9897ce79fda26a9685495b18b927b98861458..10c0c7183f89be024daceb60938e56a57ed69965 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/qe/QueryState.java
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/QueryState.java
+@@ -85,6 +85,7 @@ public class QueryState {
+     private boolean isQuery = false;
+     private long affectedRows = 0;
+     private int warningRows = 0;
++    private boolean queryCorruptionToleranceEnabled;
+     // make it public for easy to use
+     public int serverStatus = 0;
+     private boolean isFinished = false;
+@@ -101,6 +102,7 @@ public class QueryState {
+         isQuery = false;
+         affectedRows = 0;
+         warningRows = 0;
++        queryCorruptionToleranceEnabled = false;
+         serverStatus = 0;
+         isFinished = false;
+     }
+@@ -194,6 +196,18 @@ public class QueryState {
+         return warningRows;
+     }
+ 
++    public void setWarningRows(int warningRows) {
++        this.warningRows = warningRows;
++    }
++
++    public boolean isQueryCorruptionToleranceEnabled() {
++        return queryCorruptionToleranceEnabled;
++    }
++
++    public void setQueryCorruptionToleranceEnabled(boolean enabled) {
++        queryCorruptionToleranceEnabled = enabled;
++    }
++
+     public MysqlPacket toResponsePacket() {
+         MysqlPacket packet = null;
+         switch (stateType) {
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/ShowExecutor.java b/fe/fe-core/src/main/java/com/starrocks/qe/ShowExecutor.java
+index e902912fdad1c23e1f6e9f0913e5cbf42bdb15d6..25ab34656941a20a207e546367204263d03ea63b 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/qe/ShowExecutor.java
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/ShowExecutor.java
+@@ -340,6 +340,14 @@ public class ShowExecutor {
+             return new ShowResultSet(showResultMetaFactory.getMetadata(statement), EMPTY_SET);
+         }
+ 
++        @Override
++        public ShowResultSet visitShowWarningStatement(com.starrocks.sql.ast.ShowWarningStmt statement,
++                                                       ConnectContext context) {
++            return new ShowResultSet(showResultMetaFactory.getMetadata(statement),
++                    statement.isErrorsOnly() ? EMPTY_SET
++                            : QueryCorruptionWarning.rows(context, statement.getOffset(), statement.getLimitNum()));
++        }
++
+         @Override
+         public ShowResultSet visitShowMaterializedViewStatement(ShowMaterializedViewsStmt statement, ConnectContext context) {
+             String dbName = statement.getDb();
+diff --git a/fe/fe-core/src/main/java/com/starrocks/qe/StmtExecutor.java b/fe/fe-core/src/main/java/com/starrocks/qe/StmtExecutor.java
+index 803ff545185917d5d9d0e9815a19eb373e1ccec2..ba6669b488963fbd710328c5ed03facc2ef95b69 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/qe/StmtExecutor.java
++++ b/fe/fe-core/src/main/java/com/starrocks/qe/StmtExecutor.java
+@@ -766,6 +766,7 @@ public class StmtExecutor {
+     // Exception:
+     // IOException: talk with client failed.
+     public void execute() throws Exception {
++        QueryCorruptionWarning.beginStatement(context, parsedStmt, isInternalStmt);
+         long beginTimeInNanoSecond = TimeUtils.getStartTime();
+         context.setStmtId(STMT_ID_GENERATOR.incrementAndGet());
+         context.setIsForward(false);
+@@ -1626,6 +1627,12 @@ public class StmtExecutor {
+             coord = getCoordinatorFactory().createQueryScheduler(context, fragments, scanNodes, descTable, execPlan);
+         }
+ 
++        if (coord instanceof DefaultCoordinator && QueryCorruptionPolicy.isEligible(
++                Config.enable_query_corruption_tolerance, isInternalStmt, context, parsedStmt, execPlan, true)) {
++            ((DefaultCoordinator) coord).getJobSpec().getQueryOptions().setEnable_query_corruption_tolerance(true);
++            context.getState().setQueryCorruptionToleranceEnabled(true);
++        }
++
+         // Predict the cost of this query
+         if (Config.enable_query_cost_prediction) {
+             CostPredictor predictor = getCostPredictor();
+@@ -1753,6 +1760,7 @@ public class StmtExecutor {
+                 return;
+             }
+ 
++            QueryCorruptionWarning.record(context, statisticsForAuditLog);
+             analyzePlanWithExecStats(execPlan);
+             if (context.isArrowFlightSql()) {
+                 context.updateReturnRows(statisticsForAuditLog.getReturnedRows());
+diff --git a/fe/fe-core/src/main/java/com/starrocks/sql/ast/ShowWarningStmt.java b/fe/fe-core/src/main/java/com/starrocks/sql/ast/ShowWarningStmt.java
+index ceaf41fe6833e2f4294868b87f6141687aad07f8..7f72b768c8ef1d7498aca32ef7f28e15e0e52bfd 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/sql/ast/ShowWarningStmt.java
++++ b/fe/fe-core/src/main/java/com/starrocks/sql/ast/ShowWarningStmt.java
+@@ -20,10 +20,20 @@ import com.starrocks.sql.parser.NodePosition;
+ // Show Warning stmt
+ public class ShowWarningStmt extends ShowStmt {
+     private LimitElement limitElement;
++    private final boolean errorsOnly;
+ 
+     public ShowWarningStmt(LimitElement limitElement, NodePosition pos) {
++        this(limitElement, pos, false);
++    }
++
++    public ShowWarningStmt(LimitElement limitElement, NodePosition pos, boolean errorsOnly) {
+         super(pos);
+         this.limitElement = limitElement;
++        this.errorsOnly = errorsOnly;
++    }
++
++    public boolean isErrorsOnly() {
++        return errorsOnly;
+     }
+ 
+     public long getLimitNum() {
+@@ -33,9 +43,12 @@ public class ShowWarningStmt extends ShowStmt {
+         return -1L;
+     }
+ 
++    public long getOffset() {
++        return limitElement == null ? 0 : limitElement.getOffset();
++    }
+ 
+     @Override
+     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {
+         return visitor.visitShowWarningStatement(this, context);
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/fe/fe-core/src/main/java/com/starrocks/sql/parser/AstBuilder.java b/fe/fe-core/src/main/java/com/starrocks/sql/parser/AstBuilder.java
+index 03d109596d3cf356e412b46775174ff86b34ba5b..2c7c27aeb47b59f0877ef180c92c29d0cad4e875 100644
+--- a/fe/fe-core/src/main/java/com/starrocks/sql/parser/AstBuilder.java
++++ b/fe/fe-core/src/main/java/com/starrocks/sql/parser/AstBuilder.java
+@@ -3670,9 +3670,9 @@ public class AstBuilder extends StarRocksBaseVisitor<ParseNode> {
+     public ParseNode visitShowWarningStatement(StarRocksParser.ShowWarningStatementContext context) {
+         NodePosition pos = createPos(context);
+         if (context.limitElement() != null) {
+-            return new ShowWarningStmt((LimitElement) visit(context.limitElement()), pos);
++            return new ShowWarningStmt((LimitElement) visit(context.limitElement()), pos, context.ERRORS() != null);
+         }
+-        return new ShowWarningStmt(null, pos);
++        return new ShowWarningStmt(null, pos, context.ERRORS() != null);
+     }
+ 
+     @Override
+diff --git a/fe/fe-core/src/test/java/com/starrocks/http/QueryCorruptionHttpSenderTest.java b/fe/fe-core/src/test/java/com/starrocks/http/QueryCorruptionHttpSenderTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..e663ad4eeaa49376c8de195a1e0347024301094e
+--- /dev/null
++++ b/fe/fe-core/src/test/java/com/starrocks/http/QueryCorruptionHttpSenderTest.java
+@@ -0,0 +1,189 @@
++// Copyright 2021-present StarRocks, Inc. All rights reserved.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     https://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.starrocks.http;
++
++import com.google.gson.JsonObject;
++import com.google.gson.JsonParser;
++import com.starrocks.common.jmockit.Deencapsulation;
++import com.starrocks.proto.PQueryStatistics;
++import com.starrocks.qe.QueryCorruptionWarning;
++import com.starrocks.qe.QueryState;
++import com.starrocks.qe.RowBatch;
++import com.starrocks.qe.scheduler.Coordinator;
++import com.starrocks.sql.ast.QueryStatement;
++import com.starrocks.sql.plan.ExecPlan;
++import com.starrocks.thrift.TResultBatch;
++import io.netty.buffer.ByteBuf;
++import io.netty.channel.ChannelDuplexHandler;
++import io.netty.channel.embedded.EmbeddedChannel;
++import io.netty.handler.codec.http.LastHttpContent;
++import io.netty.util.ReferenceCountUtil;
++import org.junit.jupiter.api.Test;
++
++import java.nio.ByteBuffer;
++import java.nio.charset.StandardCharsets;
++import java.util.List;
++import java.util.UUID;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertNotNull;
++import static org.junit.jupiter.api.Assertions.assertNull;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++import static org.mockito.Mockito.CALLS_REAL_METHODS;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++class QueryCorruptionHttpSenderTest {
++    private HttpConnectContext context(EmbeddedChannel channel) {
++        HttpConnectContext context = mock(HttpConnectContext.class, CALLS_REAL_METHODS);
++        Deencapsulation.setField(context, "state", new QueryState());
++        context.setQueryId(new UUID(1, 2));
++        context.setNettyChannel(channel.pipeline().firstContext());
++        context.setKeepAlive(true);
++        return context;
++    }
++
++    private ExecPlan plan() {
++        ExecPlan plan = mock(ExecPlan.class);
++        when(plan.getColNames()).thenReturn(List.of());
++        when(plan.getOutputExprs()).thenReturn(List.of());
++        return plan;
++    }
++
++    private RowBatch eos(boolean corrupt) {
++        RowBatch batch = new RowBatch();
++        PQueryStatistics statistics = new PQueryStatistics();
++        statistics.queryCorruptionDetected = corrupt;
++        statistics.returnedRows = 0L;
++        batch.setQueryStatistics(statistics);
++        return batch;
++    }
++
++    private JsonObject drain(EmbeddedChannel channel, boolean expectLast) {
++        JsonObject statistics = null;
++        boolean last = false;
++        Object item;
++        while ((item = channel.readOutbound()) != null) {
++            try {
++                assertFalse(last, "No output may follow the existing final HTTP chunk");
++                if (item instanceof ByteBuf) {
++                    JsonObject json = JsonParser.parseString(((ByteBuf) item).toString(StandardCharsets.UTF_8))
++                            .getAsJsonObject();
++                    if (json.has("statistics")) {
++                        assertNull(statistics, "Exactly one final statistics record");
++                        statistics = json;
++                    }
++                }
++                last = item instanceof LastHttpContent;
++            } finally {
++                ReferenceCountUtil.release(item);
++            }
++        }
++        assertEquals(expectLast, last);
++        return statistics;
++    }
++
++    @Test
++    void partialZeroRowsUsesExistingEosAndKeepAliveDoesNotLeak() throws Exception {
++        EmbeddedChannel channel = new EmbeddedChannel(new ChannelDuplexHandler());
++        try {
++            HttpConnectContext context = context(channel);
++            Coordinator coordinator = mock(Coordinator.class);
++            when(coordinator.getNext()).thenReturn(eos(true), eos(false));
++            context.getState().setQueryCorruptionToleranceEnabled(true);
++            new HttpResultSender(context).sendQueryResult(coordinator, plan(), "select * from events");
++            JsonObject partial = drain(channel, true);
++            assertNotNull(partial);
++            assertTrue(partial.get("partial_result").getAsBoolean());
++            assertEquals(1, partial.getAsJsonArray("warnings").size());
++            assertTrue(channel.isActive());
++
++            // Same reset/statement boundary as HttpConnectProcessor and StmtExecutor.
++            context.getState().reset();
++            QueryCorruptionWarning.beginStatement(context, mock(QueryStatement.class), false);
++            context.getState().setQueryCorruptionToleranceEnabled(true);
++            new HttpResultSender(context).sendQueryResult(coordinator, plan(), "select * from healthy");
++            JsonObject healthy = drain(channel, true);
++            assertFalse(healthy.get("partial_result").getAsBoolean());
++            assertTrue(healthy.getAsJsonArray("warnings").isEmpty());
++            verify(coordinator, times(2)).getNext(); // No extra final-status request.
++        } finally {
++            channel.finishAndReleaseAll();
++        }
++    }
++
++    @Test
++    void strictFailureDoesNotProduceSuccessTrailer() throws Exception {
++        EmbeddedChannel channel = new EmbeddedChannel(new ChannelDuplexHandler());
++        try {
++            HttpConnectContext context = context(channel);
++            context.getState().setQueryCorruptionToleranceEnabled(true);
++            Coordinator coordinator = mock(Coordinator.class);
++            when(coordinator.getNext()).thenThrow(new IllegalStateException("shared preparation failed"));
++            assertThrows(IllegalStateException.class,
++                    () -> new HttpResultSender(context).sendQueryResult(coordinator, plan(), "select * from events"));
++            assertNull(drain(channel, false));
++            assertNull(context.getQueryCorruptionWarning());
++        } finally {
++            channel.finishAndReleaseAll();
++        }
++    }
++
++    @Test
++    void rawOutputHasNoStatisticsOrPartialTrailer() throws Exception {
++        EmbeddedChannel channel = new EmbeddedChannel(new ChannelDuplexHandler());
++        try {
++            HttpConnectContext context = context(channel);
++            context.setOnlyOutputResultRaw(true);
++            Coordinator coordinator = mock(Coordinator.class);
++            when(coordinator.getNext()).thenReturn(eos(false));
++            new HttpResultSender(context).sendQueryResult(coordinator, plan(), "select * from events");
++            assertNull(drain(channel, true));
++        } finally {
++            channel.finishAndReleaseAll();
++        }
++    }
++
++    @Test
++    void clientDisconnectUsesExistingCancellationWithoutDiagnosticWait() throws Exception {
++        EmbeddedChannel channel = new EmbeddedChannel(new ChannelDuplexHandler());
++        try {
++            HttpConnectContext context = context(channel);
++            context.getState().setQueryCorruptionToleranceEnabled(true);
++            Coordinator coordinator = mock(Coordinator.class);
++            RowBatch data = new RowBatch();
++            data.setEos(false);
++            TResultBatch rows = new TResultBatch();
++            rows.setRows(List.of(ByteBuffer.wrap("{\"data\":[1]}\n".getBytes(StandardCharsets.UTF_8))));
++            data.setBatch(rows);
++            when(coordinator.getNext()).thenAnswer(invocation -> {
++                channel.close().syncUninterruptibly();
++                return data;
++            }).thenThrow(new IllegalStateException("query cancelled after client disconnect"));
++            assertThrows(IllegalStateException.class,
++                    () -> new HttpResultSender(context).sendQueryResult(coordinator, plan(), "select * from events"));
++            verify(coordinator).cancel("channel is closed, cancel query");
++            verify(coordinator, times(2)).getNext();
++            assertNull(context.getQueryCorruptionWarning());
++            assertNull(drain(channel, false));
++        } finally {
++            channel.finishAndReleaseAll();
++        }
++    }
++}
+diff --git a/fe/fe-core/src/test/java/com/starrocks/http/QueryCorruptionJsonTest.java b/fe/fe-core/src/test/java/com/starrocks/http/QueryCorruptionJsonTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..a7058af8b1a29be0a36060efafb2c583ad676ad5
+--- /dev/null
++++ b/fe/fe-core/src/test/java/com/starrocks/http/QueryCorruptionJsonTest.java
+@@ -0,0 +1,74 @@
++// Copyright 2021-present StarRocks, Inc. All rights reserved.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     https://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.starrocks.http;
++
++import com.google.gson.JsonObject;
++import com.google.gson.JsonParser;
++import com.starrocks.proto.PQueryStatistics;
++import com.starrocks.qe.QueryCorruptionWarning;
++import io.netty.buffer.ByteBuf;
++import org.junit.jupiter.api.Test;
++
++import java.io.IOException;
++import java.nio.charset.StandardCharsets;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++class QueryCorruptionJsonTest {
++    private JsonObject decode(ByteBuf buffer) {
++        try {
++            String json = buffer.toString(StandardCharsets.UTF_8);
++            assertTrue(json.endsWith("\n"));
++            return JsonParser.parseString(json).getAsJsonObject();
++        } finally {
++            buffer.release();
++        }
++    }
++
++    @Test
++    void offPreservesLegacyShapeEvenIfMessageIsPresent() throws IOException {
++        JsonObject legacy = decode(JsonSerializer.getStatistic(null));
++        JsonObject off = decode(JsonSerializer.getStatistic(null, false, "not exposed"));
++        assertEquals(legacy, off);
++        assertFalse(off.has("partial_result"));
++        assertFalse(off.has("warnings"));
++    }
++
++    @Test
++    void enabledHealthyHasFalseAndEmptyWarnings() throws IOException {
++        JsonObject json = decode(JsonSerializer.getStatistic(null, true, null));
++        assertFalse(json.get("partial_result").getAsBoolean());
++        assertTrue(json.getAsJsonArray("warnings").isEmpty());
++        assertEquals(0, json.getAsJsonObject("statistics").get("returnRows").getAsLong());
++    }
++
++    @Test
++    void allUnreadableAndQuotedDiagnosticAreValidNdjson() throws IOException {
++        PQueryStatistics statistics = new PQueryStatistics();
++        statistics.returnedRows = 0L;
++        statistics.queryCorruptionDetected = true;
++        String message = "partial: \"quoted\"\nnot a second NDJSON record";
++        JsonObject json = decode(JsonSerializer.getStatistic(statistics, true, message));
++        assertTrue(json.get("partial_result").getAsBoolean());
++        assertEquals(1, json.getAsJsonArray("warnings").size());
++        JsonObject warning = json.getAsJsonArray("warnings").get(0).getAsJsonObject();
++        assertEquals(QueryCorruptionWarning.NAME, warning.get("code").getAsString());
++        assertEquals(message, warning.get("message").getAsString());
++        assertTrue(json.has("statistics"));
++        assertFalse(json.has("data"));
++    }
++}
+diff --git a/fe/fe-core/src/test/java/com/starrocks/mysql/MysqlEofPacketTest.java b/fe/fe-core/src/test/java/com/starrocks/mysql/MysqlEofPacketTest.java
+index 1f304b93e0d48e3bd1b9b5c5c32e98c5af302bb4..61c0d71732c248556b5da7cfe46aad8b3fdab1f9 100644
+--- a/fe/fe-core/src/test/java/com/starrocks/mysql/MysqlEofPacketTest.java
++++ b/fe/fe-core/src/test/java/com/starrocks/mysql/MysqlEofPacketTest.java
+@@ -32,6 +32,18 @@ public class MysqlEofPacketTest {
+         capability = new MysqlCapability(MysqlCapability.Flag.CLIENT_PROTOCOL_41.getFlagBit());
+     }
+ 
++    @Test
++    public void testWarningCount() {
++        QueryState state = new QueryState();
++        state.setWarningRows(1);
++        state.setEof();
++        MysqlSerializer serializer = MysqlSerializer.newInstance(capability);
++        new MysqlEofPacket(state).writeTo(serializer);
++        ByteBuffer buffer = serializer.toByteBuffer();
++        Assertions.assertEquals(0xfe, MysqlCodec.readInt1(buffer));
++        Assertions.assertEquals(1, MysqlCodec.readInt2(buffer));
++    }
++
+     @Test
+     public void testWrite() {
+         MysqlEofPacket packet = new MysqlEofPacket(new QueryState());
+@@ -52,4 +64,4 @@ public class MysqlEofPacketTest {
+ 
+         Assertions.assertEquals(0, buffer.remaining());
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/fe/fe-core/src/test/java/com/starrocks/pseudocluster/QueryCorruptionHttpTest.java b/fe/fe-core/src/test/java/com/starrocks/pseudocluster/QueryCorruptionHttpTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..613272a2193ef91fe332beb40879ca4d33b50b14
+--- /dev/null
++++ b/fe/fe-core/src/test/java/com/starrocks/pseudocluster/QueryCorruptionHttpTest.java
+@@ -0,0 +1,199 @@
++// Copyright 2021-present StarRocks, Inc. All rights reserved.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     https://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.starrocks.pseudocluster;
++
++import com.google.gson.JsonObject;
++import com.google.gson.JsonParser;
++import com.starrocks.common.Config;
++import com.starrocks.http.HttpServer;
++import com.starrocks.proto.PFetchDataResult;
++import com.starrocks.qe.QueryCorruptionWarning;
++import com.starrocks.thrift.TStatusCode;
++import mockit.Invocation;
++import mockit.Mock;
++import mockit.MockUp;
++import okhttp3.Credentials;
++import okhttp3.MediaType;
++import okhttp3.OkHttpClient;
++import okhttp3.Request;
++import okhttp3.RequestBody;
++import okhttp3.Response;
++import org.junit.jupiter.api.AfterAll;
++import org.junit.jupiter.api.BeforeAll;
++import org.junit.jupiter.api.Test;
++
++import java.io.IOException;
++import java.util.List;
++import java.util.concurrent.CompletableFuture;
++import java.util.concurrent.Future;
++import java.util.concurrent.TimeUnit;
++import java.util.concurrent.atomic.AtomicBoolean;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertNotNull;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++/** Real HTTP socket/FE/NDJSON tests. BE diagnostics are simulated, not physical file faults. */
++class QueryCorruptionHttpTest {
++    private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
++    private static final String QUERY = "select * from qct_http.events";
++    private static PseudoCluster cluster;
++    private static HttpServer server;
++    private static boolean originalConfig;
++
++    @BeforeAll
++    static void start() throws Exception {
++        originalConfig = Config.enable_query_corruption_tolerance;
++        cluster = PseudoCluster.getOrCreateWithRandomPort(true, 1);
++        cluster.runSql(null, "create database qct_http");
++        cluster.runSql("qct_http", "create table events(k bigint, v int) duplicate key(k) "
++                + "distributed by hash(k) buckets 1 properties('replication_num'='1')");
++        cluster.runSql("qct_http", "insert into events values (1, 2)");
++        server = new HttpServer(0);
++        server.setup();
++        server.start();
++        for (int attempt = 0; attempt < 100 && !server.isStarted(); attempt++) {
++            Thread.sleep(100);
++        }
++        assertTrue(server.isStarted());
++    }
++
++    @AfterAll
++    static void stop() {
++        Config.enable_query_corruption_tolerance = originalConfig;
++        if (server != null) {
++            server.shutDown();
++        }
++        if (cluster != null) {
++            cluster.shutdown(false);
++        }
++    }
++
++    private OkHttpClient client() {
++        return new OkHttpClient.Builder().readTimeout(10, TimeUnit.SECONDS).build();
++    }
++
++    private Request request(String sql, boolean raw) {
++        JsonObject body = new JsonObject();
++        body.addProperty("query", sql);
++        body.addProperty("onlyOutputResultRaw", raw);
++        JsonObject variables = new JsonObject();
++        variables.addProperty("enable_short_circuit", "false");
++        variables.addProperty("enable_query_cache", "false");
++        body.add("sessionVariables", variables);
++        return new Request.Builder()
++                .url("http://127.0.0.1:" + server.getPort() + "/api/v1/catalogs/default_catalog/sql")
++                .header("Authorization", Credentials.basic("root", ""))
++                .post(RequestBody.create(JSON, body.toString())).build();
++    }
++
++    private void diagnostic(AtomicBoolean corrupt, boolean strictFailure) {
++        new MockUp<PseudoBackend.QueryProgress>() {
++            @Mock
++            Future<PFetchDataResult> getFetchDataResult(Invocation invocation) {
++                CompletableFuture<PFetchDataResult> original = invocation.proceed();
++                return original.thenApply(result -> {
++                    result.queryStatistics.queryCorruptionDetected = corrupt.get();
++                    if (strictFailure) {
++                        result.status.statusCode = TStatusCode.INTERNAL_ERROR.getValue();
++                        result.status.errorMsgs = List.of("shared preparation failed");
++                    }
++                    return result;
++                });
++            }
++        };
++    }
++
++    private List<JsonObject> records(OkHttpClient client, String sql, boolean raw) throws IOException {
++        try (Response response = client.newCall(request(sql, raw)).execute()) {
++            assertEquals(200, response.code());
++            assertNotNull(response.body());
++            return response.body().string().lines().filter(line -> !line.isBlank())
++                    .map(line -> JsonParser.parseString(line).getAsJsonObject()).toList();
++        }
++    }
++
++    @Test
++    void partialThenHealthyReuseTheSameConnection() throws Exception {
++        AtomicBoolean corrupt = new AtomicBoolean(true);
++        diagnostic(corrupt, false);
++        Config.enable_query_corruption_tolerance = true;
++        OkHttpClient client = client();
++        try {
++            List<JsonObject> partial = records(client, QUERY, false);
++            assertEquals(3, partial.size()); // connectionId, unchanged metadata, final statistics; no rows.
++            JsonObject trailer = partial.get(2);
++            assertTrue(trailer.get("partial_result").getAsBoolean());
++            assertEquals(1, trailer.getAsJsonArray("warnings").size());
++            assertEquals(QueryCorruptionWarning.NAME,
++                    trailer.getAsJsonArray("warnings").get(0).getAsJsonObject().get("code").getAsString());
++            assertEquals(2, partial.get(1).getAsJsonArray("meta").size());
++
++            corrupt.set(false);
++            List<JsonObject> healthy = records(client, QUERY, false);
++            assertEquals(partial.get(0).get("connectionId"), healthy.get(0).get("connectionId"));
++            assertFalse(healthy.get(2).get("partial_result").getAsBoolean());
++            assertTrue(healthy.get(2).getAsJsonArray("warnings").isEmpty());
++
++            // A pre-execution syntax error cannot retain the previous statement's diagnostic.
++            try (Response failure = client.newCall(request("select from", false)).execute()) {
++                assertEquals(500, failure.code());
++                assertFalse(failure.body().string().contains(QueryCorruptionWarning.NAME));
++            }
++            List<JsonObject> afterError = records(client, QUERY, false);
++            assertFalse(afterError.get(2).get("partial_result").getAsBoolean());
++        } finally {
++            client.connectionPool().evictAll();
++            Config.enable_query_corruption_tolerance = originalConfig;
++        }
++    }
++
++    @Test
++    void disabledAndRawKeepTheirExistingWireFormat() throws Exception {
++        diagnostic(new AtomicBoolean(true), false);
++        OkHttpClient client = client();
++        try {
++            Config.enable_query_corruption_tolerance = false;
++            List<JsonObject> disabled = records(client, QUERY, false);
++            assertTrue(disabled.get(2).has("statistics"));
++            assertFalse(disabled.get(2).has("partial_result"));
++            assertFalse(disabled.get(2).has("warnings"));
++            Config.enable_query_corruption_tolerance = true;
++            List<JsonObject> raw = records(client, QUERY, true);
++            assertEquals(1, raw.size()); // Existing raw mode still emits column metadata.
++            assertTrue(raw.get(0).has("meta"));
++            assertFalse(raw.get(0).has("partial_result"));
++        } finally {
++            client.connectionPool().evictAll();
++            Config.enable_query_corruption_tolerance = originalConfig;
++        }
++    }
++
++    @Test
++    void strictFailureClosesStreamWithoutASuccessTrailer() throws Exception {
++        diagnostic(new AtomicBoolean(true), true);
++        Config.enable_query_corruption_tolerance = true;
++        OkHttpClient client = client();
++        try (Response response = client.newCall(request(QUERY, false)).execute()) {
++            assertEquals(200, response.code()); // Existing headers precede BE execution completion.
++            assertThrows(IOException.class, () -> response.body().string()); // No terminating HTTP chunk.
++        } finally {
++            client.connectionPool().evictAll();
++            Config.enable_query_corruption_tolerance = originalConfig;
++        }
++    }
++}
+diff --git a/fe/fe-core/src/test/java/com/starrocks/pseudocluster/QueryCorruptionJdbcTest.java b/fe/fe-core/src/test/java/com/starrocks/pseudocluster/QueryCorruptionJdbcTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..e7bb70367735e0b7d992958da0889e54715ab36e
+--- /dev/null
++++ b/fe/fe-core/src/test/java/com/starrocks/pseudocluster/QueryCorruptionJdbcTest.java
+@@ -0,0 +1,167 @@
++// Copyright 2021-present StarRocks, Inc. All rights reserved.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     https://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.starrocks.pseudocluster;
++
++import com.starrocks.common.Config;
++import com.starrocks.proto.PFetchDataResult;
++import com.starrocks.qe.QueryCorruptionWarning;
++import mockit.Invocation;
++import mockit.Mock;
++import mockit.MockUp;
++import org.junit.jupiter.api.AfterAll;
++import org.junit.jupiter.api.BeforeAll;
++import org.junit.jupiter.api.Test;
++
++import java.net.URL;
++import java.net.URLClassLoader;
++import java.nio.file.Path;
++import java.sql.Connection;
++import java.sql.Driver;
++import java.sql.PreparedStatement;
++import java.sql.ResultSet;
++import java.sql.SQLException;
++import java.sql.SQLWarning;
++import java.sql.Statement;
++import java.util.Properties;
++import java.util.concurrent.CompletableFuture;
++import java.util.concurrent.Future;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertNotNull;
++import static org.junit.jupiter.api.Assertions.assertNull;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++import static org.junit.jupiter.api.Assumptions.assumeTrue;
++
++/** Real socket/JDBC/FE protocol test; only BE result statistics are simulated, not disk corruption. */
++class QueryCorruptionJdbcTest {
++    private static PseudoCluster cluster;
++    private static boolean originalConfig;
++
++    @BeforeAll
++    static void start() throws Exception {
++        originalConfig = Config.enable_query_corruption_tolerance;
++        cluster = PseudoCluster.getOrCreateWithRandomPort(true, 1);
++        cluster.runSql(null, "create database qct_jdbc");
++        cluster.runSql("qct_jdbc", "create table events(k bigint, v int) duplicate key(k) "
++                + "distributed by hash(k) buckets 1 properties('replication_num'='1')");
++        cluster.runSql("qct_jdbc", "insert into events values (1, 2)");
++    }
++
++    @AfterAll
++    static void stop() {
++        Config.enable_query_corruption_tolerance = originalConfig;
++        if (cluster != null) {
++            cluster.shutdown(false); // Preserve this task's integration logs.
++        }
++    }
++
++    private void injectDiagnostic() {
++        new MockUp<PseudoBackend.QueryProgress>() {
++            @Mock
++            Future<PFetchDataResult> getFetchDataResult(Invocation invocation) {
++                CompletableFuture<PFetchDataResult> original = invocation.proceed();
++                return original.thenApply(result -> {
++                    result.queryStatistics.queryCorruptionDetected = true;
++                    return result;
++                });
++            }
++        };
++    }
++
++    private void exercise(Connection connection) throws Exception {
++        try (Statement statement = connection.createStatement()) {
++            statement.execute("set enable_short_circuit = false");
++            statement.execute("set enable_query_cache = false");
++            Config.enable_query_corruption_tolerance = true;
++            try (ResultSet rows = statement.executeQuery("select * from qct_jdbc.events")) {
++                assertFalse(rows.next()); // Entirely unreadable input may produce zero rows + Warning.
++                assertEquals(2, rows.getMetaData().getColumnCount());
++            }
++            SQLWarning warning = statement.getWarnings();
++            assertNotNull(warning);
++            assertEquals(QueryCorruptionWarning.CODE, warning.getErrorCode());
++            assertTrue(warning.getMessage().contains(QueryCorruptionWarning.NAME));
++            assertNull(warning.getNextWarning());
++            try (ResultSet errors = statement.executeQuery("show errors")) {
++                assertFalse(errors.next()); // Warning must not become an error or erase SHOW WARNINGS.
++            }
++            try (ResultSet warnings = statement.executeQuery("show warnings")) {
++                assertTrue(warnings.next());
++                assertEquals("Warning", warnings.getString(1));
++                assertEquals(QueryCorruptionWarning.CODE, warnings.getInt(2));
++                assertFalse(warnings.next());
++            }
++            try (ResultSet rows = statement.executeQuery("select 1")) {
++                assertTrue(rows.next());
++            }
++            assertNull(statement.getWarnings());
++            try (ResultSet warnings = statement.executeQuery("show warnings")) {
++                assertFalse(warnings.next());
++            }
++            try (PreparedStatement prepared = connection.prepareStatement(
++                    "select * from qct_jdbc.events where k >= ?")) {
++                prepared.setLong(1, 0);
++                try (ResultSet rows = prepared.executeQuery()) {
++                    assertFalse(rows.next());
++                }
++                SQLWarning preparedWarning = prepared.getWarnings();
++                assertNotNull(preparedWarning);
++                assertEquals(QueryCorruptionWarning.CODE, preparedWarning.getErrorCode());
++            }
++            assertThrows(SQLException.class,
++                    () -> statement.executeQuery("select missing_qct_column from qct_jdbc.events"));
++            try (ResultSet warnings = statement.executeQuery("show warnings")) {
++                assertFalse(warnings.next());
++            }
++            Config.enable_query_corruption_tolerance = false;
++            try (ResultSet rows = statement.executeQuery("select * from qct_jdbc.events")) {
++                assertFalse(rows.next());
++            }
++            assertNull(statement.getWarnings());
++        } finally {
++            Config.enable_query_corruption_tolerance = originalConfig;
++        }
++    }
++
++    @Test
++    void mariaDbJdbcTextAndPrepared() throws Exception {
++        injectDiagnostic();
++        Properties properties = new Properties();
++        properties.setProperty("user", "root");
++        try (Connection connection = new org.mariadb.jdbc.Driver().connect(
++                "jdbc:mariadb://127.0.0.1:" + cluster.queryPort + "/?useServerPrepStmts=true", properties)) {
++            exercise(connection);
++        }
++    }
++
++    @Test
++    void mysqlConnectorJTextAndPrepared() throws Exception {
++        String jar = System.getProperty("qct.mysql.driver.jar");
++        assumeTrue(jar != null, "Pass -Dqct.mysql.driver.jar to verify Connector/J without adding it to product dependencies");
++        injectDiagnostic();
++        try (URLClassLoader loader = new URLClassLoader(new URL[] {Path.of(jar).toUri().toURL()},
++                getClass().getClassLoader())) {
++            Driver driver = (Driver) loader.loadClass("com.mysql.cj.jdbc.Driver").getDeclaredConstructor().newInstance();
++            Properties properties = new Properties();
++            properties.setProperty("user", "root");
++            try (Connection connection = driver.connect("jdbc:mysql://127.0.0.1:" + cluster.queryPort
++                    + "/?useSSL=false&useServerPrepStmts=true&allowPublicKeyRetrieval=true", properties)) {
++                exercise(connection);
++            }
++        }
++    }
++}
+diff --git a/fe/fe-core/src/test/java/com/starrocks/qe/ConnectProcessorTest.java b/fe/fe-core/src/test/java/com/starrocks/qe/ConnectProcessorTest.java
+index 93d63e4d3aee8aa290c2b2aa0f1c0d5c0970e29d..94d91dd0d28849b133f599c1c4cfe6a2b7db3bcf 100644
+--- a/fe/fe-core/src/test/java/com/starrocks/qe/ConnectProcessorTest.java
++++ b/fe/fe-core/src/test/java/com/starrocks/qe/ConnectProcessorTest.java
+@@ -397,10 +397,12 @@ public class ConnectProcessorTest extends DDLTestBase {
+     @Test
+     public void testResetConnection() throws IOException {
+         ConnectContext ctx = initMockContext(mockChannel(resetConnectionPacket), GlobalStateMgr.getCurrentState());
++        ctx.setQueryCorruptionWarning("previous pooled request");
+ 
+         ConnectProcessor processor = new ConnectProcessor(ctx);
+         processor.processOnce();
+         Assertions.assertEquals(MysqlCommand.COM_RESET_CONNECTION, myContext.getCommand());
++        Assertions.assertNull(ctx.getQueryCorruptionWarning());
+         Assertions.assertTrue(myContext.getState().toResponsePacket() instanceof MysqlOkPacket);
+         Assertions.assertFalse(myContext.isKilled());
+     }
+diff --git a/fe/fe-core/src/test/java/com/starrocks/qe/LeaderOpExecutorMockTest.java b/fe/fe-core/src/test/java/com/starrocks/qe/LeaderOpExecutorMockTest.java
+index 36db4903d0b70af770d40f5fa4915bac926f14a3..3edf46f71a8051ab61cdba548a107c23daa235b2 100644
+--- a/fe/fe-core/src/test/java/com/starrocks/qe/LeaderOpExecutorMockTest.java
++++ b/fe/fe-core/src/test/java/com/starrocks/qe/LeaderOpExecutorMockTest.java
+@@ -88,6 +88,38 @@ public class LeaderOpExecutorMockTest {
+         }
+     }
+ 
++    @Test
++    public void testForwardedCorruptionDiagnosticAndStrictError() throws Exception {
++        StatementBase statement = UtFrameUtils.parseStmtWithNewParser("select * from d1.t1", connectContext);
++        TMasterOpResult response = new TMasterOpResult();
++        response.setState("EOF");
++        response.setQuery_corruption_warning(QueryCorruptionWarning.NAME + ": forwarded partial result");
++        try (MockedStatic<ThriftRPCRequestExecutor> rpc = Mockito.mockStatic(ThriftRPCRequestExecutor.class)) {
++            rpc.when(() -> ThriftRPCRequestExecutor.call(Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any()))
++                    .thenReturn(response);
++            connectContext.getState().reset();
++            connectContext.clearQueryCorruptionWarning();
++            new LeaderOpExecutor(statement, statement.getOrigStmt(), connectContext,
++                    RedirectStatus.FORWARD_NO_SYNC, false, null).execute();
++            Assertions.assertEquals(response.getQuery_corruption_warning(), connectContext.getQueryCorruptionWarning());
++            Assertions.assertEquals(1, connectContext.getState().getWarningRows());
++            Assertions.assertEquals(1, QueryCorruptionWarning.rows(connectContext, 0, -1).size());
++
++            // Even if a response contains a diagnostic, an error must remain an error.
++            response.setState("ERR");
++            response.setErrorMsg("shared initialization failed");
++            connectContext.getState().reset();
++            connectContext.clearQueryCorruptionWarning();
++            new LeaderOpExecutor(statement, statement.getOrigStmt(), connectContext,
++                    RedirectStatus.FORWARD_NO_SYNC, false, null).execute();
++            Assertions.assertTrue(connectContext.getState().isError());
++            Assertions.assertNull(connectContext.getQueryCorruptionWarning());
++        } finally {
++            connectContext.getState().reset();
++            connectContext.clearQueryCorruptionWarning();
++        }
++    }
++
+     @Test
+     public void testFetchLeaderMaxJournalId_success() throws Exception {
+         TMasterOpResult result = new TMasterOpResult();
+diff --git a/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionPolicyTest.java b/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionPolicyTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..5f80666fee2687e368a7f99178ba429aef90b941
+--- /dev/null
++++ b/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionPolicyTest.java
+@@ -0,0 +1,164 @@
++// Copyright 2021-present StarRocks, Inc. All rights reserved.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     https://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.starrocks.qe;
++
++import com.starrocks.catalog.OlapTable;
++import com.starrocks.http.HttpConnectContext;
++import com.starrocks.planner.HashJoinNode;
++import com.starrocks.planner.OlapScanNode;
++import com.starrocks.planner.PlanFragment;
++import com.starrocks.planner.PlanNode;
++import com.starrocks.planner.ResultSink;
++import com.starrocks.planner.RuntimeFilterDescription;
++import com.starrocks.planner.ScanNode;
++import com.starrocks.sql.ast.QueryStatement;
++import com.starrocks.sql.ast.StatementBase;
++import com.starrocks.sql.plan.ExecPlan;
++import com.starrocks.thrift.TQueryOptions;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++
++import java.util.ArrayList;
++import java.util.List;
++
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.verifyNoInteractions;
++import static org.mockito.Mockito.when;
++
++class QueryCorruptionPolicyTest {
++    private ConnectContext context;
++    private QueryStatement statement;
++    private ExecPlan plan;
++    private SessionVariable session;
++    private PlanFragment fragment;
++    private OlapScanNode scan;
++    private OlapTable table;
++
++    @BeforeEach
++    void setUp() {
++        context = mock(ConnectContext.class);
++        statement = mock(QueryStatement.class);
++        plan = mock(ExecPlan.class);
++        session = mock(SessionVariable.class);
++        fragment = mock(PlanFragment.class);
++        scan = mock(OlapScanNode.class);
++        table = mock(OlapTable.class);
++        when(context.getSessionVariable()).thenReturn(session);
++        when(session.isEnablePipelineEngine()).thenReturn(true);
++        when(plan.getScanNodes()).thenReturn(List.of(scan));
++        when(plan.getFragments()).thenReturn(new ArrayList<>(List.of(fragment)));
++        when(scan.getOlapTable()).thenReturn(table);
++        when(fragment.getSink()).thenReturn(mock(ResultSink.class));
++        when(fragment.canUsePipeline()).thenReturn(true);
++        when(fragment.getPlanRoot()).thenReturn(mock(PlanNode.class));
++    }
++
++    private boolean eligible() {
++        return QueryCorruptionPolicy.isEligible(true, false, context, statement, plan, false);
++    }
++
++    @Test
++    void supportedSelectAndWireDefault() {
++        assertTrue(eligible());
++        TQueryOptions options = new TQueryOptions();
++        assertFalse(options.isEnable_query_corruption_tolerance());
++        assertFalse(options.isSetEnable_query_corruption_tolerance());
++        options.setEnable_query_corruption_tolerance(true);
++        assertTrue(options.deepCopy().isEnable_query_corruption_tolerance());
++    }
++
++    @Test
++    void disabledDoesNotInspectPlan() {
++        assertFalse(QueryCorruptionPolicy.isEligible(false, false, context, statement, plan, false));
++        verifyNoInteractions(context, statement, plan, fragment, scan, table);
++    }
++
++    @Test
++    void internalAndWritesAreStrict() {
++        assertFalse(QueryCorruptionPolicy.isEligible(true, true, context, statement, plan, false));
++        assertFalse(QueryCorruptionPolicy.isEligible(true, false, context, mock(StatementBase.class), plan, false));
++    }
++
++    @Test
++    void explainAndOutfileAreStrict() {
++        when(statement.isExplain()).thenReturn(true);
++        assertFalse(eligible());
++        when(statement.isExplain()).thenReturn(false);
++        when(statement.hasOutFileClause()).thenReturn(true);
++        assertFalse(eligible());
++    }
++
++    @Test
++    void shortCircuitAndNonPipelineAreNotRewritten() {
++        when(plan.isShortCircuit()).thenReturn(true);
++        assertFalse(eligible());
++        when(plan.isShortCircuit()).thenReturn(false);
++        when(fragment.canUsePipeline()).thenReturn(false);
++        assertFalse(eligible());
++        when(fragment.canUsePipeline()).thenReturn(true);
++        when(session.isEnablePipelineEngine()).thenReturn(false);
++        assertFalse(eligible());
++    }
++
++    @Test
++    void lakeConnectorAndMixedSourcesAreStrict() {
++        when(table.isCloudNativeTableOrMaterializedView()).thenReturn(true);
++        assertFalse(eligible());
++        when(table.isCloudNativeTableOrMaterializedView()).thenReturn(false);
++        when(scan.isRunningAsConnectorOperator()).thenReturn(true);
++        assertFalse(eligible());
++        when(scan.isRunningAsConnectorOperator()).thenReturn(false);
++        when(plan.getScanNodes()).thenReturn(List.of(scan, mock(ScanNode.class)));
++        assertFalse(eligible());
++    }
++
++    @Test
++    void noStorageScanOrResultSinkIsStrict() {
++        when(plan.getScanNodes()).thenReturn(List.of());
++        assertFalse(eligible());
++        when(plan.getScanNodes()).thenReturn(List.of(scan));
++        when(fragment.getSink()).thenReturn(null);
++        assertFalse(eligible());
++    }
++
++    @Test
++    void remoteRuntimeFilterRemainsEnabledButQueryIsStrict() {
++        HashJoinNode join = mock(HashJoinNode.class);
++        RuntimeFilterDescription filter = mock(RuntimeFilterDescription.class);
++        when(join.getBuildRuntimeFilters()).thenReturn(List.of(filter));
++        when(fragment.getPlanRoot()).thenReturn(join);
++        assertTrue(eligible());
++        when(filter.isHasRemoteTargets()).thenReturn(true);
++        assertFalse(eligible());
++    }
++
++    @Test
++    void httpMustBeIntegratedAndRawIsAlwaysStrict() {
++        HttpConnectContext http = mock(HttpConnectContext.class);
++        when(http.getSessionVariable()).thenReturn(session);
++        assertFalse(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, false));
++        assertTrue(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, true));
++        when(http.isOnlyOutputResultRaw()).thenReturn(true);
++        assertFalse(QueryCorruptionPolicy.isEligible(true, false, http, statement, plan, true));
++    }
++
++    @Test
++    void arrowIsStrict() {
++        when(context.isArrowFlightSql()).thenReturn(true);
++        assertFalse(eligible());
++    }
++}
+diff --git a/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionWarningTest.java b/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionWarningTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..c68597a0cc33ebe6b695a97776c702fa4e45ab89
+--- /dev/null
++++ b/fe/fe-core/src/test/java/com/starrocks/qe/QueryCorruptionWarningTest.java
+@@ -0,0 +1,143 @@
++// Copyright 2021-present StarRocks, Inc. All rights reserved.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     https://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.starrocks.qe;
++
++import com.starrocks.analysis.LimitElement;
++import com.starrocks.proto.PQueryStatistics;
++import com.starrocks.sql.ast.QueryStatement;
++import com.starrocks.sql.ast.ShowWarningStmt;
++import com.starrocks.sql.parser.NodePosition;
++import com.starrocks.sql.parser.SqlParser;
++import org.junit.jupiter.api.Test;
++
++import java.util.List;
++import java.util.UUID;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertNull;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++import static org.mockito.Mockito.CALLS_REAL_METHODS;
++import static org.mockito.Mockito.mock;
++
++class QueryCorruptionWarningTest {
++    private ConnectContext context() {
++        ConnectContext context = mock(ConnectContext.class, CALLS_REAL_METHODS);
++        context.state = new QueryState();
++        context.setQueryId(new UUID(1, 2));
++        return context;
++    }
++
++    private PQueryStatistics damaged() {
++        PQueryStatistics statistics = new PQueryStatistics();
++        statistics.queryCorruptionDetected = true;
++        return statistics;
++    }
++
++    @Test
++    void onlyEnabledSuccessfulExecutionRecordsOneWarning() {
++        ConnectContext context = context();
++        QueryCorruptionWarning.record(context, damaged());
++        assertNull(context.getQueryCorruptionWarning());
++        context.getState().setQueryCorruptionToleranceEnabled(true);
++        QueryCorruptionWarning.record(context, null);
++        QueryCorruptionWarning.record(context, new PQueryStatistics());
++        assertNull(context.getQueryCorruptionWarning());
++        QueryCorruptionWarning.record(context, damaged());
++        QueryCorruptionWarning.record(context, damaged());
++        assertEquals(1, context.getState().getWarningRows());
++        assertTrue(context.getQueryCorruptionWarning().contains(QueryCorruptionWarning.NAME));
++        assertTrue(context.getQueryCorruptionWarning().contains(context.getQueryId().toString()));
++    }
++
++    @Test
++    void resetThenShowPreservesSnapshotNextQueryClearsIt() {
++        ConnectContext context = context();
++        context.getState().setQueryCorruptionToleranceEnabled(true);
++        QueryCorruptionWarning.record(context, damaged());
++        context.getState().reset();
++        assertFalse(context.getState().isQueryCorruptionToleranceEnabled());
++        assertEquals(0, context.getState().getWarningRows());
++        ShowWarningStmt show = new ShowWarningStmt(null, NodePosition.ZERO);
++        QueryCorruptionWarning.beginStatement(context, show, false);
++        assertEquals(1, QueryCorruptionWarning.rows(context, 0, -1).size());
++        QueryCorruptionWarning.beginStatement(context, mock(QueryStatement.class), true);
++        assertEquals(1, QueryCorruptionWarning.rows(context, 0, -1).size());
++        QueryCorruptionWarning.beginStatement(context, mock(QueryStatement.class), false);
++        assertTrue(QueryCorruptionWarning.rows(context, 0, -1).isEmpty());
++    }
++
++    @Test
++    void zeroOutputIsPartialAndSessionsAreIsolated() {
++        ConnectContext first = context();
++        ConnectContext second = context();
++        first.getState().setQueryCorruptionToleranceEnabled(true);
++        PQueryStatistics statistics = damaged();
++        statistics.returnedRows = 0L;
++        QueryCorruptionWarning.record(first, statistics);
++        assertEquals(1, first.getState().getWarningRows());
++        assertNull(second.getQueryCorruptionWarning());
++    }
++
++    @Test
++    void strictErrorIsNotReplacedByWarning() {
++        ConnectContext context = context();
++        context.getState().setQueryCorruptionToleranceEnabled(true);
++        context.getState().setError("strict failure");
++        QueryCorruptionWarning.record(context, damaged());
++        assertTrue(context.getState().isError());
++        assertNull(context.getQueryCorruptionWarning());
++    }
++
++    @Test
++    void showWarningsHonorsLimitAndOffset() {
++        ConnectContext context = context();
++        context.setQueryCorruptionWarning("bounded warning");
++        ShowWarningStmt show = new ShowWarningStmt(new LimitElement(1, 10), NodePosition.ZERO);
++        assertEquals(1, show.getOffset());
++        assertTrue(QueryCorruptionWarning.rows(context, show.getOffset(), show.getLimitNum()).isEmpty());
++        assertTrue(QueryCorruptionWarning.rows(context, 0, 0).isEmpty());
++        assertEquals("9000", QueryCorruptionWarning.rows(context, 0, 1).get(0).get(1));
++        assertEquals(1, ShowExecutor.ShowExecutorVisitor.getInstance()
++                .visitShowWarningStatement(new ShowWarningStmt(null, NodePosition.ZERO), context).getResultRows().size());
++    }
++
++    @Test
++    void forwardedDiagnosticIsBoundedAndSetsPacketCount() {
++        ConnectContext context = context();
++        context.setQueryCorruptionWarning("x".repeat(2000));
++        assertEquals(1024, context.getQueryCorruptionWarning().length());
++        assertEquals(1, context.getState().getWarningRows());
++        context.setQueryCorruptionWarning(null);
++        assertEquals(1024, context.getQueryCorruptionWarning().length());
++    }
++
++    @Test
++    void showErrorsDoesNotExposeWarningOrEraseSnapshot() {
++        ConnectContext context = context();
++        context.setQueryCorruptionWarning("partial result");
++        for (String sql : List.of("show errors", "show errors limit 1")) {
++            ShowWarningStmt errors = (ShowWarningStmt) SqlParser.parseSingleStatement(sql, 0);
++            assertTrue(errors.isErrorsOnly());
++            QueryCorruptionWarning.beginStatement(context, errors, false);
++            assertTrue(ShowExecutor.ShowExecutorVisitor.getInstance()
++                    .visitShowWarningStatement(errors, context).getResultRows().isEmpty());
++        }
++        ShowWarningStmt warnings = (ShowWarningStmt) SqlParser.parseSingleStatement("show warnings", 0);
++        assertFalse(warnings.isErrorsOnly());
++        assertEquals(1, ShowExecutor.ShowExecutorVisitor.getInstance()
++                .visitShowWarningStatement(warnings, context).getResultRows().size());
++    }
++}
+diff --git a/fe/fe-core/src/test/java/com/starrocks/sql/plan/QueryCorruptionPlanTest.java b/fe/fe-core/src/test/java/com/starrocks/sql/plan/QueryCorruptionPlanTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..80cee015d73c0c9bc8bf7a27c13055f08d0128bb
+--- /dev/null
++++ b/fe/fe-core/src/test/java/com/starrocks/sql/plan/QueryCorruptionPlanTest.java
+@@ -0,0 +1,114 @@
++// Copyright 2021-present StarRocks, Inc. All rights reserved.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     https://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.starrocks.sql.plan;
++
++import com.starrocks.qe.QueryCorruptionPolicy;
++import com.starrocks.qe.SessionVariable;
++import com.starrocks.sql.ast.StatementBase;
++import com.starrocks.thrift.TExplainLevel;
++import com.starrocks.utframe.UtFrameUtils;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++
++import java.util.List;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++/** Uses actual optimized plans, not mocked scan nodes or mocked filter metadata. */
++class QueryCorruptionPlanTest extends PlanTestBase {
++    private Runnable restoreSession;
++
++    @BeforeEach
++    void prepareSession() {
++        SessionVariable session = connectContext.getSessionVariable();
++        boolean pipeline = session.isEnablePipelineEngine();
++        boolean cache = session.isEnableQueryCache();
++        boolean shortCircuit = session.isEnableShortCircuit();
++        boolean remoteFilter = session.getEnableGlobalRuntimeFilter();
++        long filterMin = session.getGlobalRuntimeFilterProbeMinSize();
++        double cteRatio = session.getCboCTERuseRatio();
++        restoreSession = () -> {
++            session.setEnablePipelineEngine(pipeline);
++            session.setEnableQueryCache(cache);
++            session.setEnableShortCircuit(shortCircuit);
++            session.setEnableGlobalRuntimeFilter(remoteFilter);
++            session.setGlobalRuntimeFilterProbeMinSize(filterMin);
++            session.setCboCTERuseRatio(cteRatio);
++        };
++        session.setEnablePipelineEngine(true);
++    }
++
++    @AfterEach
++    void restoreSession() {
++        restoreSession.run();
++    }
++
++    private void checkUnchanged(String sql, boolean expected) throws Exception {
++        StatementBase statement = UtFrameUtils.parseStmtWithNewParser(sql, connectContext);
++        ExecPlan plan = getExecPlan(sql);
++        String before = plan.getExplainString(TExplainLevel.VERBOSE);
++        assertFalse(QueryCorruptionPolicy.isEligible(false, false, connectContext, statement, plan, true));
++        assertEquals(expected, QueryCorruptionPolicy.isEligible(true, false, connectContext, statement, plan, true), before);
++        assertEquals(before, plan.getExplainString(TExplainLevel.VERBOSE));
++    }
++
++    @Test
++    void scansLimitsAggregationAndCacheKeepTheirExistingPlans() throws Exception {
++        for (boolean cache : new boolean[] {false, true}) {
++            connectContext.getSessionVariable().setEnableQueryCache(cache);
++            for (String sql : List.of("select * from t0 limit 10", "select * from t0 where v2 > 5",
++                    "select * from t0 order by v1 desc limit 1000",
++                    "select v1, sum(v2) from t0 group by v1")) {
++                checkUnchanged(sql, true);
++                assertEquals(cache, connectContext.getSessionVariable().isEnableQueryCache());
++            }
++        }
++    }
++
++    @Test
++    void realRemoteRuntimeFilterIsExcludedWithoutRemovingTheFilter() throws Exception {
++        SessionVariable session = connectContext.getSessionVariable();
++        session.setEnableGlobalRuntimeFilter(true);
++        session.setGlobalRuntimeFilterProbeMinSize(0);
++        String sql = "select * from t0 vt1 join [bucket] t0 vt2 on vt1.v1 = vt2.v1 "
++                + "join [broadcast] t1 vt3 on vt1.v1 = vt3.v4 "
++                + "join [colocate] t0 vt4 on vt1.v1 = vt4.v1";
++        assertTrue(getExecPlan(sql).getExplainString(TExplainLevel.VERBOSE).contains("remote = true"));
++        checkUnchanged(sql, false);
++        assertTrue(session.getEnableGlobalRuntimeFilter());
++    }
++
++    @Test
++    void alreadyFilterFreeJoinAndReusedCteAreEligible() throws Exception {
++        connectContext.getSessionVariable().setEnableGlobalRuntimeFilter(false);
++        checkUnchanged("select * from t0 left join [broadcast] t1 on t0.v1 = t1.v4", true);
++        connectContext.getSessionVariable().setCboCTERuseRatio(0);
++        String cte = "with x as (select * from t0) select * from x union all select * from x";
++        assertTrue(getExecPlan(cte).getExplainString(TExplainLevel.NORMAL).contains("MultiCastDataSinks"));
++        checkUnchanged(cte, true);
++    }
++
++    @Test
++    void realShortCircuitPlanRemainsStrictAndUnchanged() throws Exception {
++        connectContext.getSessionVariable().setEnableShortCircuit(true);
++        String sql = "select * from tprimary1 where pk1 = 20";
++        assertTrue(getExecPlan(sql).isShortCircuit());
++        checkUnchanged(sql, false);
++        assertTrue(connectContext.getSessionVariable().isEnableShortCircuit());
++    }
++}
+diff --git a/gensrc/proto/data.proto b/gensrc/proto/data.proto
+index 89d20e0535651822e20e031bb806acf235108f83..1529f7eeac735d7b82dfb32fada7632552df64bb 100644
+--- a/gensrc/proto/data.proto
++++ b/gensrc/proto/data.proto
+@@ -51,6 +51,8 @@ message PQueryStatistics {
+     repeated NodeExecStatsItemPB node_exec_stats_items = 11;
+     optional int64 read_local_cnt = 12;
+     optional int64 read_remote_cnt = 13;
++    // Sticky within one execution; not an integrity guarantee for historical cache values.
++    optional bool query_corruption_detected = 14 [default = false];
+ }
+ 
+ message QueryStatisticsItemPB {
+diff --git a/gensrc/proto/internal_service.proto b/gensrc/proto/internal_service.proto
+index d69c0a0046a0e2177209257dac6432d98376e895..8763e734cbb3c281a4d64b16b43482aa54437d1d 100644
+--- a/gensrc/proto/internal_service.proto
++++ b/gensrc/proto/internal_service.proto
+@@ -95,6 +95,8 @@ message PTransmitChunkParams {
+     optional bool is_pipeline_level_shuffle = 10 [default = false];
+     // Driver sequences of pipeline level shuffle.
+     repeated int32 driver_sequences = 11;
++    // Carries diagnostics with existing data/EOS; never requires a separate acknowledgement.
++    optional bool query_corruption_detected = 12 [default = false];
+ };
+ 
+ message PTransmitDataResult {
+diff --git a/gensrc/thrift/FrontendService.thrift b/gensrc/thrift/FrontendService.thrift
+index f68f5660698853339e6c4a2a59c7bf6f4fe315a2..f2f954fb8f5576e30af642df3fe9ebad0cd825c5 100644
+--- a/gensrc/thrift/FrontendService.thrift
++++ b/gensrc/thrift/FrontendService.thrift
+@@ -898,6 +898,8 @@ struct TMasterOpResult {
+     10:optional string sql_digest;
+     // StarMgr max journal ID for shared-data mode follower sync
+     11:optional i64 maxStarMgrJournalId;
++    // Retain the local session diagnostic when a user query is forwarded to another FE.
++    12:optional string query_corruption_warning;
+ }
+ 
+ struct TIsMethodSupportedRequest {
+diff --git a/gensrc/thrift/InternalService.thrift b/gensrc/thrift/InternalService.thrift
+index aab31f7304e2d082cf392f7e87b2a4d89dd528f6..c7bb3ede1f9684af31e6f19ac3d2f2371c04a0b8 100644
+--- a/gensrc/thrift/InternalService.thrift
++++ b/gensrc/thrift/InternalService.thrift
+@@ -390,6 +390,9 @@ struct TQueryOptions {
+   215: optional string http_request_host_allowlist_regexp = "";
+   216: optional bool http_request_allow_private_in_allowlist = false;
+   217: optional bool enable_cache_udaf = false;
++
++  // Only independent local OLAP scan corruption in eligible user SELECTs.
++  218: optional bool enable_query_corruption_tolerance = false;
+ }
+ 
+ // A scan range plus the parameters needed to execute that scan.
